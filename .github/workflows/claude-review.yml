@@ -1,0 +1,71 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            이 PR을 코드 리뷰해줘. PR 번호는 ${{ github.event.pull_request.number }}야.
+
+            기준:
+            - 버그, 로직 오류, 보안 취약점, 누락된 예외처리
+            - 명백한 컨벤션/가독성 문제
+
+            동작 방식:
+            1) 문제를 발견하면 `gh pr comment` 또는 인라인 리뷰 코멘트로
+               해당 위치와 수정 제안을 한국어로 남겨라.
+            2) 리뷰 마지막에 반드시 PR 리뷰를 제출해라:
+               - 문제가 하나라도 있으면:
+                 gh pr review ${{ github.event.pull_request.number }} --request-changes --body "리뷰 요약..."
+               - 문제가 전혀 없으면:
+                 gh pr review ${{ github.event.pull_request.number }} --approve --body "이상 없음. 머지 가능."
+            중요: 사소한 취향 문제로 request-changes 하지 말 것.
+
+      - name: 리뷰 상태 확인
+        id: verdict
+        run: |
+          state=$(gh pr view ${{ github.event.pull_request.number }} \
+            --json reviews -q '.reviews[-1].state')
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 이상 없으면 Gmail 알림
+        if: steps.verdict.outputs.state == 'APPROVED'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "✅ [${{ github.repository }}] PR #${{ github.event.pull_request.number }} 리뷰 통과 — 머지 가능"
+          to: tngod5099@gmail.com
+          from: Claude PR Bot
+          body: |
+            Claude 리뷰 결과 이상 없음.
+
+            레포: ${{ github.repository }}
+            PR: ${{ github.event.pull_request.title }}
+            링크: ${{ github.event.pull_request.html_url }}
+
+            확인 후 머지 버튼을 눌러주세요.
