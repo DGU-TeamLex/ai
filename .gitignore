@@ -1,0 +1,34 @@
+# Python
+.teamlex_git/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Raw and generated data
+device/
+data/raw/
+data/processed/
+data/sample/
+outputs/
+models/
+
+# Keep editable mapping seed files
+!data/mapping/
+!data/mapping/*.csv
+
+# Local notebooks and system files
+.ipynb_checkpoints/
+.DS_Store
