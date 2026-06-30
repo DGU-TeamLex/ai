@@ -29,11 +29,22 @@ src/dashboard/                  Streamlit dashboard
 
 ## Development Flow
 
-1. Create an issue for each feature, bug, experiment, or documentation task.
-2. Work on a branch matching the issue type.
-3. Keep PRs small enough to review in one pass.
-4. Run the relevant command before PR.
-5. Record output files and metric changes in the PR.
+1. 기능, 버그, 실험, 문서 작업은 먼저 issue로 등록합니다.
+2. 작업 유형에 맞는 브랜치를 생성합니다.
+3. 작업 브랜치는 `dev`를 대상으로 PR을 생성합니다.
+4. `dev`에서 기능 검증과 통합 테스트를 진행합니다.
+5. 완성 버전이 되었을 때만 `dev`에서 `main`으로 PR을 생성합니다.
+
+## Branch Rules
+
+- `main`: 최종 완성본만 유지합니다.
+- `dev`: MVP 개발과 기능 통합 기준 브랜치입니다.
+- `feature/*`: 기능 구현 브랜치입니다. PR 대상은 `dev`입니다.
+- `fix/*`: 버그 수정 브랜치입니다. PR 대상은 `dev`입니다.
+- `docs/*`: 문서 수정 브랜치입니다. PR 대상은 `dev`입니다.
+- `experiment/*`: 모델 실험 브랜치입니다. 검증 전에는 `main`에 병합하지 않습니다.
+
+`main`에는 직접 push하지 않습니다.
 
 ## Required Validation Commands
 
@@ -81,4 +92,3 @@ When changing model logic, document:
 - Whether the change improves or degrades baseline
 
 ML models do not need to beat baselines in every PR, but the reason should be visible in the PR description.
-
