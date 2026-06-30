@@ -38,11 +38,11 @@ Acceptance criteria:
 - Price-only fallback remains supported.
 - Risk score stays clipped to `0..1`.
 
-## Issue 4: Add API Integration Test
+## Issue 4: Add AI Serving API Integration Test
 
 Labels: `test`, `serving`
 
-Add a lightweight test for `/health`, `/predictions`, and `/recommend-order`.
+Add a lightweight test for `/health`, `/api/v1/ai/forecasts`, `/api/v1/ai/inventory-policy`, and `/api/v1/ai/recommend-order`.
 
 Acceptance criteria:
 
@@ -50,11 +50,11 @@ Acceptance criteria:
 - Test does not call external APIs.
 - Test can run in CI.
 
-## Issue 5: Dashboard Usability Pass
+## Issue 5: AI Result Dashboard Usability Pass
 
 Labels: `dashboard`, `ux`
 
-Improve the Streamlit MVP for operational review.
+Improve the Streamlit MVP for AI result review.
 
 Acceptance criteria:
 
@@ -62,4 +62,3 @@ Acceptance criteria:
 - Shows predicted usage, recommended stock, and recommended order.
 - Displays risk score breakdown.
 - Handles missing predictions gracefully.
-

@@ -1,19 +1,31 @@
-# WeP-Stock AI/API MVP
+# WeP-Stock AI Service
 
-전국 보건기관 의료물품 통합 재고 관리 웹서비스 **WeP-Stock**의 AI/백엔드 MVP입니다.
+WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** 저장소입니다.
 
-본 저장소는 기능 명세서 v0.1 기준으로 다음 파이프라인과 REST API 초안을 제공합니다.
+전체 제품 백엔드 기능은 별도 서비스에서 담당하고, 이 저장소는 아래 책임만 가집니다.
 
 ```text
-파일 인테이크
-→ 물품 표준화
-→ 수요 예측
-→ 공급위험 조기경보
-→ 적정재고/발주권고/재배치
-→ 알림/대시보드
+의료물품 사용량 데이터 전처리
+→ 수요 예측 feature 생성
+→ baseline / ML 모델 학습
+→ 뉴스·원자재 위험 점수 생성
+→ 예측 결과 및 재고 권고 산출
+→ AI serving API 제공
 ```
 
-현재 구현은 실제 DB/잡큐/외부 API 연결 전 단계의 **CSV + sample fallback 기반 MVP**입니다. 프론트엔드와 백엔드 개발 착수를 위해 API path, request/response shape, 모듈 경계를 명세서에 맞춰 고정하는 것을 우선했습니다.
+## Out Of Scope
+
+다음 기능은 이 저장소에서 제거했습니다. 백엔드/API 서버 repo에서 별도로 구현해야 합니다.
+
+```text
+인증 / 사용자 / 권한
+파일 업로드 및 import_batch 관리
+물품 표준화 검수 UI/API
+기관/중앙 운영 대시보드 API
+알림 상태 관리
+재배치 승인 워크플로우
+DB 트랜잭션/감사 로그
+```
 
 ## Branch Policy
 
@@ -25,91 +37,62 @@ feature/*: 기능 작업 브랜치, PR 대상은 dev
 
 `main`에는 직접 push하지 않습니다.
 
-## Implemented Scope
-
-### Batch/AI
+## AI Modules
 
 ```text
 src/data_loader.py              의료기기 사용량 CSV 로드
 src/preprocessing.py            월별 사용량 집계
 src/feature_engineering.py      예측 feature table 생성
+src/baseline_model.py           baseline 예측
 src/train_model.py              Model A/B/C 학습
-src/predict.py                  예측 및 권장 재고 산출
+src/predict.py                  예측 결과 생성
+src/evaluate.py                 평가 리포트 생성
 src/inventory_policy.py         safety stock / recommended stock 정책
 src/news/                       sample 뉴스 위험 점수
 src/commodity/                  sample 원자재 위험 점수
+src/serving/                    AI serving API
+src/dashboard/                  AI 결과 확인용 Streamlit MVP
 ```
 
-### WeP-Stock API
+## AI Serving API
 
-`src/serving/api.py`는 명세서의 `/api/v1` path를 MVP 수준으로 구현합니다.
+FastAPI app:
+
+```bash
+uvicorn src.serving.api:app --reload
+```
+
+Swagger:
 
 ```text
-인증/사용자
-POST /api/v1/auth/login
-POST /api/v1/auth/refresh
-POST /api/v1/auth/logout
-GET  /api/v1/users/me
-GET  /api/v1/users
-POST /api/v1/users
-PUT  /api/v1/users/{id}
-
-파일 인테이크
-POST /api/v1/imports
-GET  /api/v1/imports
-GET  /api/v1/imports/{batchId}
-GET  /api/v1/imports/{batchId}/errors
-GET  /api/v1/imports/{batchId}/report
-POST /api/v1/imports/{batchId}/reprocess
-
-물품 표준화
-GET  /api/v1/standardization/queue
-GET  /api/v1/standardization/queue/{rawItemId}
-POST /api/v1/standardization/decisions
-POST /api/v1/standardization/dictionary
-GET  /api/v1/standardization/report
-GET  /api/v1/standard-items
-
-수요 예측
-GET  /api/v1/forecasts
-GET  /api/v1/forecasts/{institutionId}/{standardCode}
-POST /api/v1/forecasts/run
-GET  /api/v1/forecasts/eval
-
-공급위험
-GET  /api/v1/supply-risk
-GET  /api/v1/supply-risk/{itemGroupId}
-GET  /api/v1/supply-risk/backtest
-GET  /api/v1/material-dependency
-PUT  /api/v1/material-dependency/{itemGroupId}
-
-적정재고/발주/재배치
-GET  /api/v1/inventory-policy
-GET  /api/v1/inventory-policy/{institutionId}/{standardCode}
-POST /api/v1/inventory-policy/run
-GET  /api/v1/order-recommendations
-GET  /api/v1/relocations
-POST /api/v1/relocations/{id}/approve
-
-알림/대시보드/외부지표/마스터
-GET  /api/v1/alerts
-GET  /api/v1/alerts/{id}
-POST /api/v1/alerts/{id}/resolve
-GET  /api/v1/alerts/settings
-PUT  /api/v1/alerts/settings
-GET  /api/v1/dashboard/institution/{institutionId}
-GET  /api/v1/dashboard/central
-GET  /api/v1/dashboard/ops
-GET  /api/v1/external-indicators
-POST /api/v1/external-indicators/refresh
-GET  /api/v1/institutions
-GET  /api/v1/item-groups
+http://127.0.0.1:8000/docs
 ```
 
-기존 MVP 호환용으로 아래 legacy endpoint도 유지합니다.
+Endpoints:
 
 ```text
 GET  /health
+GET  /api/v1/ai/health
+GET  /api/v1/ai/artifacts
+
+POST /api/v1/ai/train
+POST /api/v1/ai/forecasts/run
+GET  /api/v1/ai/forecasts
+GET  /api/v1/ai/forecasts/{institutionId}/{standardCode}
+GET  /api/v1/ai/forecasts/eval
+
+GET  /api/v1/ai/supply-risk
+GET  /api/v1/ai/supply-risk/{itemGroupId}
+
+GET  /api/v1/ai/inventory-policy
+GET  /api/v1/ai/inventory-policy/{institutionId}/{standardCode}
+GET  /api/v1/ai/order-recommendations
+POST /api/v1/ai/recommend-order
+```
+
+Legacy compatibility:
+
+```text
 GET  /predictions
 POST /recommend-order
 ```
@@ -141,22 +124,26 @@ python -m src.predict
 python -m src.evaluate
 ```
 
-## API Run
-
-```bash
-uvicorn src.serving.api:app --reload
-```
-
-Swagger 문서:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
 ## Dashboard
 
 ```bash
 streamlit run src/dashboard/app.py
+```
+
+## Generated Outputs
+
+```text
+data/processed/usage_monthly.csv
+outputs/feature_table.csv
+outputs/news_risk_scores.csv
+outputs/commodity_risk_scores.csv
+outputs/model_validation_report.csv
+outputs/predictions.csv
+outputs/evaluation_report.csv
+models/model_a_usage_only.pkl
+models/model_b_news.pkl
+models/model_c_news_commodity.pkl
+models/manifest.json
 ```
 
 ## Data/Artifact Policy

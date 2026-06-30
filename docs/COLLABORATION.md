@@ -2,14 +2,15 @@
 
 ## Working Principles
 
-This project is a batch-first MVP for medical device demand forecasting and inventory recommendation.
+This project is a batch-first AI service for medical device demand forecasting and inventory recommendation.
 
 The system should keep these boundaries clear:
 
 - Demand forecasting predicts next-month usage.
 - Risk scoring converts news and commodity signals into numeric features.
 - Inventory policy converts prediction and risk into recommended stock/order quantities.
-- Serving reads precomputed results instead of calling external APIs in request time.
+- AI serving reads precomputed results instead of calling external APIs in request time.
+- Product backend concerns such as auth, user management, upload workflow, alerts, and relocation approval live outside this repository.
 
 ## Module Ownership
 
@@ -23,8 +24,8 @@ src/predict.py                  batch prediction output
 src/inventory_policy.py         stock/order policy
 src/news/                       news collection, filtering, scoring
 src/commodity/                  commodity collection, features, scoring
-src/serving/                    FastAPI lookup API
-src/dashboard/                  Streamlit dashboard
+src/serving/                    AI serving API
+src/dashboard/                  AI result inspection dashboard
 ```
 
 ## Development Flow
