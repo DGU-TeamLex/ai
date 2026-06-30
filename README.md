@@ -1,35 +1,118 @@
-# Medical Device Inventory Forecast MVP
+# WeP-Stock AI/API MVP
 
-보건소 의료기기 월별 사용량 기반 다음 달 사용량 예측과 외부 위험 점수 기반 권장 재고량 산출을 위한 MVP입니다.
+전국 보건기관 의료물품 통합 재고 관리 웹서비스 **WeP-Stock**의 AI/백엔드 MVP입니다.
 
-## Current Scope
-
-현재 구조는 문서의 모듈식 단계에 맞춰 분리되어 있습니다.
+본 저장소는 기능 명세서 v0.1 기준으로 다음 파이프라인과 REST API 초안을 제공합니다.
 
 ```text
-1. 의료기기 사용량 CSV 로드
-2. 월별/품목별 feature 생성
-3. baseline 평균 모델 구현
-4. LightGBM 또는 RandomForest fallback 모델 구현
-5. sample news 기반 뉴스 위험 점수 생성
-6. sample commodity 기반 원자재 위험 점수 생성
-7. Model A/B/C 성능 비교
-8. predictions.csv 생성
-9. FastAPI로 predictions.csv 조회
-10. Streamlit 결과 화면
+파일 인테이크
+→ 물품 표준화
+→ 수요 예측
+→ 공급위험 조기경보
+→ 적정재고/발주권고/재배치
+→ 알림/대시보드
 ```
 
-실제 뉴스 API, LLM, 원자재 API는 collector/analyzer 모듈만 교체하면 됩니다.
+현재 구현은 실제 DB/잡큐/외부 API 연결 전 단계의 **CSV + sample fallback 기반 MVP**입니다. 프론트엔드와 백엔드 개발 착수를 위해 API path, request/response shape, 모듈 경계를 명세서에 맞춰 고정하는 것을 우선했습니다.
 
-## Data Layout
-
-현재 원본 데이터는 아래 구조에서 읽습니다.
+## Branch Policy
 
 ```text
-device/DEVICE_YYYY.../DEVICE_YYYYMM....csv
+main: 완성본만 병합
+dev: 개발 통합 브랜치
+feature/*: 기능 작업 브랜치, PR 대상은 dev
 ```
 
-입력 위치는 `src/config.py`의 `RAW_DATA_DIR`, `RAW_FILE_PATTERN`에서 변경할 수 있습니다.
+`main`에는 직접 push하지 않습니다.
+
+## Implemented Scope
+
+### Batch/AI
+
+```text
+src/data_loader.py              의료기기 사용량 CSV 로드
+src/preprocessing.py            월별 사용량 집계
+src/feature_engineering.py      예측 feature table 생성
+src/train_model.py              Model A/B/C 학습
+src/predict.py                  예측 및 권장 재고 산출
+src/inventory_policy.py         safety stock / recommended stock 정책
+src/news/                       sample 뉴스 위험 점수
+src/commodity/                  sample 원자재 위험 점수
+```
+
+### WeP-Stock API
+
+`src/serving/api.py`는 명세서의 `/api/v1` path를 MVP 수준으로 구현합니다.
+
+```text
+인증/사용자
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /api/v1/users/me
+GET  /api/v1/users
+POST /api/v1/users
+PUT  /api/v1/users/{id}
+
+파일 인테이크
+POST /api/v1/imports
+GET  /api/v1/imports
+GET  /api/v1/imports/{batchId}
+GET  /api/v1/imports/{batchId}/errors
+GET  /api/v1/imports/{batchId}/report
+POST /api/v1/imports/{batchId}/reprocess
+
+물품 표준화
+GET  /api/v1/standardization/queue
+GET  /api/v1/standardization/queue/{rawItemId}
+POST /api/v1/standardization/decisions
+POST /api/v1/standardization/dictionary
+GET  /api/v1/standardization/report
+GET  /api/v1/standard-items
+
+수요 예측
+GET  /api/v1/forecasts
+GET  /api/v1/forecasts/{institutionId}/{standardCode}
+POST /api/v1/forecasts/run
+GET  /api/v1/forecasts/eval
+
+공급위험
+GET  /api/v1/supply-risk
+GET  /api/v1/supply-risk/{itemGroupId}
+GET  /api/v1/supply-risk/backtest
+GET  /api/v1/material-dependency
+PUT  /api/v1/material-dependency/{itemGroupId}
+
+적정재고/발주/재배치
+GET  /api/v1/inventory-policy
+GET  /api/v1/inventory-policy/{institutionId}/{standardCode}
+POST /api/v1/inventory-policy/run
+GET  /api/v1/order-recommendations
+GET  /api/v1/relocations
+POST /api/v1/relocations/{id}/approve
+
+알림/대시보드/외부지표/마스터
+GET  /api/v1/alerts
+GET  /api/v1/alerts/{id}
+POST /api/v1/alerts/{id}/resolve
+GET  /api/v1/alerts/settings
+PUT  /api/v1/alerts/settings
+GET  /api/v1/dashboard/institution/{institutionId}
+GET  /api/v1/dashboard/central
+GET  /api/v1/dashboard/ops
+GET  /api/v1/external-indicators
+POST /api/v1/external-indicators/refresh
+GET  /api/v1/institutions
+GET  /api/v1/item-groups
+```
+
+기존 MVP 호환용으로 아래 legacy endpoint도 유지합니다.
+
+```text
+GET  /health
+GET  /predictions
+POST /recommend-order
+```
 
 ## Setup
 
@@ -40,7 +123,7 @@ pip install -r requirements.txt
 
 ## Batch Run
 
-전체 배치 파이프라인:
+전체 배치:
 
 ```bash
 python -m src.main
@@ -58,18 +141,16 @@ python -m src.predict
 python -m src.evaluate
 ```
 
-## Serving
+## API Run
 
 ```bash
 uvicorn src.serving.api:app --reload
 ```
 
-Endpoints:
+Swagger 문서:
 
 ```text
-GET /health
-GET /predictions?yyyymm=2025-01&item_code=B0004&sido=41
-POST /recommend-order
+http://127.0.0.1:8000/docs
 ```
 
 ## Dashboard
@@ -78,42 +159,18 @@ POST /recommend-order
 streamlit run src/dashboard/app.py
 ```
 
-## Outputs
+## Data/Artifact Policy
+
+아래 파일은 GitHub에 올리지 않습니다.
 
 ```text
-data/processed/usage_monthly.csv
-outputs/feature_table.csv
-outputs/news_risk_scores.csv
-outputs/commodity_risk_scores.csv
-outputs/model_validation_report.csv
-outputs/predictions.csv
-outputs/evaluation_report.csv
-models/model_a_usage_only.pkl
-models/model_b_news.pkl
-models/model_c_news_commodity.pkl
-models/manifest.json
+device/
+data/raw/
+data/processed/
+outputs/
+models/
+.env
 ```
 
-## Model Variants
-
-```text
-Model A: 과거 사용량 feature만 사용
-Model B: 과거 사용량 feature + 뉴스 위험 점수
-Model C: 과거 사용량 feature + 뉴스 위험 점수 + 원자재 위험 점수
-```
-
-기본 모델 알고리즘은 LightGBM입니다. LightGBM이 설치되어 있지 않으면 RandomForest로 fallback합니다.
-
-## Leakage Policy
-
-다음 달 사용량을 예측하므로 현재 월의 원본 집계값은 모델 feature에서 제외합니다.
-
-```text
-total_use
-total_count
-patient_count
-total_amount
-```
-
-모델에는 lag, rolling, 전년동월, 외부 위험 점수처럼 예측 시점에 사용할 수 있는 feature만 넣습니다.
+commit 가능한 것은 source code, docs, issue/PR template, sample mapping seed입니다.
 
