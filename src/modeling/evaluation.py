@@ -1,8 +1,8 @@
 import pandas as pd
 
-from .config import EVALUATION_REPORT_PATH, OUTPUT_DIR, PREDICTION_PATH
+from ..config import EVALUATION_REPORT_PATH, OUTPUT_DIR, PREDICTION_PATH
+from ..utils import ensure_dirs, setup_logging
 from .metrics import regression_metrics
-from .utils import ensure_dirs, setup_logging
 
 
 def build_evaluation_report(predictions: pd.DataFrame) -> pd.DataFrame:

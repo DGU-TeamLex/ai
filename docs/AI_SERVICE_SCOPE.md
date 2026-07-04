@@ -7,11 +7,11 @@
 ```text
 1. 의료물품 사용량 데이터 전처리
 2. 수요 예측 feature table 생성
-3. baseline / ML 모델 학습
+3. baseline / ML 모델 학습 (`src/modeling/`)
 4. sample 뉴스 위험 점수 생성
 5. sample 원자재 위험 점수 생성
 6. 예측 결과 생성
-7. safety stock / recommended stock 계산
+7. safety stock / recommended stock 계산 (`src/modeling/inventory_policy.py`)
 8. AI 결과 조회용 serving API 제공
 ```
 
@@ -56,4 +56,3 @@ POST /api/v1/ai/recommend-order
 - AI 서비스는 원본 업로드 파일을 직접 받지 않고, 정제된 데이터 또는 batch input을 기준으로 학습합니다.
 - API 요청 시점에 외부 뉴스 API, 원자재 API, LLM을 호출하지 않습니다.
 - 학습/예측은 batch output을 만들고, serving API는 그 결과를 조회합니다.
-

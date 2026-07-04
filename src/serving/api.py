@@ -8,7 +8,7 @@ import pandas as pd
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 
 from ..config import COMMODITY_RISK_SCORE_PATH, EVALUATION_REPORT_PATH, PREDICTION_PATH
-from ..inventory_policy import add_inventory_recommendations
+from ..modeling.inventory_policy import add_inventory_recommendations
 from .schemas import ForecastRunRequest, RecommendOrderRequest
 
 
@@ -362,4 +362,3 @@ def legacy_recommend_order(payload: RecommendOrderRequest):
 
 
 app.include_router(router)
-

@@ -8,7 +8,7 @@ st.set_page_config(page_title="Medical Device Inventory Forecast", layout="wide"
 st.title("Medical Device Inventory Forecast MVP")
 
 if not PREDICTION_PATH.exists():
-    st.warning("predictions.csv not found. Run `python -m src.predict` first.")
+    st.warning("predictions.csv not found. Run `python -m src.main` first.")
     st.stop()
 
 df = pd.read_csv(PREDICTION_PATH)
@@ -53,4 +53,3 @@ st.bar_chart(
 
 st.subheader("선택 행")
 st.dataframe(row_df)
-

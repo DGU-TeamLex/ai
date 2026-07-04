@@ -26,13 +26,19 @@ def regression_metrics(y_true, y_pred) -> dict:
     }
 
 
-def metrics_by_group(df: pd.DataFrame, group_cols: list[str], pred_col: str) -> pd.DataFrame:
+def metrics_by_group(
+    df: pd.DataFrame,
+    group_cols: list[str],
+    pred_col: str,
+    actual_col: str = "actual_usage",
+) -> pd.DataFrame:
     rows = []
     for keys, group in df.groupby(group_cols, dropna=False):
         if not isinstance(keys, tuple):
             keys = (keys,)
         row = dict(zip(group_cols, keys))
-        row.update(regression_metrics(group["actual_next_month_use"], group[pred_col]))
+        row.update(regression_metrics(group[actual_col], group[pred_col]))
         row["n_rows"] = len(group)
         rows.append(row)
     return pd.DataFrame(rows)
+

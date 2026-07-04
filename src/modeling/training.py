@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 
-from .config import (
+from ..config import (
     CATEGORICAL_FEATURES,
     FEATURE_TABLE_PATH,
     MODEL_DIR,
@@ -21,9 +21,9 @@ from .config import (
     VALID_END,
     VALID_START,
 )
-from .feature_engineering import run_feature_engineering
+from ..feature_engineering import run_feature_engineering
+from ..utils import ensure_dirs, setup_logging
 from .metrics import regression_metrics
-from .utils import ensure_dirs, setup_logging
 
 
 LOGGER = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ def _fit_preprocessor(train: pd.DataFrame, feature_cols: list[str]) -> dict:
     return {"encoder": encoder, "imputer": imputer, "cat_cols": cat_cols, "num_cols": num_cols}
 
 
-def _transform(df: pd.DataFrame, preprocess: dict) -> np.ndarray:
+def transform_features(df: pd.DataFrame, preprocess: dict) -> np.ndarray:
     cat_values = preprocess["encoder"].transform(df[preprocess["cat_cols"]].astype(str))
     num_values = preprocess["imputer"].transform(df[preprocess["num_cols"]])
     return np.hstack([cat_values, num_values])
@@ -119,8 +119,8 @@ def train_model_variant(
     feature_cols: list[str],
 ) -> dict:
     preprocess = _fit_preprocessor(train, feature_cols)
-    x_train = _transform(train, preprocess)
-    x_valid = _transform(valid, preprocess)
+    x_train = transform_features(train, preprocess)
+    x_valid = transform_features(valid, preprocess)
     y_train = train[TARGET_COLUMN].astype("float64")
     y_valid = valid[TARGET_COLUMN].astype("float64")
 
@@ -176,3 +176,4 @@ def run_training() -> None:
 
 if __name__ == "__main__":
     run_training()
+

@@ -43,16 +43,19 @@ feature/*: 기능 작업 브랜치, PR 대상은 dev
 src/data_loader.py              의료기기 사용량 CSV 로드
 src/preprocessing.py            월별 사용량 집계
 src/feature_engineering.py      예측 feature table 생성
-src/baseline_model.py           baseline 예측
-src/train_model.py              Model A/B/C 학습
-src/predict.py                  예측 결과 생성
-src/evaluate.py                 평가 리포트 생성
-src/inventory_policy.py         safety stock / recommended stock 정책
+src/modeling/baseline.py        baseline 예측
+src/modeling/training.py        Model A/B/C 학습
+src/modeling/prediction.py      예측 결과 생성
+src/modeling/evaluation.py      평가 리포트 생성
+src/modeling/metrics.py         MAE/RMSE/MAPE/SMAPE/WAPE 평가 지표
+src/modeling/inventory_policy.py safety stock / recommended stock 정책
 src/news/                       sample 뉴스 위험 점수
 src/commodity/                  sample 원자재 위험 점수
 src/serving/                    AI serving API
 src/dashboard/                  AI 결과 확인용 Streamlit MVP
 ```
+
+모델 학습, 예측, 평가, 재고 정책 관련 코드는 `src/modeling/` 아래에서만 관리합니다. `src/` 루트에는 데이터 파이프라인 공통 모듈과 앱 진입점만 둡니다.
 
 ## AI Serving API
 
@@ -119,9 +122,9 @@ python -m src.preprocessing
 python -m src.news.news_risk_scorer
 python -m src.commodity.commodity_risk_scorer
 python -m src.feature_engineering
-python -m src.train_model
-python -m src.predict
-python -m src.evaluate
+python -m src.modeling.training
+python -m src.modeling.prediction
+python -m src.modeling.evaluation
 ```
 
 ## Dashboard
@@ -160,4 +163,3 @@ models/
 ```
 
 commit 가능한 것은 source code, docs, issue/PR template, sample mapping seed입니다.
-

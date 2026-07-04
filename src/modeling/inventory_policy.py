@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from .config import MAX_RISK_BUFFER_RATE, SAFETY_STOCK_RATE
+from ..config import MAX_RISK_BUFFER_RATE, SAFETY_STOCK_RATE
 
 
 def calculate_external_risk_score(df: pd.DataFrame) -> pd.Series:

@@ -5,8 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-from .baseline_model import BASELINE_PREDICTION_COLUMNS, add_baseline_predictions
-from .config import (
+from ..config import (
     EVALUATION_REPORT_PATH,
     FEATURE_TABLE_PATH,
     MODEL_DIR,
@@ -16,11 +15,12 @@ from .config import (
     TARGET_COLUMN,
     TEST_START,
 )
-from .evaluate import build_evaluation_report
-from .feature_engineering import run_feature_engineering
+from ..feature_engineering import run_feature_engineering
+from ..utils import ensure_dirs, setup_logging
+from .baseline import BASELINE_PREDICTION_COLUMNS, add_baseline_predictions
+from .evaluation import build_evaluation_report
 from .inventory_policy import add_inventory_recommendations
-from .train_model import run_training
-from .utils import ensure_dirs, setup_logging
+from .training import run_training, transform_features
 
 
 LOGGER = logging.getLogger(__name__)
@@ -38,13 +38,6 @@ def _load_bundle(model_name: str) -> dict:
         run_training()
     with path.open("rb") as f:
         return pickle.load(f)
-
-
-def _transform(df: pd.DataFrame, bundle: dict) -> np.ndarray:
-    preprocess = bundle["preprocess"]
-    cat_values = preprocess["encoder"].transform(df[preprocess["cat_cols"]].astype(str))
-    num_values = preprocess["imputer"].transform(df[preprocess["num_cols"]])
-    return np.hstack([cat_values, num_values])
 
 
 def _select_primary_prediction_column(predictions: pd.DataFrame) -> str:
@@ -78,12 +71,13 @@ def build_predictions() -> pd.DataFrame:
             "commodity_risk",
         ]
     ].rename(columns={TARGET_COLUMN: "actual_usage"})
-    predictions = add_baseline_predictions(pd.concat([predictions, test.drop(columns=predictions.columns, errors="ignore")], axis=1))
+    baseline_input = pd.concat([predictions, test.drop(columns=predictions.columns, errors="ignore")], axis=1)
+    predictions = add_baseline_predictions(baseline_input)
     predictions = predictions.loc[:, ~predictions.columns.duplicated()]
 
     for model_name in MODEL_VARIANTS:
         bundle = _load_bundle(model_name)
-        x_test = _transform(test, bundle)
+        x_test = transform_features(test, bundle["preprocess"])
         predictions[f"{model_name}_pred"] = np.clip(bundle["model"].predict(x_test), 0, None)
 
     primary_col = _select_primary_prediction_column(predictions)

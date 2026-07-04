@@ -18,15 +18,19 @@ The system should keep these boundaries clear:
 src/data_loader.py              raw usage CSV loading
 src/preprocessing.py            monthly usage aggregation
 src/feature_engineering.py      feature table assembly
-src/baseline_model.py           baseline predictors
-src/train_model.py              Model A/B/C training
-src/predict.py                  batch prediction output
-src/inventory_policy.py         stock/order policy
+src/modeling/baseline.py        baseline predictors
+src/modeling/training.py        Model A/B/C training
+src/modeling/prediction.py      batch prediction output
+src/modeling/evaluation.py      prediction evaluation report
+src/modeling/metrics.py         regression metrics
+src/modeling/inventory_policy.py stock/order policy
 src/news/                       news collection, filtering, scoring
 src/commodity/                  commodity collection, features, scoring
 src/serving/                    AI serving API
 src/dashboard/                  AI result inspection dashboard
 ```
+
+Model logic should live under `src/modeling/`. Do not add new model training, prediction, evaluation, or inventory policy code directly under the `src/` root.
 
 ## Development Flow
 
