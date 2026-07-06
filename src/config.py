@@ -24,6 +24,7 @@ EVALUATION_REPORT_PATH = OUTPUT_DIR / "evaluation_report.csv"
 
 DEVICE_MATERIAL_MAPPING_PATH = MAPPING_DATA_DIR / "device_material_mapping.csv"
 COUNTRY_WEIGHT_PATH = MAPPING_DATA_DIR / "country_weight.csv"
+NEWS_RISK_WEIGHT_PATH = MAPPING_DATA_DIR / "news_risk_weights.yaml"
 
 # Change this value if the public health institution code is corrected later.
 PUBLIC_HEALTH_CODE = 7

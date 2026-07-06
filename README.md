@@ -49,7 +49,7 @@ src/modeling/prediction.py      예측 결과 생성
 src/modeling/evaluation.py      평가 리포트 생성
 src/modeling/metrics.py         MAE/RMSE/MAPE/SMAPE/WAPE 평가 지표
 src/modeling/inventory_policy.py safety stock / recommended stock 정책
-src/news/                       sample 뉴스 위험 점수
+src/news/                       sample 뉴스 위험 점수 및 세부 weight scoring
 src/commodity/                  sample 원자재 위험 점수
 src/serving/                    AI serving API
 src/dashboard/                  AI 결과 확인용 Streamlit MVP
@@ -125,6 +125,39 @@ python -m src.feature_engineering
 python -m src.modeling.training
 python -m src.modeling.prediction
 python -m src.modeling.evaluation
+```
+
+## News Risk Weighting
+
+뉴스 리스크는 `data/mapping/news_risk_weights.yaml`의 문헌 기반 초기 weight를 사용합니다.
+
+기사 단위 점수:
+
+```text
+article_score
+= event_type_weight
+* severity
+* confidence
+* source_weight
+* item_relevance
+* exposure_weight
+* recency_weight
+* novelty_weight
+```
+
+월별·품목별 점수:
+
+```text
+monthly_item_news_risk = 1 - exp(-sum(article_score))
+```
+
+기존 모델 feature와의 호환성을 위해 최종 출력 컬럼은 유지합니다.
+
+```text
+disease_news_risk
+supply_news_risk
+material_news_risk
+total_news_risk
 ```
 
 ## Dashboard
