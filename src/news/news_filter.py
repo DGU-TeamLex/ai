@@ -31,6 +31,23 @@ NEWS_KEYWORDS = [
     "반도체",
     "부직포",
     "면화",
+    "pandemic",
+    "epidemic",
+    "influenza",
+    "disease outbreak",
+    "medical supplies",
+    "medical device",
+    "shortage",
+    "supply disruption",
+    "export restriction",
+    "export ban",
+    "factory shutdown",
+    "logistics",
+    "shipping",
+    "latex",
+    "nitrile",
+    "polypropylene",
+    "plastic",
 ]
 
 
@@ -38,4 +55,3 @@ def filter_relevant_news(news: pd.DataFrame) -> pd.DataFrame:
     text = (news["title"].fillna("") + " " + news["summary"].fillna("")).str.lower()
     mask = text.apply(lambda value: any(keyword.lower() in value for keyword in NEWS_KEYWORDS))
     return news[mask].reset_index(drop=True)
-

@@ -7,7 +7,8 @@ def collect_commodity_prices() -> pd.DataFrame:
         "oil_plastic": 100.0,
         "latex": 80.0,
         "general_material": 70.0,
-        "respiratory disease": 50.0,
+        "metal": 90.0,
+        "cotton_pulp": 60.0,
     }
     rows = []
     for material, base_price in materials.items():
@@ -33,4 +34,3 @@ def collect_commodity_prices() -> pd.DataFrame:
 
 if __name__ == "__main__":
     print(collect_commodity_prices().head().to_string(index=False))
-

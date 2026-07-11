@@ -2,7 +2,7 @@
 
 ## Working Principles
 
-This project is a batch-first AI service for medical device demand forecasting and inventory recommendation.
+This project is a batch-first AI service for raw stock consumption forecasting and inventory recommendation.
 
 The system should keep these boundaries clear:
 
@@ -15,8 +15,8 @@ The system should keep these boundaries clear:
 ## Module Ownership
 
 ```text
-src/data_loader.py              raw usage CSV loading
-src/preprocessing.py            monthly usage aggregation
+src/data_loader.py              quote-aware raw_stock DAT loading
+src/preprocessing.py            monthly stock and consumption aggregation
 src/feature_engineering.py      feature table assembly
 src/modeling/baseline.py        baseline predictors
 src/modeling/training.py        Model A/B/C training
@@ -80,7 +80,7 @@ Commit source code, documentation, templates, and mapping configuration.
 
 Do not commit:
 
-- Raw CSVs in `device/`
+- Raw DAT files in `raw_stock/`
 - Processed datasets
 - Model pickle files
 - Output reports/predictions

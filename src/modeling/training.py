@@ -12,6 +12,8 @@ from ..config import (
     CATEGORICAL_FEATURES,
     FEATURE_TABLE_PATH,
     MODEL_DIR,
+    MODEL_MANIFEST_PATH,
+    MODEL_VALIDATION_REPORT_PATH,
     MODEL_VARIANTS,
     OUTPUT_DIR,
     RANDOM_STATE,
@@ -29,19 +31,31 @@ from .metrics import regression_metrics
 LOGGER = logging.getLogger(__name__)
 
 CURRENT_MONTH_COLUMNS = {
-    "total_use",
-    "total_count",
-    "total_amount",
-    "patient_count",
-    "use_per_patient",
-    "amount_per_use",
-    "count_per_patient",
-    "elderly_use_ratio",
-    "sex_1_use_ratio",
-    "sex_2_use_ratio",
-    "in_use_ratio",
-    "out_use_ratio",
+    "consumption_qty",
+    "month_opening_stock",
+    "month_end_stock",
+    "minimum_stock",
+    "maximum_stock",
+    "average_stock",
+    "purchase_in_qty",
+    "transfer_in_qty",
+    "return_in_qty",
+    "inbound_qty",
+    "transfer_out_qty",
+    "return_out_qty",
+    "disposal_qty",
+    "auto_disposal_adjustment_qty",
+    "correction_out_qty",
+    "other_outbound_qty",
+    "net_stock_change",
+    "stockout_rate",
+    "stock_observation_count",
+    "stockout_observation_count",
+    "negative_stock_observation_count",
+    "unit_price_count",
+    "average_unit_price",
 }
+IDENTIFIER_COLUMNS = {"stock_item_key", "item_name", "vendor_code", "first_date", "last_date"}
 
 NEWS_COLUMNS = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
 COMMODITY_COLUMNS = ["commodity_risk", "material_return_30d", "material_volatility_30d"]
@@ -63,7 +77,7 @@ def split_time_series(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.
 
 
 def select_feature_columns(df: pd.DataFrame, use_news: bool, use_commodity: bool) -> list[str]:
-    excluded = CURRENT_MONTH_COLUMNS | {TARGET_COLUMN, "year_month"}
+    excluded = CURRENT_MONTH_COLUMNS | IDENTIFIER_COLUMNS | {TARGET_COLUMN, "year_month"}
     if not use_news:
         excluded.update(NEWS_COLUMNS)
     if not use_commodity:
@@ -118,6 +132,7 @@ def train_model_variant(
     valid: pd.DataFrame,
     feature_cols: list[str],
 ) -> dict:
+    feature_cols = [column for column in feature_cols if not train[column].isna().all()]
     preprocess = _fit_preprocessor(train, feature_cols)
     x_train = transform_features(train, preprocess)
     x_valid = transform_features(valid, preprocess)
@@ -151,7 +166,7 @@ def save_model_bundle(bundle: dict) -> None:
 def run_training() -> None:
     setup_logging()
     ensure_dirs(MODEL_DIR, OUTPUT_DIR)
-    feature_table = _load_feature_table().dropna(subset=[TARGET_COLUMN, "lag_1", "lag_12", "rolling_mean_3"])
+    feature_table = _load_feature_table().dropna(subset=[TARGET_COLUMN, "lag_1", "rolling_mean_3"])
     train, valid, _ = split_time_series(feature_table)
 
     manifest = []
@@ -162,18 +177,17 @@ def run_training() -> None:
         row = {
             "model": name,
             "algorithm": bundle["algorithm"],
-            "n_features": len(feature_cols),
+            "n_features": len(bundle["feature_cols"]),
             **bundle["validation_metrics"],
         }
         manifest.append(row)
         LOGGER.info("Saved %s with validation WAPE=%s", name, row.get("WAPE"))
 
     report = pd.DataFrame(manifest).sort_values("WAPE", na_position="last")
-    report.to_csv(OUTPUT_DIR / "model_validation_report.csv", index=False)
-    with (MODEL_DIR / "manifest.json").open("w", encoding="utf-8") as f:
+    report.to_csv(MODEL_VALIDATION_REPORT_PATH, index=False)
+    with MODEL_MANIFEST_PATH.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
     run_training()
-

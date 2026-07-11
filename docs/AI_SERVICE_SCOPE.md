@@ -5,7 +5,7 @@
 ## 책임 범위
 
 ```text
-1. 의료물품 사용량 데이터 전처리
+1. raw_stock 일별 재고·정상출고 데이터 전처리
 2. 수요 예측 feature table 생성
 3. baseline / ML 모델 학습 (`src/modeling/`)
 4. sample 뉴스 위험 점수 생성 및 문헌 기반 세부 weight scoring
@@ -56,6 +56,14 @@ POST /api/v1/ai/recommend-order
 - AI 서비스는 원본 업로드 파일을 직접 받지 않고, 정제된 데이터 또는 batch input을 기준으로 학습합니다.
 - API 요청 시점에 외부 뉴스 API, 원자재 API, LLM을 호출하지 않습니다.
 - 학습/예측은 batch output을 만들고, serving API는 그 결과를 조회합니다.
+
+## Data Contract
+
+- `device/`, `MED_DEVICE_5`, `SIDO` 기반 데이터는 사용하지 않습니다.
+- 학습 기준은 `raw_stock/*.DAT`입니다.
+- 시계열 단위는 기관, 부서, 내부 물품코드 조합입니다.
+- 정상출고량을 소비량으로, 마지막 마감재고량을 현재고로 사용합니다.
+- 뉴스·원자재 매핑은 `stock_item_material_mapping.csv`의 검수된 행만 반영합니다.
 
 ## News Risk Weight Policy
 

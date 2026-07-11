@@ -14,17 +14,17 @@ Acceptance criteria:
 - Missing API key falls back to sample news.
 - Batch pipeline still runs with `python -m src.main`.
 
-## Issue 2: Improve Device-Material Mapping
+## Issue 2: Build Stock Item-Material Mapping
 
 Labels: `data`, `mapping`
 
-Replace the temporary `device_material_mapping.csv` with reviewed mappings between `MED_DEVICE_5`, item names, materials, supplier groups, and mapping weights.
+Build reviewed mappings between raw stock item keys, normalized item names, MFDS product identifiers, materials, supplier groups, and mapping weights.
 
 Acceptance criteria:
 
 - Mapping file is human-editable CSV.
 - Commodity risk output covers known item codes.
-- Unknown item codes get safe default risk handling.
+- Unknown stock items get zero risk until reviewed instead of random material assignment.
 
 ## Issue 3: Connect Commodity Price API
 
@@ -58,7 +58,7 @@ Improve the Streamlit MVP for AI result review.
 
 Acceptance criteria:
 
-- Filters for month, SIDO, and item code.
+- Filters for month, institution, department, and item code.
 - Shows predicted usage, recommended stock, and recommended order.
 - Displays risk score breakdown.
 - Handles missing predictions gracefully.

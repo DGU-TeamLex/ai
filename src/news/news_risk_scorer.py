@@ -7,11 +7,11 @@ import pandas as pd
 
 from ..config import (
     COUNTRY_WEIGHT_PATH,
-    DEVICE_MATERIAL_MAPPING_PATH,
-    MONTHLY_USAGE_PATH,
+    NEWS_ARTICLE_SCORE_PATH,
     NEWS_RISK_SCORE_PATH,
     NEWS_RISK_WEIGHT_PATH,
     OUTPUT_DIR,
+    STOCK_MATERIAL_MAPPING_PATH,
 )
 from ..utils import ensure_dirs, setup_logging
 from .news_collector import collect_news
@@ -22,6 +22,35 @@ from .news_llm_analyzer import analyze_news_row
 LOGGER = logging.getLogger(__name__)
 
 NEWS_RISK_COLUMNS = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
+ARTICLE_SCORE_COLUMNS = [
+    "article_id",
+    "date",
+    "STD_YYYYMM",
+    "title",
+    "source",
+    "stock_item_key",
+    "event_type",
+    "risk_bucket",
+    "event_cluster_id",
+    "duplicate_count",
+    "source_type",
+    "severity",
+    "severity_bucket",
+    "event_type_weight",
+    "severity_weight",
+    "classifier_confidence",
+    "extraction_completeness",
+    "confidence",
+    "source_weight",
+    "item_relevance_type",
+    "item_relevance_weight",
+    "mapping_weight",
+    "exposure_weight",
+    "country_weight",
+    "recency_weight",
+    "novelty_weight",
+    "article_score",
+]
 
 LEGACY_EVENT_TYPE_ALIASES = {
     "infectious_disease": "infectious_disease_outbreak",
@@ -109,27 +138,15 @@ def _ensure_country_weight() -> pd.DataFrame:
     return weights
 
 
-def _ensure_device_mapping() -> pd.DataFrame:
-    if DEVICE_MATERIAL_MAPPING_PATH.exists():
-        return pd.read_csv(DEVICE_MATERIAL_MAPPING_PATH)
-    if MONTHLY_USAGE_PATH.exists():
-        codes = pd.read_csv(MONTHLY_USAGE_PATH, usecols=["MED_DEVICE_5"])["MED_DEVICE_5"].astype(str).unique()
-    else:
-        codes = ["A1002", "B0004", "K0001"]
-
-    materials = ["oil_plastic", "latex", "general_material", "respiratory disease"]
-    rows = [
-        {
-            "MED_DEVICE_5": code,
-            "item_name": f"item_{code}",
-            "related_material": materials[i % len(materials)],
-            "mapping_weight": 1.0,
-        }
-        for i, code in enumerate(sorted(codes))
-    ]
-    mapping = pd.DataFrame(rows)
-    ensure_dirs(DEVICE_MATERIAL_MAPPING_PATH.parent)
-    mapping.to_csv(DEVICE_MATERIAL_MAPPING_PATH, index=False)
+def _load_stock_mapping() -> pd.DataFrame:
+    required = {"stock_item_key", "item_name", "related_material", "mapping_weight"}
+    if not STOCK_MATERIAL_MAPPING_PATH.exists():
+        LOGGER.warning("Stock item material mapping not found: %s", STOCK_MATERIAL_MAPPING_PATH)
+        return pd.DataFrame(columns=sorted(required))
+    mapping = pd.read_csv(STOCK_MATERIAL_MAPPING_PATH)
+    missing = required - set(mapping.columns)
+    if missing:
+        raise ValueError(f"Stock item material mapping is missing columns: {sorted(missing)}")
     return mapping
 
 
@@ -234,15 +251,15 @@ def _classifier_probability(value: Any) -> float:
     return float(max(min(numeric, 1.0), 0.0))
 
 
-def _combined_confidence(analysis: dict, source_weight: float) -> float:
+def _combined_confidence(analysis: dict) -> float:
     classifier_probability = _classifier_probability(analysis.get("confidence"))
     extraction_completeness = _extraction_completeness(analysis)
-    return float((0.5 * classifier_probability + 0.3 * source_weight + 0.2 * extraction_completeness))
+    return float(0.7 * classifier_probability + 0.3 * extraction_completeness)
 
 
 def _item_relevance_key(row: pd.Series, analysis: dict, item: pd.Series) -> str:
     text = f"{row.get('title', '')} {row.get('summary', '')}".lower()
-    code = str(item.get("MED_DEVICE_5", "")).lower()
+    code = str(item.get("item_code", "")).lower()
     item_name = str(item.get("item_name", "")).lower()
     material = analysis.get("disease_or_material")
     related_items = [str(value).lower() for value in analysis.get("related_medical_items", [])]
@@ -268,8 +285,13 @@ def _exposure_weight(item: pd.Series, config: dict[str, dict[str, Any]]) -> floa
     return float(config["defaults"].get("exposure_weight", 0.60))
 
 
-def _recency_weight(news_date: pd.Timestamp, max_date: pd.Timestamp, event_type: str, config: dict[str, dict[str, Any]]) -> float:
-    age_days = max((max_date - news_date).days, 0)
+def _recency_weight(
+    news_date: pd.Timestamp,
+    reference_date: pd.Timestamp,
+    event_type: str,
+    config: dict[str, dict[str, Any]],
+) -> float:
+    age_days = max((reference_date - news_date).days, 0)
     half_life_days = float(
         config["recency_half_life_days"].get(
             event_type,
@@ -291,19 +313,64 @@ def _event_cluster_id(row: pd.Series, analysis: dict, event_type: str, news_date
 
 
 def _empty_score_frame() -> pd.DataFrame:
-    return pd.DataFrame(columns=["STD_YYYYMM", "MED_DEVICE_5", *NEWS_RISK_COLUMNS])
+    return pd.DataFrame(columns=["STD_YYYYMM", "stock_item_key", *NEWS_RISK_COLUMNS])
 
 
-def score_news_risk() -> pd.DataFrame:
-    news = filter_relevant_news(collect_news())
-    if news.empty:
+def _empty_article_score_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=ARTICLE_SCORE_COLUMNS)
+
+
+def _article_id(row: pd.Series, news_date: pd.Timestamp) -> str:
+    explicit = row.get("article_id") or row.get("url")
+    if explicit:
+        return str(explicit)
+    return f"{news_date.strftime('%Y-%m-%d')}|{row.get('source', '')}|{row.get('title', '')}"
+
+
+def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
+    if scored.empty:
         return _empty_score_frame()
 
-    config = _load_weight_config()
-    country_weights = _ensure_country_weight()
-    mapping = _ensure_device_mapping()
+    grouped = (
+        scored.groupby(["STD_YYYYMM", "stock_item_key", "risk_bucket"], as_index=False)["article_score"]
+        .sum()
+        .assign(risk=lambda df: 1 - (-df["article_score"]).apply(math.exp))
+    )
+    grouped["risk"] = grouped["risk"].clip(0, 1)
+    pivot = (
+        grouped.pivot_table(
+            index=["STD_YYYYMM", "stock_item_key"],
+            columns="risk_bucket",
+            values="risk",
+            aggfunc="max",
+            fill_value=0,
+        )
+        .reset_index()
+    )
+
+    for col in NEWS_RISK_COLUMNS[:-1]:
+        if col not in pivot.columns:
+            pivot[col] = 0.0
+    pivot["total_news_risk"] = pivot[NEWS_RISK_COLUMNS[:-1]].sum(axis=1).clip(0, 1)
+    return pivot[["STD_YYYYMM", "stock_item_key", *NEWS_RISK_COLUMNS]]
+
+
+def build_news_risk_outputs(
+    news: pd.DataFrame | None = None,
+    mapping: pd.DataFrame | None = None,
+    country_weights: pd.DataFrame | None = None,
+    config: dict[str, dict[str, Any]] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    news = filter_relevant_news(collect_news() if news is None else news)
+    if news.empty:
+        return _empty_score_frame(), _empty_article_score_frame()
+
+    config = config or _load_weight_config()
+    country_weights = _ensure_country_weight() if country_weights is None else country_weights
+    mapping = _load_stock_mapping() if mapping is None else mapping
+    if mapping.empty:
+        return _empty_score_frame(), _empty_article_score_frame()
     country_weight_map = dict(zip(country_weights["country"], country_weights["region_weight"]))
-    max_date = pd.to_datetime(news["date"]).max()
 
     analyzed_rows = []
     cluster_ids = []
@@ -318,9 +385,9 @@ def score_news_risk() -> pd.DataFrame:
         cluster_ids.append(cluster_id)
 
     if not analyzed_rows:
-        return _empty_score_frame()
+        return _empty_score_frame(), _empty_article_score_frame()
 
-    duplicate_counts = pd.Series(cluster_ids).value_counts().to_dict()
+    cluster_sizes = pd.Series(cluster_ids).value_counts().to_dict()
     event_weights = config["event_type_weight"]
     source_weights = config["source_weight"]
     severity_weights = config["severity_weight"]
@@ -332,17 +399,22 @@ def score_news_risk() -> pd.DataFrame:
         material = analysis.get("disease_or_material")
         matched = mapping[mapping["related_material"].eq(material)]
         if matched.empty:
-            matched = mapping
+            LOGGER.warning("No stock item mapping found for material=%s; article=%s", material, row.get("title", ""))
+            continue
 
         source_type = row.get("source_type") or analysis.get("source_type") or _infer_source_type(row.get("source"))
         source_weight = float(source_weights.get(source_type, source_weights.get("unknown", 0.50)))
         severity_key = _severity_bucket(analysis.get("severity", config["defaults"].get("severity", "medium")))
         severity_weight = float(severity_weights.get(severity_key, severity_weights["medium"]))
-        confidence = _combined_confidence(analysis, source_weight)
+        classifier_confidence = _classifier_probability(analysis.get("confidence"))
+        extraction_completeness = _extraction_completeness(analysis)
+        confidence = _combined_confidence(analysis)
         event_type_weight = float(event_weights.get(event_type, 0.30))
         country_weight = float(country_weight_map.get(analysis.get("country"), country_weight_map.get("Unknown", 0.50)))
-        recency_weight = _recency_weight(news_date, max_date, event_type, config)
-        novelty_weight = float(1 / math.sqrt(1 + duplicate_counts.get(cluster_id, 0)))
+        month_end = news_date + pd.offsets.MonthEnd(0)
+        recency_weight = _recency_weight(news_date, month_end, event_type, config)
+        duplicate_count = max(int(cluster_sizes.get(cluster_id, 1)) - 1, 0)
+        novelty_weight = float(1 / math.sqrt(1 + duplicate_count))
         risk_bucket = risk_bucket_map.get(event_type, "supply_news_risk")
 
         for _, item in matched.iterrows():
@@ -365,47 +437,54 @@ def score_news_risk() -> pd.DataFrame:
             rows.append(
                 {
                     "STD_YYYYMM": news_date.strftime("%Y-%m"),
-                    "MED_DEVICE_5": item["MED_DEVICE_5"],
+                    "article_id": _article_id(row, news_date),
+                    "date": news_date.strftime("%Y-%m-%d"),
+                    "title": row.get("title", ""),
+                    "source": row.get("source", ""),
+                    "stock_item_key": item["stock_item_key"],
                     "event_type": event_type,
                     "risk_bucket": risk_bucket,
+                    "event_cluster_id": cluster_id,
+                    "duplicate_count": duplicate_count,
+                    "source_type": source_type,
+                    "severity": analysis.get("severity"),
+                    "severity_bucket": severity_key,
+                    "event_type_weight": event_type_weight,
+                    "severity_weight": severity_weight,
+                    "classifier_confidence": classifier_confidence,
+                    "extraction_completeness": extraction_completeness,
+                    "confidence": confidence,
+                    "source_weight": source_weight,
+                    "item_relevance_type": item_relevance_key,
+                    "item_relevance_weight": item_relevance,
+                    "mapping_weight": mapping_weight,
+                    "exposure_weight": exposure_weight,
+                    "country_weight": country_weight,
+                    "recency_weight": recency_weight,
+                    "novelty_weight": novelty_weight,
                     "article_score": max(article_score, 0.0),
                 }
             )
 
-    scored = pd.DataFrame(rows)
+    scored = pd.DataFrame(rows, columns=ARTICLE_SCORE_COLUMNS)
     if scored.empty:
-        return _empty_score_frame()
+        return _empty_score_frame(), _empty_article_score_frame()
+    return _aggregate_article_scores(scored), scored
 
-    grouped = (
-        scored.groupby(["STD_YYYYMM", "MED_DEVICE_5", "risk_bucket"], as_index=False)["article_score"]
-        .sum()
-        .assign(risk=lambda df: 1 - (-df["article_score"]).apply(math.exp))
-    )
-    grouped["risk"] = grouped["risk"].clip(0, 1)
-    pivot = (
-        grouped.pivot_table(
-            index=["STD_YYYYMM", "MED_DEVICE_5"],
-            columns="risk_bucket",
-            values="risk",
-            aggfunc="max",
-            fill_value=0,
-        )
-        .reset_index()
-    )
 
-    for col in NEWS_RISK_COLUMNS[:-1]:
-        if col not in pivot.columns:
-            pivot[col] = 0.0
-    pivot["total_news_risk"] = pivot[NEWS_RISK_COLUMNS[:-1]].sum(axis=1).clip(0, 1)
-    return pivot[["STD_YYYYMM", "MED_DEVICE_5", *NEWS_RISK_COLUMNS]]
+def score_news_risk() -> pd.DataFrame:
+    scores, _ = build_news_risk_outputs()
+    return scores
 
 
 def run_news_risk_scoring() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
-    scores = score_news_risk()
+    scores, article_scores = build_news_risk_outputs()
     scores.to_csv(NEWS_RISK_SCORE_PATH, index=False)
+    article_scores.to_csv(NEWS_ARTICLE_SCORE_PATH, index=False)
     LOGGER.info("Saved news risk scores: %s (%s rows)", NEWS_RISK_SCORE_PATH, len(scores))
+    LOGGER.info("Saved news article score audit: %s (%s rows)", NEWS_ARTICLE_SCORE_PATH, len(article_scores))
 
 
 if __name__ == "__main__":

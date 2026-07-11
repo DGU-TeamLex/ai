@@ -2,7 +2,7 @@ import logging
 
 import pandas as pd
 
-from ..config import COMMODITY_RISK_SCORE_PATH, DEVICE_MATERIAL_MAPPING_PATH, MONTHLY_USAGE_PATH, OUTPUT_DIR
+from ..config import COMMODITY_RISK_SCORE_PATH, OUTPUT_DIR, STOCK_MATERIAL_MAPPING_PATH
 from ..utils import ensure_dirs, setup_logging
 from .commodity_collector import collect_commodity_prices
 from .commodity_features import add_commodity_features
@@ -20,26 +20,14 @@ def _normalize(series: pd.Series) -> pd.Series:
 
 
 def _ensure_mapping() -> pd.DataFrame:
-    if DEVICE_MATERIAL_MAPPING_PATH.exists():
-        return pd.read_csv(DEVICE_MATERIAL_MAPPING_PATH)
-    if MONTHLY_USAGE_PATH.exists():
-        codes = pd.read_csv(MONTHLY_USAGE_PATH, usecols=["MED_DEVICE_5"])["MED_DEVICE_5"].astype(str).unique()
-    else:
-        codes = ["A1002", "B0004", "K0001"]
-    materials = ["oil_plastic", "latex", "general_material", "respiratory disease"]
-    mapping = pd.DataFrame(
-        [
-            {
-                "MED_DEVICE_5": code,
-                "item_name": f"item_{code}",
-                "related_material": materials[i % len(materials)],
-                "mapping_weight": 1.0,
-            }
-            for i, code in enumerate(sorted(codes))
-        ]
-    )
-    ensure_dirs(DEVICE_MATERIAL_MAPPING_PATH.parent)
-    mapping.to_csv(DEVICE_MATERIAL_MAPPING_PATH, index=False)
+    required = {"stock_item_key", "item_name", "related_material", "mapping_weight"}
+    if not STOCK_MATERIAL_MAPPING_PATH.exists():
+        LOGGER.warning("Stock item material mapping not found: %s", STOCK_MATERIAL_MAPPING_PATH)
+        return pd.DataFrame(columns=sorted(required))
+    mapping = pd.read_csv(STOCK_MATERIAL_MAPPING_PATH)
+    missing = required - set(mapping.columns)
+    if missing:
+        raise ValueError(f"Stock item material mapping is missing columns: {sorted(missing)}")
     return mapping
 
 
@@ -54,19 +42,29 @@ def score_commodity_risk() -> pd.DataFrame:
     features["STD_YYYYMM"] = features["date"].dt.strftime("%Y-%m")
 
     mapping = _ensure_mapping()
+    if mapping.empty:
+        return pd.DataFrame(
+            columns=[
+                "STD_YYYYMM",
+                "stock_item_key",
+                "commodity_risk",
+                "material_return_30d",
+                "material_volatility_30d",
+            ]
+        )
     merged = mapping.merge(features, left_on="related_material", right_on="material", how="left")
     merged["mapping_weight"] = pd.to_numeric(merged["mapping_weight"], errors="coerce").fillna(1.0)
     for col in ["commodity_risk", "return_30d", "volatility_30d"]:
         merged[col] = merged[col].fillna(0.0)
         merged[f"weighted_{col}"] = merged[col] * merged["mapping_weight"]
 
-    denominator = merged.groupby(["STD_YYYYMM", "MED_DEVICE_5"])["mapping_weight"].transform("sum").replace(0, 1)
+    denominator = merged.groupby(["STD_YYYYMM", "stock_item_key"])["mapping_weight"].transform("sum").replace(0, 1)
     merged["commodity_risk"] = merged["weighted_commodity_risk"] / denominator
     merged["material_return_30d"] = merged["weighted_return_30d"] / denominator
     merged["material_volatility_30d"] = merged["weighted_volatility_30d"] / denominator
 
     return (
-        merged.groupby(["STD_YYYYMM", "MED_DEVICE_5"], as_index=False)
+        merged.groupby(["STD_YYYYMM", "stock_item_key"], as_index=False)
         .agg(
             commodity_risk=("commodity_risk", "sum"),
             material_return_30d=("material_return_30d", "sum"),
@@ -86,4 +84,3 @@ def run_commodity_risk_scoring() -> None:
 
 if __name__ == "__main__":
     run_commodity_risk_scoring()
-

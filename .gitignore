@@ -19,6 +19,7 @@ env/
 
 # Raw and generated data
 device/
+raw_stock/
 data/raw/
 data/processed/
 data/sample/
@@ -32,3 +33,4 @@ models/
 # Local notebooks and system files
 .ipynb_checkpoints/
 .DS_Store
+*.pdf

@@ -49,15 +49,19 @@ def _page(items: list[dict], page: int, size: int) -> dict:
 def _prediction_rows() -> pd.DataFrame:
     df = _read_csv(PREDICTION_PATH, parse_month=True)
     if not df.empty:
-        df["SIDO"] = df["SIDO"].astype(str)
-        df["MED_DEVICE_5"] = df["MED_DEVICE_5"].astype(str)
+        df["institution_code"] = df["institution_code"].astype(str)
+        df["department"] = df["department"].astype(str)
+        df["item_code"] = df["item_code"].astype(str)
         return df
     return pd.DataFrame(
         [
             {
                 "year_month": "2026-07",
-                "SIDO": "11",
-                "MED_DEVICE_5": "KD0192",
+                "institution_code": "sample_institution",
+                "department": "sample_department",
+                "item_code": "USE0000001",
+                "item_name": "sample stock item",
+                "stock_item_key": "sample_institution::sample_department::USE0000001",
                 "actual_usage": 0.0,
                 "predicted_usage": 8.3,
                 "recommended_stock": 19.8,
@@ -72,12 +76,11 @@ def _prediction_rows() -> pd.DataFrame:
 
 
 def _institution_id(row: pd.Series) -> str:
-    sido = str(row.get("SIDO", row.get("institutionId", "000")))
-    return sido if sido.startswith("inst_") else f"inst_{sido}"
+    return str(row.get("institution_code", row.get("institutionId", "unknown")))
 
 
 def _standard_code(row: pd.Series) -> str:
-    return str(row.get("MED_DEVICE_5", row.get("standardCode", "UNKNOWN")))
+    return str(row.get("item_code", row.get("standardCode", "UNKNOWN")))
 
 
 def _risk_level(score: float) -> str:
@@ -148,6 +151,7 @@ def trigger_forecast_batch(payload: ForecastRunRequest):
 def forecasts(
     institutionId: str | None = None,
     standardCode: str | None = None,
+    department: str | None = None,
     from_: str | None = Query(None, alias="from"),
     to: str | None = None,
     page: int = 1,
@@ -159,7 +163,9 @@ def forecasts(
     if institutionId:
         df = df[df.apply(lambda row: _institution_id(row) == institutionId, axis=1)]
     if standardCode:
-        df = df[df["MED_DEVICE_5"].astype(str) == standardCode]
+        df = df[df["item_code"].astype(str) == standardCode]
+    if department:
+        df = df[df["department"].astype(str) == department]
     if from_:
         df = df[df["year_month"] >= from_]
     if to:
@@ -169,6 +175,9 @@ def forecasts(
         {
             "institutionId": _institution_id(row),
             "standardCode": _standard_code(row),
+            "department": str(row.get("department", "")),
+            "itemName": str(row.get("item_name", "")),
+            "stockItemKey": str(row.get("stock_item_key", "")),
             "month": row["year_month"],
             "mean": float(row.get("predicted_usage", 0)),
             "q10": max(float(row.get("predicted_usage", 0)) * 0.5, 0),
@@ -190,7 +199,7 @@ def forecast_series(
     from_: str | None = Query(None, alias="from"),
     to: str | None = None,
 ):
-    rows = forecasts(institution_id, standard_code, from_, to, page=1, size=24)["content"]
+    rows = forecasts(institution_id, standard_code, None, from_, to, page=1, size=24)["content"]
     if not rows:
         _not_found("예측 결과가 없습니다.")
     return {
@@ -224,7 +233,7 @@ def supply_risk(level: str | None = None, page: int = 1, size: int = 50):
                 continue
             rows.append(
                 {
-                    "itemGroupId": f"ig_{row['MED_DEVICE_5']}",
+                    "itemGroupId": str(row["stock_item_key"]),
                     "date": str(row["STD_YYYYMM"]),
                     "riskScore": round(score, 2),
                     "level": item_level,
@@ -261,12 +270,20 @@ def supply_risk_detail(item_group_id: str):
 
 
 @router.get("/inventory-policy")
-def inventory_policy(institutionId: str | None = None, standardCode: str | None = None, page: int = 1, size: int = 50):
+def inventory_policy(
+    institutionId: str | None = None,
+    standardCode: str | None = None,
+    department: str | None = None,
+    page: int = 1,
+    size: int = 50,
+):
     df = _prediction_rows()
     if institutionId:
         df = df[df.apply(lambda row: _institution_id(row) == institutionId, axis=1)]
     if standardCode:
-        df = df[df["MED_DEVICE_5"].astype(str) == standardCode]
+        df = df[df["item_code"].astype(str) == standardCode]
+    if department:
+        df = df[df["department"].astype(str) == department]
     rows = []
     for _, row in df.head(500).iterrows():
         mu = float(row.get("predicted_usage", 0))
@@ -279,6 +296,7 @@ def inventory_policy(institutionId: str | None = None, standardCode: str | None 
             {
                 "institutionId": _institution_id(row),
                 "standardCode": _standard_code(row),
+                "department": str(row.get("department", "")),
                 "SS": round(ss, 2),
                 "ROP": round(rop, 2),
                 "mu": round(mu, 2),
@@ -307,8 +325,14 @@ def inventory_policy_detail(institution_id: str, standard_code: str):
 
 
 @router.get("/order-recommendations")
-def order_recommendations(institutionId: str | None = None, standardCode: str | None = None, page: int = 1, size: int = 50):
-    policies = inventory_policy(institutionId, standardCode, page=1, size=500)["content"]
+def order_recommendations(
+    institutionId: str | None = None,
+    standardCode: str | None = None,
+    department: str | None = None,
+    page: int = 1,
+    size: int = 50,
+):
+    policies = inventory_policy(institutionId, standardCode, department, page=1, size=500)["content"]
     rows = [
         {
             "institutionId": row["institutionId"],
@@ -325,9 +349,13 @@ def order_recommendations(institutionId: str | None = None, standardCode: str | 
 @router.post("/recommend-order")
 def recommend_order(payload: RecommendOrderRequest):
     df = _prediction_rows()
-    mask = (df["year_month"] == payload.yyyymm) & (df["MED_DEVICE_5"] == str(payload.item_code))
-    if payload.sido is not None:
-        mask &= df["SIDO"] == str(payload.sido)
+    mask = (
+        (df["year_month"] == payload.yyyymm)
+        & (df["item_code"] == str(payload.item_code))
+        & (df["institution_code"] == str(payload.institution_code))
+    )
+    if payload.department is not None:
+        mask &= df["department"] == str(payload.department)
     result = df[mask].copy()
     if result.empty:
         _not_found("예측 결과가 없습니다.")
@@ -345,10 +373,16 @@ def recommend_order(payload: RecommendOrderRequest):
 
 
 @app.get("/predictions")
-def legacy_predictions(yyyymm: str, item_code: str, sido: str | None = None):
+def legacy_predictions(
+    yyyymm: str,
+    item_code: str,
+    institution_code: str,
+    department: str | None = None,
+):
     return forecasts(
-        institutionId=f"inst_{sido}" if sido else None,
+        institutionId=institution_code,
         standardCode=item_code,
+        department=department,
         from_=yyyymm,
         to=yyyymm,
         page=1,

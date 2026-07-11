@@ -31,7 +31,23 @@ def analyze_news_row(row: pd.Series) -> dict:
     text = f"{row.get('title', '')} {row.get('summary', '')}".lower()
     country = row.get("country") or "Unknown"
 
-    if any(keyword in text for keyword in ["독감", "인플루엔자", "코로나", "covid", "폐렴", "감염병", "호흡기"]):
+    if any(
+        keyword in text
+        for keyword in [
+            "독감",
+            "인플루엔자",
+            "코로나",
+            "covid",
+            "폐렴",
+            "감염병",
+            "호흡기",
+            "influenza",
+            "pandemic",
+            "epidemic",
+            "disease outbreak",
+            "respiratory disease",
+        ]
+    ):
         return _result(
             event_type="infectious_disease_outbreak",
             country=country,
@@ -44,8 +60,29 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="감염병 또는 호흡기 질환 확산 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["원유", "플라스틱", "폴리프로필렌", "라텍스", "고무", "구리", "알루미늄", "니켈"]):
-        material = "latex" if any(keyword in text for keyword in ["라텍스", "고무"]) else "oil_plastic"
+    if any(
+        keyword in text
+        for keyword in [
+            "원유",
+            "플라스틱",
+            "폴리프로필렌",
+            "라텍스",
+            "고무",
+            "구리",
+            "알루미늄",
+            "니켈",
+            "crude oil",
+            "plastic",
+            "polypropylene",
+            "latex",
+            "rubber",
+            "nitrile",
+            "copper",
+            "aluminum",
+            "nickel",
+        ]
+    ):
+        material = "latex" if any(keyword in text for keyword in ["라텍스", "고무", "latex", "rubber", "nitrile"]) else "oil_plastic"
         return _result(
             event_type="raw_material_shortage_or_price_spike",
             country=country,
@@ -58,7 +95,21 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="원자재 가격, 부족, 변동성 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["수출 제한", "수출 금지", "제재", "수입 차질", "통관 차질"]):
+    if any(
+        keyword in text
+        for keyword in [
+            "수출 제한",
+            "수출 금지",
+            "제재",
+            "수입 차질",
+            "통관 차질",
+            "export restriction",
+            "export ban",
+            "sanction",
+            "import disruption",
+            "customs delay",
+        ]
+    ):
         return _result(
             event_type="export_restriction_or_sanction",
             country=country,
@@ -71,7 +122,24 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="수출 제한, 제재, 수입 차질 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["항만", "물류", "운송", "해상", "항공화물", "파업", "배송 지연"]):
+    if any(
+        keyword in text
+        for keyword in [
+            "항만",
+            "물류",
+            "운송",
+            "해상",
+            "항공화물",
+            "파업",
+            "배송 지연",
+            "port",
+            "logistics",
+            "shipping",
+            "freight",
+            "strike",
+            "delivery delay",
+        ]
+    ):
         return _result(
             event_type="port_or_logistics_disruption",
             country=country,
@@ -84,8 +152,11 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="항만, 물류, 운송 지연 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["공장", "가동 중단", "생산 중단", "라인 중단", "화재"]):
-        material = "latex" if "라텍스" in text else "general_material"
+    if any(
+        keyword in text
+        for keyword in ["공장", "가동 중단", "생산 중단", "라인 중단", "화재", "factory", "shutdown", "production halt", "plant fire"]
+    ):
+        material = "latex" if any(keyword in text for keyword in ["라텍스", "latex", "nitrile"]) else "general_material"
         return _result(
             event_type="factory_shutdown",
             country=country,
@@ -98,7 +169,22 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="공장 폐쇄 또는 생산 중단 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["전쟁", "무력 충돌", "군사 충돌", "분쟁", "중동", "우크라이나"]):
+    if any(
+        keyword in text
+        for keyword in [
+            "전쟁",
+            "무력 충돌",
+            "군사 충돌",
+            "분쟁",
+            "중동",
+            "우크라이나",
+            "war",
+            "armed conflict",
+            "military conflict",
+            "middle east",
+            "ukraine",
+        ]
+    ):
         return _result(
             event_type="war_or_armed_conflict",
             country=country,
@@ -111,7 +197,7 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="전쟁, 군사 충돌, 지정학 리스크 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["정책", "규제", "허가 기준", "통관 기준"]):
+    if any(keyword in text for keyword in ["정책", "규제", "허가 기준", "통관 기준", "policy", "regulation", "approval criteria", "customs rules"]):
         return _result(
             event_type="policy_regulation_uncertainty",
             country=country,
@@ -124,7 +210,7 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="정책 또는 규제 불확실성 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["공급", "수급", "공급난", "재고 부족"]):
+    if any(keyword in text for keyword in ["공급", "수급", "공급난", "재고 부족", "supply", "shortage", "stockout"]):
         return _result(
             event_type="factory_shutdown",
             country=country,
@@ -137,7 +223,7 @@ def analyze_news_row(row: pd.Series) -> dict:
             reason="공급 차질 또는 수급 불안 관련 키워드가 포함됨",
         )
 
-    if any(keyword in text for keyword in ["경기 침체", "시장 불안", "불확실성"]):
+    if any(keyword in text for keyword in ["경기 침체", "시장 불안", "불확실성", "recession", "market instability", "uncertainty"]):
         return _result(
             event_type="general_economic_uncertainty",
             country=country,

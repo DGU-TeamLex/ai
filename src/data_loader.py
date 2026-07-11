@@ -1,131 +1,238 @@
+import csv
 import logging
 from pathlib import Path
+import tempfile
 
 import pandas as pd
 
-try:
-    from .config import CSV_CHUNK_SIZE, GROUP_KEYS, PUBLIC_HEALTH_CODE, RAW_DATA_DIR, RAW_FILE_PATTERN
-    from .utils import read_year_month, safe_divide
-except ImportError:
-    from config import CSV_CHUNK_SIZE, GROUP_KEYS, PUBLIC_HEALTH_CODE, RAW_DATA_DIR, RAW_FILE_PATTERN
-    from utils import read_year_month, safe_divide
+from .config import CSV_CHUNK_SIZE, GROUP_KEYS, RAW_STOCK_DIR, RAW_STOCK_FILE_PATTERN
 
 
 LOGGER = logging.getLogger(__name__)
 
-RAW_COLUMNS = [
-    "STD_YYYYMM",
-    "MED_DEVICE_5",
-    "AGE_G",
-    "SEX_TYPE",
-    "SIDO",
-    "YOYANG_CLSFC_CD_ADJ",
-    "OUT_IN_PAT",
-    "PRSCRPTN_TNDN_CNT",
-    "PRSCRPTN_AMT",
-    "PATIENT_CNT",
-    "PRSCRPTN_TOT_USE",
+RAW_STOCK_COLUMNS = [
+    "부서코드",
+    "물품코드",
+    "물품명",
+    "재고마감일",
+    "이전최종재고량",
+    "마감재고량",
+    "구입처코드",
+    "구입단가",
+    "입고량",
+    "불출입고량",
+    "반납입고량",
+    "불출출고량",
+    "정상출고량",
+    "반품출고량",
+    "폐기출고량",
+    "자동폐기출고량",
+    "보정출고량",
+    "보건기관코드_en",
 ]
 
-NUMERIC_COLUMNS = [
-    "PRSCRPTN_TNDN_CNT",
-    "PRSCRPTN_AMT",
-    "PATIENT_CNT",
-    "PRSCRPTN_TOT_USE",
+NUMERIC_COLUMN_MAP = {
+    "이전최종재고량": "opening_stock",
+    "마감재고량": "closing_stock",
+    "구입단가": "unit_price",
+    "입고량": "purchase_in_qty",
+    "불출입고량": "transfer_in_qty",
+    "반납입고량": "return_in_qty",
+    "불출출고량": "transfer_out_qty",
+    "정상출고량": "consumption_qty",
+    "반품출고량": "return_out_qty",
+    "폐기출고량": "disposal_qty",
+    "자동폐기출고량": "auto_disposal_adjustment_qty",
+    "보정출고량": "correction_out_qty",
+}
+
+SUM_COLUMNS = [
+    "purchase_in_qty",
+    "transfer_in_qty",
+    "return_in_qty",
+    "transfer_out_qty",
+    "consumption_qty",
+    "return_out_qty",
+    "disposal_qty",
+    "auto_disposal_adjustment_qty",
+    "correction_out_qty",
 ]
 
 
-def discover_raw_files(raw_dir: Path = RAW_DATA_DIR, pattern: str = RAW_FILE_PATTERN) -> list[Path]:
-    files = sorted(raw_dir.glob(pattern))
-    return [path for path in files if path.is_file()]
+def discover_raw_stock_files(
+    raw_dir: Path = RAW_STOCK_DIR,
+    pattern: str = RAW_STOCK_FILE_PATTERN,
+) -> list[Path]:
+    return sorted(path for path in raw_dir.glob(pattern) if path.is_file())
 
 
-def _is_elderly(age: pd.Series) -> pd.Series:
-    numeric_age = pd.to_numeric(age, errors="coerce")
-    if numeric_age.notna().any():
-        return numeric_age >= 60
-    return age.astype(str).str.extract(r"(\d+)")[0].astype("float64") >= 60
+def normalize_item_name(value: object) -> str:
+    return " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
 
 
-def aggregate_usage_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
-    chunk = chunk.copy()
-    chunk = chunk[chunk["YOYANG_CLSFC_CD_ADJ"].astype(str) == str(PUBLIC_HEALTH_CODE)]
-    if chunk.empty:
+def _read_stock_chunks(path: Path, chunk_size: int = CSV_CHUNK_SIZE):
+    rows = []
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file, delimiter="|", quotechar='"')
+        if reader.fieldnames != RAW_STOCK_COLUMNS:
+            raise ValueError(f"Unexpected raw_stock header in {path}: {reader.fieldnames}")
+        for row in reader:
+            if None in row:
+                raise ValueError(f"Malformed raw_stock record in {path} near physical line {reader.line_num}")
+            rows.append(row)
+            if len(rows) >= chunk_size:
+                yield pd.DataFrame.from_records(rows)
+                rows = []
+    if rows:
+        yield pd.DataFrame.from_records(rows)
+
+
+def normalize_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
+    result = pd.DataFrame(index=chunk.index)
+    result["closing_date"] = pd.to_datetime(chunk["재고마감일"], format="%Y%m%d", errors="coerce")
+    result["year_month"] = result["closing_date"].dt.to_period("M").dt.to_timestamp()
+    result["institution_code"] = chunk["보건기관코드_en"].fillna("").astype(str).str.strip()
+    result["department"] = chunk["부서코드"].fillna("").astype(str).str.strip()
+    result["item_code"] = chunk["물품코드"].fillna("").astype(str).str.strip()
+    result["item_name"] = chunk["물품명"].map(normalize_item_name)
+    result["vendor_code"] = chunk["구입처코드"].fillna("").astype(str).str.strip()
+
+    for source, target in NUMERIC_COLUMN_MAP.items():
+        result[target] = pd.to_numeric(chunk[source], errors="coerce")
+    result[SUM_COLUMNS] = result[SUM_COLUMNS].fillna(0.0)
+
+    invalid = (
+        result["closing_date"].isna()
+        | result["institution_code"].eq("")
+        | result["department"].eq("")
+        | result["item_code"].eq("")
+    )
+    if invalid.any():
+        LOGGER.warning("Dropping %s raw_stock rows with missing keys or invalid dates", int(invalid.sum()))
+        result = result.loc[~invalid].copy()
+    return result
+
+
+def aggregate_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
+    normalized = normalize_stock_chunk(chunk)
+    if normalized.empty:
         return pd.DataFrame()
 
-    chunk["year_month"] = read_year_month(chunk["STD_YYYYMM"])
-    chunk["SIDO"] = chunk["SIDO"].astype(str)
-    chunk["MED_DEVICE_5"] = chunk["MED_DEVICE_5"].astype(str)
-    chunk["SEX_TYPE"] = chunk["SEX_TYPE"].astype(str)
-    chunk["OUT_IN_PAT"] = chunk["OUT_IN_PAT"].astype(str).str.upper()
+    normalized = normalized.sort_values([*GROUP_KEYS, "closing_date"])
+    normalized["closing_stock_sum"] = normalized["closing_stock"].fillna(0.0)
+    normalized["stock_observation_count"] = normalized["closing_stock"].notna().astype(int)
+    normalized["stockout_observation_count"] = normalized["closing_stock"].eq(0).astype(int)
+    normalized["negative_stock_observation_count"] = normalized["closing_stock"].lt(0).astype(int)
+    normalized["unit_price_sum"] = normalized["unit_price"].fillna(0.0)
+    normalized["unit_price_count"] = normalized["unit_price"].notna().astype(int)
 
-    for col in NUMERIC_COLUMNS:
-        chunk[col] = pd.to_numeric(chunk[col], errors="coerce").fillna(0.0)
+    aggregations = {
+        "first_date": ("closing_date", "first"),
+        "last_date": ("closing_date", "last"),
+        "item_name": ("item_name", "last"),
+        "vendor_code": ("vendor_code", "last"),
+        "month_opening_stock": ("opening_stock", "first"),
+        "month_end_stock": ("closing_stock", "last"),
+        "minimum_stock": ("closing_stock", "min"),
+        "maximum_stock": ("closing_stock", "max"),
+        "closing_stock_sum": ("closing_stock_sum", "sum"),
+        "stock_observation_count": ("stock_observation_count", "sum"),
+        "stockout_observation_count": ("stockout_observation_count", "sum"),
+        "negative_stock_observation_count": ("negative_stock_observation_count", "sum"),
+        "unit_price_sum": ("unit_price_sum", "sum"),
+        "unit_price_count": ("unit_price_count", "sum"),
+    }
+    aggregations.update({column: (column, "sum") for column in SUM_COLUMNS})
+    return normalized.groupby(GROUP_KEYS, as_index=False).agg(**aggregations)
 
-    total_use = chunk["PRSCRPTN_TOT_USE"]
-    chunk["elderly_use"] = total_use.where(_is_elderly(chunk["AGE_G"]), 0.0)
-    chunk["sex_1_use"] = total_use.where(chunk["SEX_TYPE"] == "1", 0.0)
-    chunk["sex_2_use"] = total_use.where(chunk["SEX_TYPE"] == "2", 0.0)
-    chunk["in_use"] = total_use.where(chunk["OUT_IN_PAT"].str.startswith("IN"), 0.0)
-    chunk["out_use"] = total_use.where(chunk["OUT_IN_PAT"].str.startswith("OUT"), 0.0)
 
-    return (
-        chunk.groupby(GROUP_KEYS, as_index=False)
-        .agg(
-            total_use=("PRSCRPTN_TOT_USE", "sum"),
-            total_count=("PRSCRPTN_TNDN_CNT", "sum"),
-            total_amount=("PRSCRPTN_AMT", "sum"),
-            patient_count=("PATIENT_CNT", "sum"),
-            elderly_use=("elderly_use", "sum"),
-            sex_1_use=("sex_1_use", "sum"),
-            sex_2_use=("sex_2_use", "sum"),
-            in_use=("in_use", "sum"),
-            out_use=("out_use", "sum"),
-        )
+def _combine_stock_partials(partials: list[pd.DataFrame]) -> pd.DataFrame:
+    combined = pd.concat(partials, ignore_index=True)
+    combined = combined.sort_values([*GROUP_KEYS, "first_date", "last_date"])
+    aggregations = {
+        "first_date": ("first_date", "min"),
+        "last_date": ("last_date", "max"),
+        "item_name": ("item_name", "last"),
+        "vendor_code": ("vendor_code", "last"),
+        "month_opening_stock": ("month_opening_stock", "first"),
+        "month_end_stock": ("month_end_stock", "last"),
+        "minimum_stock": ("minimum_stock", "min"),
+        "maximum_stock": ("maximum_stock", "max"),
+        "closing_stock_sum": ("closing_stock_sum", "sum"),
+        "stock_observation_count": ("stock_observation_count", "sum"),
+        "stockout_observation_count": ("stockout_observation_count", "sum"),
+        "negative_stock_observation_count": ("negative_stock_observation_count", "sum"),
+        "unit_price_sum": ("unit_price_sum", "sum"),
+        "unit_price_count": ("unit_price_count", "sum"),
+    }
+    aggregations.update({column: (column, "sum") for column in SUM_COLUMNS})
+    monthly = combined.groupby(GROUP_KEYS, as_index=False).agg(**aggregations)
+    monthly["average_stock"] = monthly["closing_stock_sum"] / monthly["stock_observation_count"].replace(0, pd.NA)
+    monthly["average_unit_price"] = monthly["unit_price_sum"] / monthly["unit_price_count"].replace(0, pd.NA)
+    monthly["inbound_qty"] = monthly[["purchase_in_qty", "transfer_in_qty", "return_in_qty"]].sum(axis=1)
+    monthly["other_outbound_qty"] = monthly[
+        ["transfer_out_qty", "return_out_qty", "disposal_qty", "auto_disposal_adjustment_qty", "correction_out_qty"]
+    ].sum(axis=1)
+    monthly["net_stock_change"] = monthly["month_end_stock"] - monthly["month_opening_stock"]
+    monthly["stockout_rate"] = monthly["stockout_observation_count"] / monthly["stock_observation_count"].replace(0, pd.NA)
+    monthly["stock_item_key"] = (
+        monthly["institution_code"] + "::" + monthly["department"] + "::" + monthly["item_code"]
     )
+    return monthly.drop(columns=["closing_stock_sum", "unit_price_sum"]).sort_values(GROUP_KEYS).reset_index(drop=True)
 
 
-def load_usage_data() -> pd.DataFrame:
-    files = discover_raw_files()
+def load_stock_data(
+    raw_dir: Path = RAW_STOCK_DIR,
+    pattern: str = RAW_STOCK_FILE_PATTERN,
+    chunk_size: int = CSV_CHUNK_SIZE,
+) -> pd.DataFrame:
+    files = discover_raw_stock_files(raw_dir, pattern)
     if not files:
-        raise FileNotFoundError(f"No CSV files found under {RAW_DATA_DIR} with pattern {RAW_FILE_PATTERN}")
+        raise FileNotFoundError(f"No raw_stock DAT files found under {raw_dir} with pattern {pattern}")
 
-    LOGGER.info("Reading %s raw CSV files from %s", len(files), RAW_DATA_DIR)
-    partials = []
-    for file_path in files:
-        LOGGER.info("Reading %s", file_path)
-        for chunk in pd.read_csv(file_path, usecols=RAW_COLUMNS, chunksize=CSV_CHUNK_SIZE):
-            aggregated = aggregate_usage_chunk(chunk)
-            if not aggregated.empty:
-                partials.append(aggregated)
+    LOGGER.info("Reading %s raw_stock files from %s", len(files), raw_dir)
+    monthly_outputs = []
+    with tempfile.TemporaryDirectory(prefix="wep_stock_aggregation_") as temp_directory:
+        partition_dir = Path(temp_directory)
+        partition_paths: dict[str, Path] = {}
+        valid_rows_found = False
 
-    if not partials:
-        raise ValueError(
-            f"No rows remained after filtering YOYANG_CLSFC_CD_ADJ == {PUBLIC_HEALTH_CODE}. "
-            "Change PUBLIC_HEALTH_CODE in src/config.py if needed."
-        )
+        for path in files:
+            LOGGER.info("Reading %s", path)
+            for chunk in _read_stock_chunks(path, chunk_size):
+                aggregated = aggregate_stock_chunk(chunk)
+                if aggregated.empty:
+                    continue
+                valid_rows_found = True
+                for year_month, partition in aggregated.groupby("year_month", sort=False):
+                    month_key = pd.Timestamp(year_month).strftime("%Y%m")
+                    partition_path = partition_paths.setdefault(
+                        month_key,
+                        partition_dir / f"stock_partial_{month_key}.csv",
+                    )
+                    partition.to_csv(
+                        partition_path,
+                        mode="a",
+                        header=not partition_path.exists(),
+                        index=False,
+                    )
 
-    df = pd.concat(partials, ignore_index=True)
-    df = (
-        df.groupby(GROUP_KEYS, as_index=False)
-        .agg(
-            total_use=("total_use", "sum"),
-            total_count=("total_count", "sum"),
-            total_amount=("total_amount", "sum"),
-            patient_count=("patient_count", "sum"),
-            elderly_use=("elderly_use", "sum"),
-            sex_1_use=("sex_1_use", "sum"),
-            sex_2_use=("sex_2_use", "sum"),
-            in_use=("in_use", "sum"),
-            out_use=("out_use", "sum"),
-        )
-        .sort_values(GROUP_KEYS)
-        .reset_index(drop=True)
-    )
+        if not valid_rows_found:
+            raise ValueError("No valid raw_stock rows remained after normalization")
 
-    df["elderly_use_ratio"] = safe_divide(df["elderly_use"], df["total_use"])
-    df["sex_1_use_ratio"] = safe_divide(df["sex_1_use"], df["total_use"])
-    df["sex_2_use_ratio"] = safe_divide(df["sex_2_use"], df["total_use"])
-    df["in_use_ratio"] = safe_divide(df["in_use"], df["total_use"])
-    df["out_use_ratio"] = safe_divide(df["out_use"], df["total_use"])
-    return df.drop(columns=["elderly_use", "sex_1_use", "sex_2_use", "in_use", "out_use"])
+        for month_key, partition_path in sorted(partition_paths.items()):
+            LOGGER.info("Combining raw_stock monthly partition: %s", month_key)
+            partition = pd.read_csv(
+                partition_path,
+                parse_dates=["year_month", "first_date", "last_date"],
+                dtype={
+                    "institution_code": str,
+                    "department": str,
+                    "item_code": str,
+                    "item_name": str,
+                    "vendor_code": str,
+                },
+            )
+            monthly_outputs.append(_combine_stock_partials([partition]))
+
+    return pd.concat(monthly_outputs, ignore_index=True).sort_values(GROUP_KEYS).reset_index(drop=True)

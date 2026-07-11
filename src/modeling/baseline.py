@@ -1,5 +1,7 @@
 import pandas as pd
 
+from ..config import SERIES_KEYS
+
 
 BASELINE_PREDICTION_COLUMNS = [
     "baseline_rolling_mean_3_pred",
@@ -11,7 +13,7 @@ BASELINE_PREDICTION_COLUMNS = [
 
 def add_baseline_predictions(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
-    group_mean = result.groupby(["SIDO", "MED_DEVICE_5"])["lag_1"].transform("mean")
+    group_mean = result.groupby(SERIES_KEYS)["lag_1"].transform("mean")
     global_mean = result["lag_1"].mean()
 
     result["baseline_rolling_mean_3_pred"] = result["rolling_mean_3"]
@@ -22,4 +24,3 @@ def add_baseline_predictions(df: pd.DataFrame) -> pd.DataFrame:
     for col in BASELINE_PREDICTION_COLUMNS:
         result[col] = result[col].fillna(global_mean).clip(lower=0)
     return result
-

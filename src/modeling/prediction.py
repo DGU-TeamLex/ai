@@ -9,6 +9,7 @@ from ..config import (
     EVALUATION_REPORT_PATH,
     FEATURE_TABLE_PATH,
     MODEL_DIR,
+    MODEL_MANIFEST_PATH,
     MODEL_VARIANTS,
     OUTPUT_DIR,
     PREDICTION_PATH,
@@ -41,7 +42,7 @@ def _load_bundle(model_name: str) -> dict:
 
 
 def _select_primary_prediction_column(predictions: pd.DataFrame) -> str:
-    manifest_path = MODEL_DIR / "manifest.json"
+    manifest_path = MODEL_MANIFEST_PATH
     if manifest_path.exists():
         with manifest_path.open("r", encoding="utf-8") as f:
             manifest = json.load(f)
@@ -55,14 +56,18 @@ def _select_primary_prediction_column(predictions: pd.DataFrame) -> str:
 
 
 def build_predictions() -> pd.DataFrame:
-    feature_table = _load_feature_table().dropna(subset=[TARGET_COLUMN, "lag_1", "lag_12", "rolling_mean_3"])
+    feature_table = _load_feature_table().dropna(subset=[TARGET_COLUMN, "lag_1", "rolling_mean_3"])
     test = feature_table[feature_table["year_month"] >= pd.Timestamp(TEST_START)].copy()
 
     predictions = test[
         [
             "year_month",
-            "SIDO",
-            "MED_DEVICE_5",
+            "institution_code",
+            "department",
+            "item_code",
+            "item_name",
+            "stock_item_key",
+            "month_end_stock",
             TARGET_COLUMN,
             "disease_news_risk",
             "supply_news_risk",
@@ -71,6 +76,7 @@ def build_predictions() -> pd.DataFrame:
             "commodity_risk",
         ]
     ].rename(columns={TARGET_COLUMN: "actual_usage"})
+    predictions["year_month"] = predictions["year_month"] + pd.offsets.MonthBegin(1)
     baseline_input = pd.concat([predictions, test.drop(columns=predictions.columns, errors="ignore")], axis=1)
     predictions = add_baseline_predictions(baseline_input)
     predictions = predictions.loc[:, ~predictions.columns.duplicated()]
@@ -83,17 +89,25 @@ def build_predictions() -> pd.DataFrame:
     primary_col = _select_primary_prediction_column(predictions)
     predictions["primary_model"] = primary_col
     predictions["predicted_usage"] = predictions[primary_col]
-    predictions = add_inventory_recommendations(predictions, prediction_col="predicted_usage")
+    predictions["current_stock"] = predictions["month_end_stock"].fillna(0.0)
+    predictions = add_inventory_recommendations(
+        predictions,
+        prediction_col="predicted_usage",
+        current_stock_col="current_stock",
+    )
 
     keep_cols = [
         "year_month",
-        "SIDO",
-        "MED_DEVICE_5",
+        "institution_code",
+        "department",
+        "item_code",
+        "item_name",
+        "stock_item_key",
         "actual_usage",
         *BASELINE_PREDICTION_COLUMNS,
-        "model_a_usage_only_pred",
-        "model_b_news_pred",
-        "model_c_news_commodity_pred",
+        "stock_model_a_usage_only_pred",
+        "stock_model_b_news_pred",
+        "stock_model_c_news_commodity_pred",
         "primary_model",
         "predicted_usage",
         "disease_news_risk",
@@ -105,6 +119,8 @@ def build_predictions() -> pd.DataFrame:
         "safety_stock",
         "risk_buffer",
         "recommended_stock",
+        "current_stock",
+        "recommended_order",
     ]
     return predictions[[col for col in keep_cols if col in predictions.columns]]
 
@@ -122,4 +138,3 @@ def run_prediction() -> None:
 
 if __name__ == "__main__":
     run_prediction()
-

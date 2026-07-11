@@ -5,7 +5,7 @@ WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** �
 전체 제품 백엔드 기능은 별도 서비스에서 담당하고, 이 저장소는 아래 책임만 가집니다.
 
 ```text
-의료물품 사용량 데이터 전처리
+raw_stock 일별 재고·출고 데이터 전처리
 → 수요 예측 feature 생성
 → baseline / ML 모델 학습
 → 뉴스·원자재 위험 점수 생성
@@ -40,8 +40,8 @@ feature/*: 기능 작업 브랜치, PR 대상은 dev
 ## AI Modules
 
 ```text
-src/data_loader.py              의료기기 사용량 CSV 로드
-src/preprocessing.py            월별 사용량 집계
+src/data_loader.py              raw_stock DAT 스트리밍 로드
+src/preprocessing.py            기관·부서·물품별 월간 재고/소비 집계
 src/feature_engineering.py      예측 feature table 생성
 src/modeling/baseline.py        baseline 예측
 src/modeling/training.py        Model A/B/C 학습
@@ -54,6 +54,19 @@ src/commodity/                  sample 원자재 위험 점수
 src/serving/                    AI serving API
 src/dashboard/                  AI 결과 확인용 Streamlit MVP
 ```
+
+## Input Data
+
+유일한 학습 입력은 `raw_stock/*.DAT`입니다. `device/` 데이터와 `MED_DEVICE_5`, `SIDO` 코드는 사용하지 않습니다.
+
+```text
+일별 원본 단위: 재고마감일 x 보건기관코드_en x 부서코드 x 물품코드
+월별 학습 단위: year_month x institution_code x department x item_code
+수요 기준값: 정상출고량
+현재고 기준값: 해당 월 마지막 마감재고량
+```
+
+물품별 뉴스·원자재 위험은 검수된 `data/mapping/stock_item_material_mapping.csv`만 사용합니다. 매핑이 없으면 임의 원자재를 배정하지 않고 위험 점수를 0으로 둡니다.
 
 모델 학습, 예측, 평가, 재고 정책 관련 코드는 `src/modeling/` 아래에서만 관리합니다. `src/` 루트에는 데이터 파이프라인 공통 모듈과 앱 진입점만 둡니다.
 
@@ -169,17 +182,19 @@ streamlit run src/dashboard/app.py
 ## Generated Outputs
 
 ```text
-data/processed/usage_monthly.csv
-outputs/feature_table.csv
-outputs/news_risk_scores.csv
-outputs/commodity_risk_scores.csv
-outputs/model_validation_report.csv
-outputs/predictions.csv
-outputs/evaluation_report.csv
-models/model_a_usage_only.pkl
-models/model_b_news.pkl
-models/model_c_news_commodity.pkl
-models/manifest.json
+data/processed/stock_monthly.csv
+data/processed/stock_model_dataset.csv
+outputs/stock_feature_table.csv
+outputs/stock_news_risk_scores.csv
+outputs/stock_news_article_scores.csv
+outputs/stock_commodity_risk_scores.csv
+outputs/stock_model_validation_report.csv
+outputs/stock_predictions.csv
+outputs/stock_evaluation_report.csv
+models/stock_model_a_usage_only.pkl
+models/stock_model_b_news.pkl
+models/stock_model_c_news_commodity.pkl
+models/stock_manifest.json
 ```
 
 ## Data/Artifact Policy
@@ -187,7 +202,7 @@ models/manifest.json
 아래 파일은 GitHub에 올리지 않습니다.
 
 ```text
-device/
+raw_stock/
 data/raw/
 data/processed/
 outputs/
