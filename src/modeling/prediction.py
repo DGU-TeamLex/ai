@@ -1,138 +1,251 @@
+import gc
 import json
 import logging
 import pickle
+import warnings
 
 import numpy as np
 import pandas as pd
 
 from ..config import (
+    BACKTEST_PREDICTION_PATH,
     EVALUATION_REPORT_PATH,
+    EVALUATION_SEGMENT_REPORT_PATH,
     FEATURE_TABLE_PATH,
     MODEL_DIR,
     MODEL_MANIFEST_PATH,
-    MODEL_VARIANTS,
     OUTPUT_DIR,
     PREDICTION_PATH,
+    SERIES_KEYS,
     TARGET_COLUMN,
     TEST_START,
 )
 from ..feature_engineering import run_feature_engineering
+from ..material_mapping import attach_approved_material_mapping_metadata
 from ..utils import ensure_dirs, setup_logging
 from .baseline import BASELINE_PREDICTION_COLUMNS, add_baseline_predictions
-from .evaluation import build_evaluation_report
+from .classified_prediction import write_classified_prediction_outputs
+from .data_quality import attach_standardization_metadata
+from .evaluation import (
+    build_evaluation_report,
+    build_segment_evaluation_report,
+    classify_demand_patterns,
+)
 from .inventory_policy import add_inventory_recommendations
 from .training import run_training, transform_features
 
 
 LOGGER = logging.getLogger(__name__)
+RISK_COLUMNS = [
+    "disease_news_risk",
+    "supply_news_risk",
+    "material_news_risk",
+    "total_news_risk",
+    "commodity_risk",
+]
 
 
-def _load_feature_table() -> pd.DataFrame:
+def _load_feature_table(manifest: list[dict]) -> pd.DataFrame:
     if not FEATURE_TABLE_PATH.exists():
         run_feature_engineering()
-    return pd.read_csv(FEATURE_TABLE_PATH, parse_dates=["year_month"])
+    columns = {
+        "year_month",
+        "forecast_month",
+        *SERIES_KEYS,
+        "item_name",
+        "stock_item_key",
+        "month_end_stock",
+        "history_months",
+        "demand_qty",
+        TARGET_COLUMN,
+        "lag_1",
+        "rolling_mean_3",
+        "rolling_median_3",
+        "rolling_mean_6",
+        "same_month_last_year",
+        "expanding_mean",
+        *RISK_COLUMNS,
+    }
+    for row in manifest:
+        if row.get("method_type") == "machine_learning" and row.get("status") == "ready":
+            columns.update(_load_bundle(row["model"])["feature_cols"])
+    return pd.read_parquet(FEATURE_TABLE_PATH, columns=sorted(columns))
+
+
+def _load_manifest() -> list[dict]:
+    if not MODEL_MANIFEST_PATH.exists():
+        run_training()
+    with MODEL_MANIFEST_PATH.open("r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 def _load_bundle(model_name: str) -> dict:
     path = MODEL_DIR / f"{model_name}.pkl"
     if not path.exists():
-        run_training()
-    with path.open("rb") as f:
-        return pickle.load(f)
+        raise FileNotFoundError(f"Trained model bundle not found: {path}")
+    with path.open("rb") as file:
+        return pickle.load(file)
 
 
-def _select_primary_prediction_column(predictions: pd.DataFrame) -> str:
-    manifest_path = MODEL_MANIFEST_PATH
-    if manifest_path.exists():
-        with manifest_path.open("r", encoding="utf-8") as f:
-            manifest = json.load(f)
-        valid_rows = [row for row in manifest if row.get("WAPE") is not None]
-        if valid_rows:
-            best = sorted(valid_rows, key=lambda row: row["WAPE"])[0]["model"]
-            return f"{best}_pred"
-
-    report = build_evaluation_report(predictions)
-    return report.iloc[0]["model"]
-
-
-def build_predictions() -> pd.DataFrame:
-    feature_table = _load_feature_table().dropna(subset=[TARGET_COLUMN, "lag_1", "rolling_mean_3"])
-    test = feature_table[feature_table["year_month"] >= pd.Timestamp(TEST_START)].copy()
-
-    predictions = test[
-        [
-            "year_month",
-            "institution_code",
-            "department",
-            "item_code",
-            "item_name",
-            "stock_item_key",
-            "month_end_stock",
-            TARGET_COLUMN,
-            "disease_news_risk",
-            "supply_news_risk",
-            "material_news_risk",
-            "total_news_risk",
-            "commodity_risk",
-        ]
-    ].rename(columns={TARGET_COLUMN: "actual_usage"})
-    predictions["year_month"] = predictions["year_month"] + pd.offsets.MonthBegin(1)
-    baseline_input = pd.concat([predictions, test.drop(columns=predictions.columns, errors="ignore")], axis=1)
-    predictions = add_baseline_predictions(baseline_input)
-    predictions = predictions.loc[:, ~predictions.columns.duplicated()]
-
-    for model_name in MODEL_VARIANTS:
-        bundle = _load_bundle(model_name)
-        x_test = transform_features(test, bundle["preprocess"])
-        predictions[f"{model_name}_pred"] = np.clip(bundle["model"].predict(x_test), 0, None)
-
-    primary_col = _select_primary_prediction_column(predictions)
-    predictions["primary_model"] = primary_col
-    predictions["predicted_usage"] = predictions[primary_col]
-    predictions["current_stock"] = predictions["month_end_stock"].fillna(0.0)
-    predictions = add_inventory_recommendations(
-        predictions,
-        prediction_col="predicted_usage",
-        current_stock_col="current_stock",
+def _selected_prediction_column(manifest: list[dict], available_columns: set[str]) -> str:
+    selected = [row for row in manifest if row.get("selected_on_validation")]
+    ranked = selected or sorted(
+        [row for row in manifest if row.get("WAPE") is not None],
+        key=lambda row: row["WAPE"],
     )
+    for row in ranked:
+        prediction_column = f"{row['model']}_pred"
+        if prediction_column in available_columns:
+            return prediction_column
+    raise ValueError("No validation-selected prediction column is available")
 
-    keep_cols = [
+
+def _add_trained_model_predictions(
+    frame: pd.DataFrame,
+    manifest: list[dict],
+) -> pd.DataFrame:
+    result = frame
+    trained_models = [
+        row["model"]
+        for row in manifest
+        if row.get("method_type") == "machine_learning" and row.get("status") == "ready"
+    ]
+    for model_name in trained_models:
+        bundle = _load_bundle(model_name)
+        features = transform_features(result, bundle["preprocess"])
+        if str(bundle["algorithm"]).startswith("lightgbm"):
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="X does not have valid feature names")
+                raw_prediction = bundle["model"].predict(features, validate_features=False)
+        else:
+            raw_prediction = bundle["model"].predict(features)
+        result[f"{model_name}_pred"] = np.clip(raw_prediction, 0, None)
+    return result
+
+
+def _build_prediction_frame(
+    source: pd.DataFrame,
+    manifest: list[dict],
+    demand_patterns: pd.DataFrame,
+    prediction_type: str,
+) -> pd.DataFrame:
+    enriched = add_baseline_predictions(source)
+    enriched = _add_trained_model_predictions(enriched, manifest)
+    model_prediction_columns = [
+        column
+        for column in enriched.columns
+        if column.endswith("_pred") and column not in BASELINE_PREDICTION_COLUMNS
+    ]
+    prediction_columns = [*BASELINE_PREDICTION_COLUMNS, *model_prediction_columns]
+
+    output_columns = [
         "year_month",
+        "forecast_month",
         "institution_code",
         "department",
         "item_code",
         "item_name",
         "stock_item_key",
-        "actual_usage",
-        *BASELINE_PREDICTION_COLUMNS,
-        "stock_model_a_usage_only_pred",
-        "stock_model_b_news_pred",
-        "stock_model_c_news_commodity_pred",
-        "primary_model",
-        "predicted_usage",
-        "disease_news_risk",
-        "supply_news_risk",
-        "material_news_risk",
-        "total_news_risk",
-        "commodity_risk",
-        "external_risk_score",
-        "safety_stock",
-        "risk_buffer",
-        "recommended_stock",
-        "current_stock",
-        "recommended_order",
+        "month_end_stock",
+        "history_months",
+        TARGET_COLUMN,
+        *RISK_COLUMNS,
+        *prediction_columns,
     ]
-    return predictions[[col for col in keep_cols if col in predictions.columns]]
+    output = enriched[[column for column in output_columns if column in enriched.columns]].copy()
+    output = output.rename(
+        columns={
+            "year_month": "forecast_origin_month",
+            "forecast_month": "year_month",
+            TARGET_COLUMN: "actual_usage",
+        }
+    )
+    if prediction_type == "future":
+        output["actual_usage"] = pd.NA
+
+    output = output.merge(demand_patterns, on=SERIES_KEYS, how="left", validate="many_to_one")
+    output["demand_pattern"] = output["demand_pattern"].fillna("new_series")
+    output = attach_standardization_metadata(output)
+
+    primary_column = _selected_prediction_column(manifest, set(prediction_columns))
+    output["primary_model"] = primary_column
+    output["predicted_usage"] = output[primary_column]
+    output["current_stock"] = output["month_end_stock"].fillna(0.0)
+    output["prediction_type"] = prediction_type
+    output = attach_approved_material_mapping_metadata(output)
+
+    current_month = pd.Timestamp.now().to_period("M").to_timestamp()
+    origin_month = pd.to_datetime(output["forecast_origin_month"])
+    output["data_age_months"] = (
+        (current_month.year - origin_month.dt.year) * 12
+        + current_month.month
+        - origin_month.dt.month
+    )
+    output["is_stale_data"] = output["data_age_months"].gt(1)
+    return add_inventory_recommendations(
+        output,
+        prediction_col="predicted_usage",
+        current_stock_col="current_stock",
+    )
+
+
+def build_prediction_outputs() -> tuple[pd.DataFrame, pd.DataFrame]:
+    manifest = _load_manifest()
+    feature_table = _load_feature_table(manifest)
+    eligible_mask = (
+        feature_table["lag_1"].notna()
+        & feature_table["lag_1"].ge(0)
+        & feature_table["rolling_mean_3"].notna()
+    )
+    demand_patterns = classify_demand_patterns(feature_table)
+
+    test = feature_table[
+        eligible_mask
+        & feature_table[TARGET_COLUMN].notna()
+        & feature_table[TARGET_COLUMN].ge(0)
+        & feature_table["year_month"].ge(pd.Timestamp(TEST_START))
+    ].copy()
+    latest_origin = feature_table.loc[eligible_mask, "year_month"].max()
+    future = feature_table[eligible_mask & feature_table["year_month"].eq(latest_origin)].copy()
+    del feature_table, eligible_mask
+    gc.collect()
+    if test.empty or future.empty:
+        raise ValueError(f"Prediction inputs are empty: test={len(test)}, future={len(future)}")
+
+    backtest = _build_prediction_frame(
+        test,
+        manifest,
+        demand_patterns,
+        prediction_type="backtest",
+    )
+    current_forecast = _build_prediction_frame(
+        future,
+        manifest,
+        demand_patterns,
+        prediction_type="future",
+    )
+    return backtest, current_forecast
+
+
+def build_predictions() -> pd.DataFrame:
+    _, current_forecast = build_prediction_outputs()
+    return current_forecast
 
 
 def run_prediction() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
-    predictions = build_predictions()
-    predictions.to_csv(PREDICTION_PATH, index=False)
-    report = build_evaluation_report(predictions)
+    backtest, current_forecast = build_prediction_outputs()
+    backtest.to_csv(BACKTEST_PREDICTION_PATH, index=False)
+    current_forecast.to_csv(PREDICTION_PATH, index=False)
+    write_classified_prediction_outputs(current_forecast)
+
+    report = build_evaluation_report(backtest)
     report.to_csv(EVALUATION_REPORT_PATH, index=False)
-    LOGGER.info("Saved predictions: %s (%s rows)", PREDICTION_PATH, len(predictions))
+    segment_report = build_segment_evaluation_report(backtest)
+    segment_report.to_csv(EVALUATION_SEGMENT_REPORT_PATH, index=False)
+    LOGGER.info("Saved current forecast: %s (%s rows)", PREDICTION_PATH, len(current_forecast))
+    LOGGER.info("Saved backtest predictions: %s (%s rows)", BACKTEST_PREDICTION_PATH, len(backtest))
     LOGGER.info("Saved evaluation report: %s", EVALUATION_REPORT_PATH)
 
 

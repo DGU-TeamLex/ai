@@ -41,14 +41,20 @@ feature/*: 기능 작업 브랜치, PR 대상은 dev
 
 ```text
 src/data_loader.py              raw_stock DAT 스트리밍 로드
+src/item_normalization.py       품목명·품목군·세부유형·규격 후보 생성
+src/item_enrichment.py          기관별 별칭을 대표 품목으로 집계하고 공식 마스터 매칭
+src/item_classification.py      외부 근거 게이트 기반 승인 분류와 검토 큐 생성
+src/item_integrated_pipeline.py 품목·속성·원자재·상위개념 통합 및 전체/샘플 생성
 src/preprocessing.py            기관·부서·물품별 월간 재고/소비 집계
 src/feature_engineering.py      예측 feature table 생성
+src/material_pipeline.py       원자재·공급위험·수요트리거 후보 생성
 src/modeling/baseline.py        baseline 예측
 src/modeling/training.py        Model A/B/C 학습
 src/modeling/prediction.py      예측 결과 생성
+src/modeling/classified_prediction.py 승인 분류별 예측 집계
 src/modeling/evaluation.py      평가 리포트 생성
 src/modeling/metrics.py         MAE/RMSE/MAPE/SMAPE/WAPE 평가 지표
-src/modeling/inventory_policy.py safety stock / recommended stock 정책
+src/modeling/inventory_policy.py 기본재고 / 위험조정 목표재고 / 발주량 정책
 src/news/                       sample 뉴스 위험 점수 및 세부 weight scoring
 src/commodity/                  sample 원자재 위험 점수
 src/serving/                    AI serving API
@@ -67,6 +73,16 @@ src/dashboard/                  AI 결과 확인용 Streamlit MVP
 ```
 
 물품별 뉴스·원자재 위험은 검수된 `data/mapping/stock_item_material_mapping.csv`만 사용합니다. 매핑이 없으면 임의 원자재를 배정하지 않고 위험 점수를 0으로 둡니다.
+
+재고량 출력은 사용량 예측과 분리됩니다. `predicted_usage`는 다음 달 예상 사용량,
+`base_stock`은 검토주기·리드타임 수요와 안전재고의 합, `target_stock`은 승인 매핑 기반
+위험 버퍼까지 반영한 목표 재고량입니다. 계산식과 API 입력은
+`docs/INVENTORY_QUANTITY_MODEL.md`를 참고합니다.
+
+원자재 후보 생성 규칙은 기존 `94b5663` 통합본과 canonical 저장소
+`wep-stock-item-material-pipeline@74d3982`를 전체 데이터로 비교해 v2.1로 선별 통합했습니다.
+생성 결과는 모두 승인 전 후보입니다. 비교·실행 결과는
+`docs/ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고합니다.
 
 모델 학습, 예측, 평가, 재고 정책 관련 코드는 `src/modeling/` 아래에서만 관리합니다. `src/` 루트에는 데이터 파이프라인 공통 모듈과 앱 진입점만 둡니다.
 
@@ -103,6 +119,7 @@ GET  /api/v1/ai/supply-risk/{itemGroupId}
 GET  /api/v1/ai/inventory-policy
 GET  /api/v1/ai/inventory-policy/{institutionId}/{standardCode}
 GET  /api/v1/ai/order-recommendations
+GET  /api/v1/ai/predictions/by-subtype
 POST /api/v1/ai/recommend-order
 ```
 
@@ -110,6 +127,7 @@ Legacy compatibility:
 
 ```text
 GET  /predictions
+GET  /predictions/by-subtype
 POST /recommend-order
 ```
 
@@ -132,13 +150,49 @@ python -m src.main
 
 ```bash
 python -m src.preprocessing
+python -m src.item_integrated_pipeline --with-excel --sample-size 1000
 python -m src.news.news_risk_scorer
 python -m src.commodity.commodity_risk_scorer
 python -m src.feature_engineering
 python -m src.modeling.training
 python -m src.modeling.prediction
+python -m src.modeling.classified_prediction
 python -m src.modeling.evaluation
 ```
+
+품목 분류 전체 재실행:
+
+```bash
+python -m src.item_normalization --full
+python -m src.item_enrichment build-worklist
+python -m src.item_enrichment match
+python -m src.item_classification fetch-official-web --delay 0.15
+python -m src.item_integrated_pipeline --with-excel --sample-size 1000
+python -m src.item_review_export
+python -m src.modeling.classified_prediction
+```
+
+분류 상태, 승인 수, 외부 근거와 검토 큐는
+`docs/ITEM_CLASSIFICATION_V1_RESULT.md`를 참고합니다. 현재 작업 인수인계와 우선 검토용
+1,000건 설명은 `docs/ITEM_CLASSIFICATION_HANDOFF_2026-07-16.md`에 정리되어 있습니다.
+
+## Usage Forecast Validation
+
+사용량 예측은 표준 품목명이 아니라 `기관 + 부서 + 내부 물품코드` 시계열을 사용합니다.
+품목 표준화가 미완료여도 로컬 예측은 가능하지만 기관 간 통합 및 뉴스·원자재 연결에는
+승인된 표준 ID가 필요합니다.
+
+기준선 6종과 LightGBM L1/Tweedie를 확장형 시계열 교차검증으로 비교하며, 검증 WAPE가
+가장 낮은 방법을 운영 기본값으로 선택합니다. 뉴스·원자재 값이 모두 0이면 관련 모델은
+학습하지 않고 보고서에 제외 사유를 기록합니다.
+
+현재 데이터 평가 결과와 제한사항은
+`docs/USAGE_FORECAST_MODEL_EVALUATION.md`를 참고합니다.
+
+승인된 품목 분류가 들어오면 재학습 없이 로컬 예측을
+`품목 + 세부 유형 품목 + 규격 + 단위`로 집계합니다. 분류와 taxonomy가 모두
+`review_status=approved`여야 하며 서로 다른 단위는 자동 환산하거나 합산하지 않습니다.
+입력 계약과 실행 방법은 `docs/CLASSIFIED_FORECAST_INTEGRATION.md`를 참고합니다.
 
 ## News Risk Weighting
 
@@ -182,20 +236,29 @@ streamlit run src/dashboard/app.py
 ## Generated Outputs
 
 ```text
-data/processed/stock_monthly.csv
-data/processed/stock_model_dataset.csv
-outputs/stock_feature_table.csv
+data/processed/stock_monthly.parquet
+data/processed/stock_model_dataset.parquet
+data/processed/item_material_pipeline/material_pipeline_run_report.json
+outputs/stock_feature_table.parquet
 outputs/stock_news_risk_scores.csv
 outputs/stock_news_article_scores.csv
 outputs/stock_commodity_risk_scores.csv
+outputs/stock_forecast_data_quality.json
+outputs/stock_model_cv_report.csv
 outputs/stock_model_validation_report.csv
+outputs/stock_backtest_predictions.csv
 outputs/stock_predictions.csv
+outputs/stock_predictions_by_subtype.csv
+outputs/stock_predictions_by_subtype_quality.json
 outputs/stock_evaluation_report.csv
+outputs/stock_evaluation_by_segment.csv
 models/stock_model_a_usage_only.pkl
-models/stock_model_b_news.pkl
-models/stock_model_c_news_commodity.pkl
+models/stock_model_a_usage_tweedie.pkl
 models/stock_manifest.json
 ```
+
+`stock_model_b_news.pkl`과 `stock_model_c_news_commodity.pkl`은 검증된 위험 feature가 실제로
+존재할 때만 생성됩니다.
 
 ## Data/Artifact Policy
 

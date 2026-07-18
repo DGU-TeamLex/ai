@@ -16,11 +16,17 @@ The system should keep these boundaries clear:
 
 ```text
 src/data_loader.py              quote-aware raw_stock DAT loading
+src/item_normalization.py       item name, group, subtype, and specification candidates
+src/item_enrichment.py          representative item aggregation and official master matching
+src/item_classification.py      evidence-gated approved classifications and review queue
+src/item_integrated_pipeline.py classification, material, and parent-concept integration
 src/preprocessing.py            monthly stock and consumption aggregation
 src/feature_engineering.py      feature table assembly
+src/material_pipeline.py        material, supply-risk, and demand-trigger candidates
 src/modeling/baseline.py        baseline predictors
 src/modeling/training.py        Model A/B/C training
 src/modeling/prediction.py      batch prediction output
+src/modeling/classified_prediction.py approved subtype-level prediction aggregation
 src/modeling/evaluation.py      prediction evaluation report
 src/modeling/metrics.py         regression metrics
 src/modeling/inventory_policy.py stock/order policy

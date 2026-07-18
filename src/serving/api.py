@@ -7,7 +7,12 @@ from uuid import uuid4
 import pandas as pd
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 
-from ..config import COMMODITY_RISK_SCORE_PATH, EVALUATION_REPORT_PATH, PREDICTION_PATH
+from ..config import (
+    CLASSIFIED_PREDICTION_PATH,
+    COMMODITY_RISK_SCORE_PATH,
+    EVALUATION_REPORT_PATH,
+    PREDICTION_PATH,
+)
 from ..modeling.inventory_policy import add_inventory_recommendations
 from .schemas import ForecastRunRequest, RecommendOrderRequest
 
@@ -73,6 +78,36 @@ def _prediction_rows() -> pd.DataFrame:
             }
         ]
     )
+
+
+def _classified_prediction_rows() -> pd.DataFrame:
+    if not CLASSIFIED_PREDICTION_PATH.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "classified predictions not found. Run "
+                "python -m src.modeling.classified_prediction first."
+            ),
+        )
+    df = pd.read_csv(
+        CLASSIFIED_PREDICTION_PATH,
+        dtype={
+            "institution_code": str,
+            "department": str,
+            "item_group_id": str,
+            "item_family_id": str,
+            "item_subtype_id": str,
+            "normalized_specification": str,
+            "unit_code": str,
+        },
+    )
+    if "year_month" in df.columns:
+        df["year_month"] = pd.to_datetime(df["year_month"]).dt.strftime("%Y-%m")
+    return df
+
+
+def _records_without_nan(df: pd.DataFrame) -> list[dict]:
+    return df.astype(object).where(df.notna(), None).to_dict(orient="records")
 
 
 def _institution_id(row: pd.Series) -> str:
@@ -359,35 +394,128 @@ def recommend_order(payload: RecommendOrderRequest):
     result = df[mask].copy()
     if result.empty:
         _not_found("예측 결과가 없습니다.")
+    if (
+        "is_stale_data" in result.columns
+        and result["is_stale_data"].astype(str).str.lower().eq("true").any()
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Prediction is stale. Load newer raw_stock data and rerun the "
+                "forecast pipeline."
+            ),
+        )
+
     result["current_stock"] = payload.current_stock
     result["lead_time_days"] = payload.lead_time_days
-    result = add_inventory_recommendations(result, "predicted_usage", "current_stock", "lead_time_days")
+    result["review_period_days"] = payload.review_period_days
+    result["on_order_qty"] = payload.on_order_qty
+    result["backorder_qty"] = payload.backorder_qty
+    result = add_inventory_recommendations(
+        result,
+        prediction_col="predicted_usage",
+        current_stock_col="current_stock",
+        lead_time_days_col="lead_time_days",
+        review_period_days_col="review_period_days",
+        on_order_qty_col="on_order_qty",
+        backorder_qty_col="backorder_qty",
+    )
     row = result.iloc[0]
+    mapping_count = pd.to_numeric(
+        pd.Series([row.get("approved_material_mapping_count", 0)]),
+        errors="coerce",
+    ).fillna(0).iloc[0]
+    has_approved_mapping = str(
+        row.get("has_approved_material_mapping", "")
+    ).strip().lower() in {"true", "t", "1", "yes", "y"}
     return {
         "predicted_usage": float(row["predicted_usage"]),
+        "protection_period_days": float(row["protection_period_days"]),
+        "protection_period_demand": float(row["protection_period_demand"]),
+        "safety_stock": float(row["safety_stock"]),
+        "base_stock": float(row["base_stock"]),
+        "demand_risk_buffer": float(row["demand_risk_buffer"]),
+        "supply_risk_buffer": float(row["supply_risk_buffer"]),
+        "material_risk_buffer": float(row["material_risk_buffer"]),
+        "risk_buffer": float(row["risk_buffer"]),
+        "target_stock": float(row["target_stock"]),
         "recommended_stock": float(row["recommended_stock"]),
         "current_stock": float(row["current_stock"]),
+        "on_order_qty": float(row["on_order_qty"]),
+        "backorder_qty": float(row["backorder_qty"]),
+        "inventory_position": float(row["inventory_position"]),
         "recommended_order": float(row["recommended_order"]),
-        "risk_summary": "AI 예측값과 외부 위험 점수를 이용해 권장 발주량을 계산했습니다.",
+        "risk_scores": {
+            "demand": float(row["demand_risk_score"]),
+            "supply": float(row["supply_risk_score"]),
+            "material": float(row["material_risk_score"]),
+            "external": float(row["external_risk_score"]),
+        },
+        "approved_material_mapping_count": int(mapping_count),
+        "has_approved_material_mapping": has_approved_mapping,
+        "risk_summary": "승인된 매핑 기반 수요·공급·원자재 위험 버퍼를 반영했습니다.",
     }
 
 
 @app.get("/predictions")
-def legacy_predictions(
-    yyyymm: str,
-    item_code: str,
-    institution_code: str,
-    department: str | None = None,
+def get_predictions(
+    yyyymm: str = Query(...),
+    item_code: str = Query(...),
+    institution_code: str = Query(...),
+    department: str | None = Query(default=None),
 ):
-    return forecasts(
-        institutionId=institution_code,
-        standardCode=item_code,
-        department=department,
-        from_=yyyymm,
-        to=yyyymm,
-        page=1,
-        size=50,
-    )["content"]
+    df = _prediction_rows()
+    mask = (
+        (df["year_month"] == yyyymm)
+        & (df["item_code"] == str(item_code))
+        & (df["institution_code"] == str(institution_code))
+    )
+    if department is not None:
+        mask &= df["department"] == str(department)
+    result = df[mask]
+    if result.empty:
+        _not_found("예측 결과가 없습니다.")
+    return _records_without_nan(result.head(50))
+
+
+@app.get("/predictions/by-subtype")
+@router.get("/predictions/by-subtype")
+def get_predictions_by_subtype(
+    yyyymm: str = Query(...),
+    institution_code: str = Query(...),
+    department: str | None = Query(default=None),
+    item_group_id: str | None = Query(default=None),
+    item_family_id: str | None = Query(default=None),
+    item_subtype_id: str | None = Query(default=None),
+    normalized_specification: str | None = Query(default=None),
+    unit_code: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+):
+    df = _classified_prediction_rows()
+    mask = (df["year_month"] == yyyymm) & (
+        df["institution_code"] == str(institution_code)
+    )
+    filters = {
+        "department": department,
+        "item_group_id": item_group_id,
+        "item_family_id": item_family_id,
+        "item_subtype_id": item_subtype_id,
+        "normalized_specification": normalized_specification,
+        "unit_code": unit_code,
+    }
+    for column, value in filters.items():
+        if value is None:
+            continue
+        if column not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Classified prediction scope does not contain {column}",
+            )
+        mask &= df[column].astype(str) == str(value)
+    result = df[mask]
+    if result.empty:
+        _not_found("세부유형 예측 결과가 없습니다.")
+    return _records_without_nan(result.head(limit))
 
 
 @app.post("/recommend-order")

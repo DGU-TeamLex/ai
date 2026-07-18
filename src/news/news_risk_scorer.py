@@ -13,6 +13,7 @@ from ..config import (
     OUTPUT_DIR,
     STOCK_MATERIAL_MAPPING_PATH,
 )
+from ..material_mapping import load_approved_stock_material_mapping
 from ..utils import ensure_dirs, setup_logging
 from .news_collector import collect_news
 from .news_filter import filter_relevant_news
@@ -139,14 +140,11 @@ def _ensure_country_weight() -> pd.DataFrame:
 
 
 def _load_stock_mapping() -> pd.DataFrame:
-    required = {"stock_item_key", "item_name", "related_material", "mapping_weight"}
     if not STOCK_MATERIAL_MAPPING_PATH.exists():
         LOGGER.warning("Stock item material mapping not found: %s", STOCK_MATERIAL_MAPPING_PATH)
-        return pd.DataFrame(columns=sorted(required))
-    mapping = pd.read_csv(STOCK_MATERIAL_MAPPING_PATH)
-    missing = required - set(mapping.columns)
-    if missing:
-        raise ValueError(f"Stock item material mapping is missing columns: {sorted(missing)}")
+    mapping = load_approved_stock_material_mapping()
+    if mapping.empty:
+        LOGGER.warning("No approved stock item material mappings are available")
     return mapping
 
 

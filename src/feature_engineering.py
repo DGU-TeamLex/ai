@@ -13,20 +13,35 @@ from .config import (
 )
 from .data_loader import load_stock_data
 from .features import create_features
+from .modeling.data_quality import write_forecast_data_quality_report
 from .utils import ensure_dirs
 
 
 LOGGER = logging.getLogger(__name__)
 RISK_JOIN_KEYS = ["year_month", "stock_item_key"]
+MONTHLY_FEATURE_COLUMNS = [
+    "year_month",
+    "institution_code",
+    "department",
+    "item_code",
+    "item_name",
+    "stock_item_key",
+    "consumption_qty",
+    "inbound_qty",
+    "month_end_stock",
+    "stockout_rate",
+    "disposal_qty",
+    "auto_disposal_adjustment_qty",
+]
 
 
 def _load_monthly_stock() -> pd.DataFrame:
     if MONTHLY_STOCK_PATH.exists():
-        return pd.read_csv(MONTHLY_STOCK_PATH, parse_dates=["year_month", "first_date", "last_date"])
+        return pd.read_parquet(MONTHLY_STOCK_PATH, columns=MONTHLY_FEATURE_COLUMNS)
     monthly_stock = load_stock_data()
     ensure_dirs(PROCESSED_DATA_DIR)
-    monthly_stock.to_csv(MONTHLY_STOCK_PATH, index=False)
-    return monthly_stock
+    monthly_stock.to_parquet(MONTHLY_STOCK_PATH, index=False, compression="zstd")
+    return monthly_stock[MONTHLY_FEATURE_COLUMNS]
 
 
 def _normalize_yyyymm(df: pd.DataFrame, column: str = "STD_YYYYMM") -> pd.DataFrame:
@@ -45,6 +60,9 @@ def _merge_risk(
         return feature_table
 
     risk = _normalize_yyyymm(pd.read_csv(path))
+    if risk.empty:
+        feature_table[value_columns] = 0.0
+        return feature_table
     if not set(RISK_JOIN_KEYS).issubset(risk.columns):
         LOGGER.warning("Ignoring incompatible risk output without raw_stock keys: %s", path)
         feature_table[value_columns] = 0.0
@@ -74,15 +92,20 @@ def build_feature_table() -> pd.DataFrame:
             "use_rolling_std_3": "rolling_std_3",
             "use_rolling_std_6": "rolling_std_6",
             "use_rolling_std_12": "rolling_std_12",
+            "use_rolling_median_3": "rolling_median_3",
+            "use_expanding_mean": "expanding_mean",
+            "use_zero_rate_6": "zero_rate_6",
+            "use_zero_rate_12": "zero_rate_12",
         }
     )
     feature_table["is_winter"] = feature_table["month"].isin([12, 1, 2]).astype(int)
     feature_table["is_summer"] = feature_table["month"].isin([6, 7, 8]).astype(int)
     feature_table["same_month_last_year"] = feature_table["lag_12"]
+    lag_1 = feature_table["lag_1"].astype("float64")
+    lag_12 = feature_table["lag_12"].astype("float64")
     feature_table["yoy_growth_rate"] = (
-        (feature_table["lag_1"] - feature_table["lag_12"])
-        / feature_table["lag_12"].replace(0, pd.NA)
-    ).astype("float64").fillna(0.0)
+        ((lag_1 - lag_12) / lag_12.where(lag_12.ne(0))).fillna(0.0).astype("float32")
+    )
 
     news_columns = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
     commodity_columns = ["commodity_risk", "material_return_30d", "material_volatility_30d"]
@@ -90,15 +113,21 @@ def build_feature_table() -> pd.DataFrame:
     feature_table = _merge_risk(feature_table, COMMODITY_RISK_SCORE_PATH, commodity_columns)
     feature_table[[*news_columns, *commodity_columns]] = feature_table[
         [*news_columns, *commodity_columns]
-    ].fillna(0.0)
+    ].fillna(0.0).astype("float32")
     return feature_table.sort_values(GROUP_KEYS).reset_index(drop=True)
 
 
 def run_feature_engineering() -> None:
     ensure_dirs(OUTPUT_DIR, PROCESSED_DATA_DIR)
-    feature_table = build_feature_table().dropna(subset=["target_usage", "lag_1", "rolling_mean_3"])
-    feature_table.to_csv(FEATURE_TABLE_PATH, index=False)
-    feature_table.to_csv(PROCESSED_DATA_DIR / "stock_model_dataset.csv", index=False)
+    feature_table = build_feature_table()
+    write_forecast_data_quality_report(feature_table, feature_table)
+    feature_table = feature_table.dropna(subset=["lag_1", "rolling_mean_3"])
+    feature_table.to_parquet(FEATURE_TABLE_PATH, index=False, compression="zstd")
+    feature_table.to_parquet(
+        PROCESSED_DATA_DIR / "stock_model_dataset.parquet",
+        index=False,
+        compression="zstd",
+    )
     LOGGER.info("Saved raw_stock feature table: %s (%s rows)", FEATURE_TABLE_PATH, len(feature_table))
 
 
