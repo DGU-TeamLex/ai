@@ -21,10 +21,13 @@ env/
 device/
 raw_stock/
 data/raw/
+data/external/
 data/processed/
 data/sample/
 outputs/
 models/
+pipelines/item_material/output_full/
+pipelines/item_material/research/
 
 # Keep editable mapping seed files
 !data/mapping/

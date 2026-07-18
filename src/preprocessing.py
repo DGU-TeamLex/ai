@@ -12,7 +12,7 @@ def run_preprocessing() -> None:
     setup_logging()
     ensure_dirs(PROCESSED_DATA_DIR, OUTPUT_DIR)
     monthly_stock = load_stock_data()
-    monthly_stock.to_csv(MONTHLY_STOCK_PATH, index=False)
+    monthly_stock.to_parquet(MONTHLY_STOCK_PATH, index=False, compression="zstd")
     LOGGER.info("Saved monthly stock table: %s (%s rows)", MONTHLY_STOCK_PATH, len(monthly_stock))
 
 
