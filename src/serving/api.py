@@ -14,6 +14,10 @@ from ..config import (
     PREDICTION_PATH,
 )
 from ..modeling.inventory_policy import add_inventory_recommendations
+from ..module_c.supply_risk_policy import (
+    calculate_level_based_safety_stock,
+    derive_supply_risk_level,
+)
 from .schemas import ForecastRunRequest, RecommendOrderRequest
 
 
@@ -59,23 +63,15 @@ def _prediction_rows() -> pd.DataFrame:
         df["item_code"] = df["item_code"].astype(str)
         return df
     return pd.DataFrame(
-        [
-            {
-                "year_month": "2026-07",
-                "institution_code": "sample_institution",
-                "department": "sample_department",
-                "item_code": "USE0000001",
-                "item_name": "sample stock item",
-                "stock_item_key": "sample_institution::sample_department::USE0000001",
-                "actual_usage": 0.0,
-                "predicted_usage": 8.3,
-                "recommended_stock": 19.8,
-                "external_risk_score": 0.42,
-                "disease_news_risk": 0.18,
-                "supply_news_risk": 0.51,
-                "commodity_risk": 0.34,
-                "primary_model": "sample_ai_forecast",
-            }
+        columns=[
+            "year_month",
+            "institution_code",
+            "department",
+            "item_code",
+            "item_name",
+            "stock_item_key",
+            "predicted_usage",
+            "primary_model",
         ]
     )
 
@@ -276,31 +272,30 @@ def supply_risk(level: str | None = None, page: int = 1, size: int = 50):
                     "source": "commodity_risk_scores.csv",
                 }
             )
-    if not rows:
-        rows = [
-            {
-                "itemGroupId": "ig_plastic_consumable",
-                "date": "2026-07",
-                "riskScore": 82,
-                "level": "CRITICAL",
-                "confidence": 0.73,
-                "source": "sample",
-            }
-        ]
     return _page(rows, page, size)
 
 
 @router.get("/supply-risk/{item_group_id}")
 def supply_risk_detail(item_group_id: str):
+    commodity = _read_csv(COMMODITY_RISK_SCORE_PATH)
+    if commodity.empty or "stock_item_key" not in commodity.columns:
+        _not_found("공급위험 결과가 없습니다.")
+    matched = commodity[
+        commodity["stock_item_key"].astype(str).eq(str(item_group_id))
+    ]
+    if matched.empty:
+        _not_found("해당 품목의 공급위험 결과가 없습니다.")
+    latest = matched.sort_values("STD_YYYYMM").iloc[-1]
+    score = float(latest.get("commodity_risk", 0.0))
     return {
         "itemGroupId": item_group_id,
-        "date": "2026-07",
-        "riskScore": 82,
-        "level": "CRITICAL",
-        "leadTimeEstimate": 21,
-        "confidence": 0.73,
-        "topContributors": [{"materialType": "naphtha", "contrib": 0.51, "lagDays": 14}],
-        "evidenceNews": [{"newsId": "sample_001", "title": "원자재 공급 위험 sample signal", "url": "sample://risk", "publishedAt": "2026-06-27"}],
+        "date": str(latest.get("STD_YYYYMM", "")),
+        "riskScore": round(score * 100, 2),
+        "level": _risk_level(score * 100),
+        "confidence": float(latest.get("market_signal_confidence", 0.0)),
+        "marketFactorIds": str(latest.get("market_factor_ids", "")),
+        "eventCodes": str(latest.get("market_event_codes", "")),
+        "source": "stock_commodity_risk_scores.csv",
     }
 
 
@@ -321,23 +316,63 @@ def inventory_policy(
         df = df[df["department"].astype(str) == department]
     rows = []
     for _, row in df.head(500).iterrows():
-        mu = float(row.get("predicted_usage", 0))
-        sigma = max(mu * 0.5, 1)
-        l_used = 1.25
-        z_used = 1.65 if float(row.get("external_risk_score", 0)) < 0.5 else 2.05
-        ss = z_used * sigma * (l_used**0.5)
-        rop = mu * l_used + ss
+        risk_policy = derive_supply_risk_level(
+            row.get("supply_risk_meta_code", row.get("raw_material_risk_meta_code", "")),
+            context=row.to_dict(),
+        )
+        required = ["mean_daily_usage", "daily_demand_stddev", "lead_time_days"]
+        exact_inputs = all(
+            column in row.index and pd.notna(row.get(column)) for column in required
+        )
+        calculated = None
+        if exact_inputs:
+            calculated = calculate_level_based_safety_stock(
+                mean_daily_usage=float(row["mean_daily_usage"]),
+                daily_demand_stddev=float(row["daily_demand_stddev"]),
+                lead_time_days=float(row["lead_time_days"]),
+                supply_risk_level=risk_policy["baseline_supply_risk_level"],
+            )
         rows.append(
             {
                 "institutionId": _institution_id(row),
                 "standardCode": _standard_code(row),
                 "department": str(row.get("department", "")),
-                "SS": round(ss, 2),
-                "ROP": round(rop, 2),
-                "mu": round(mu, 2),
-                "L_used": l_used,
-                "z_used": z_used,
-                "assumedLeadTime": True,
+                "SS": round(float(calculated["safety_stock"]), 2) if calculated else None,
+                "ROP": round(float(calculated["reorder_point"]), 2) if calculated else None,
+                "targetStock": (
+                    float(row["target_stock"])
+                    if "target_stock" in row.index and pd.notna(row.get("target_stock"))
+                    else None
+                ),
+                "meanDailyUsage": (
+                    float(calculated["lead_time_demand"])
+                    / float(calculated["effective_lead_time_days"])
+                    if calculated and float(calculated["effective_lead_time_days"]) > 0
+                    else None
+                ),
+                "dailyDemandStddev": (
+                    float(row["daily_demand_stddev"]) if calculated else None
+                ),
+                "leadTimeDays": (
+                    float(row["lead_time_days"]) if calculated else None
+                ),
+                "effectiveLeadTimeDays": (
+                    float(calculated["effective_lead_time_days"])
+                    if calculated
+                    else None
+                ),
+                "zUsed": float(calculated["z_value"]) if calculated else None,
+                "baselineSupplyRiskLevel": risk_policy[
+                    "baseline_supply_risk_level"
+                ],
+                "supplyRiskPolicyNeedsReview": risk_policy[
+                    "supply_risk_policy_needs_review"
+                ],
+                "calculationStatus": (
+                    "CALCULATED" if calculated else "INSUFFICIENT_DAILY_VARIANCE_OR_LEAD_TIME"
+                ),
+                "inventoryPolicyMethod": "level_based_daily_ss_rop",
+                "assumedLeadTime": False,
                 "generatedAt": _now(),
             }
         )
@@ -350,12 +385,23 @@ def inventory_policy_detail(institution_id: str, standard_code: str):
     if not rows:
         _not_found("적정재고 계산 결과가 없습니다.")
     row = rows[0]
+    sensitivity = []
+    if row["calculationStatus"] == "CALCULATED":
+        sensitivity = [
+            {
+                "scenario": "Lx1.2",
+                "note": "상세 민감도는 명시적 일별 분산 입력으로 재계산 필요",
+            },
+            {
+                "scenario": "Lx1.5",
+                "note": "상세 민감도는 명시적 일별 분산 입력으로 재계산 필요",
+            },
+        ]
     return row | {
-        "calculationReason": "AI 예측 사용량, 공급위험 점수, 리드타임 가정값을 반영했습니다.",
-        "sensitivity": [
-            {"scenario": "Lx1.2", "SS": round(row["SS"] * 1.1, 2), "ROP": round(row["ROP"] * 1.1, 2)},
-            {"scenario": "Lx1.5", "SS": round(row["SS"] * 1.25, 2), "ROP": round(row["ROP"] * 1.25, 2)},
-        ],
+        "calculationReason": (
+            "일별 평균사용량, 일별 수요표준편차, 리드타임과 결정론적 기준 공급레벨을 사용합니다."
+        ),
+        "sensitivity": sensitivity,
     }
 
 
@@ -372,8 +418,10 @@ def order_recommendations(
         {
             "institutionId": row["institutionId"],
             "standardCode": row["standardCode"],
-            "recommendedOrder": max(round(row["ROP"] - row["mu"], 2), 0),
-            "reason": "AI predicted usage and ROP policy",
+            "recommendedOrder": None,
+            "reason": (
+                "현재고·입고예정·미납수량이 포함된 recommend-order 계약에서 계산해야 합니다."
+            ),
             "generatedAt": row["generatedAt"],
         }
         for row in policies
@@ -430,15 +478,43 @@ def recommend_order(payload: RecommendOrderRequest):
     ).strip().lower() in {"true", "t", "1", "yes", "y"}
     return {
         "predicted_usage": float(row["predicted_usage"]),
+        "risk_adjusted_predicted_usage": float(
+            row.get("risk_adjusted_predicted_usage", row["predicted_usage"])
+        ),
         "protection_period_days": float(row["protection_period_days"]),
         "protection_period_demand": float(row["protection_period_demand"]),
         "safety_stock": float(row["safety_stock"]),
+        "risk_adjusted_safety_stock": float(
+            row.get("risk_adjusted_safety_stock", row["safety_stock"])
+        ),
         "base_stock": float(row["base_stock"]),
         "demand_risk_buffer": float(row["demand_risk_buffer"]),
         "supply_risk_buffer": float(row["supply_risk_buffer"]),
         "material_risk_buffer": float(row["material_risk_buffer"]),
         "risk_buffer": float(row["risk_buffer"]),
         "target_stock": float(row["target_stock"]),
+        "effective_lead_time_days": float(
+            row.get("effective_lead_time_days", row["lead_time_days"])
+        ),
+        "dynamic_safety_stock_rate": float(
+            row.get("dynamic_safety_stock_rate", 0.0)
+        ),
+        "module_c_policy_applied": bool(row.get("module_c_policy_applied", False)),
+        "module_c_demand_embedded_in_forecast": bool(
+            row.get("module_c_demand_embedded_in_forecast", False)
+        ),
+        "module_c_policy_demand_uplift_applied": bool(
+            row.get("module_c_policy_demand_uplift_applied", False)
+        ),
+        "module_c_config_version": str(
+            row.get("module_c_config_version", "legacy-risk-policy")
+        ),
+        "module_c_calibration_status": str(
+            row.get("module_c_calibration_status", "legacy-policy")
+        ),
+        "inventory_policy_method": str(
+            row.get("inventory_policy_method", "legacy_fixed_rate_target_stock")
+        ),
         "recommended_stock": float(row["recommended_stock"]),
         "current_stock": float(row["current_stock"]),
         "on_order_qty": float(row["on_order_qty"]),

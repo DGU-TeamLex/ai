@@ -75,6 +75,15 @@ IDENTIFIER_COLUMNS = {
 
 NEWS_COLUMNS = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
 COMMODITY_COLUMNS = ["commodity_risk", "material_return_30d", "material_volatility_30d"]
+MODULE_C_COLUMNS = [
+    "module_c_demand_risk",
+    "module_c_supply_news_risk",
+    "module_c_material_news_risk",
+    "module_c_market_price_risk",
+    "module_c_supply_risk",
+    "module_c_total_risk",
+    "module_c_signal_confidence",
+]
 
 
 def _load_feature_table() -> pd.DataFrame:
@@ -95,12 +104,19 @@ def split_time_series(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     return train, valid, test
 
 
-def select_feature_columns(df: pd.DataFrame, use_news: bool, use_commodity: bool) -> list[str]:
+def select_feature_columns(
+    df: pd.DataFrame,
+    use_news: bool,
+    use_commodity: bool,
+    use_module_c: bool,
+) -> list[str]:
     excluded = CURRENT_MONTH_COLUMNS | IDENTIFIER_COLUMNS | {TARGET_COLUMN, "year_month"}
     if not use_news:
         excluded.update(NEWS_COLUMNS)
     if not use_commodity:
         excluded.update(COMMODITY_COLUMNS)
+    if not use_module_c:
+        excluded.update(MODULE_C_COLUMNS)
     return [col for col in df.columns if col not in excluded and not col.endswith("_pred")]
 
 
@@ -218,6 +234,8 @@ def _missing_external_signal(df: pd.DataFrame, options: dict) -> str | None:
         return "news risk features contain no non-zero observations"
     if options["use_commodity"] and not df[COMMODITY_COLUMNS].fillna(0).abs().to_numpy().any():
         return "commodity risk features contain no non-zero observations"
+    if options.get("use_module_c", False) and not df[MODULE_C_COLUMNS].fillna(0).abs().to_numpy().any():
+        return "Module C risk features contain no non-zero observations"
     return None
 
 
@@ -242,6 +260,9 @@ def _baseline_validation_rows(valid: pd.DataFrame) -> list[dict]:
                 "objective": None,
                 "status": "ready",
                 "skip_reason": None,
+                "uses_news": False,
+                "uses_commodity": False,
+                "uses_module_c": False,
                 "n_features": 1,
                 **regression_metrics(
                     baseline_predictions[TARGET_COLUMN],
@@ -300,7 +321,7 @@ def run_training() -> None:
     trained_specs = {}
     for name, options in MODEL_VARIANTS.items():
         skip_reason = None
-        if options["use_news"] or options["use_commodity"]:
+        if options["use_news"] or options["use_commodity"] or options.get("use_module_c", False):
             signal_reference = feature_table[
                 feature_table["year_month"].le(pd.Timestamp(TRAIN_END))
             ]
@@ -315,6 +336,9 @@ def run_training() -> None:
                     "objective": options["objective"],
                     "status": "skipped",
                     "skip_reason": skip_reason,
+                    "uses_news": bool(options["use_news"]),
+                    "uses_commodity": bool(options["use_commodity"]),
+                    "uses_module_c": bool(options.get("use_module_c", False)),
                     "n_features": 0,
                 }
             )
@@ -325,6 +349,7 @@ def run_training() -> None:
             feature_table,
             use_news=options["use_news"],
             use_commodity=options["use_commodity"],
+            use_module_c=options.get("use_module_c", False),
         )
         fold_actuals = []
         fold_predictions = []
@@ -360,6 +385,9 @@ def run_training() -> None:
                     "objective": options["objective"],
                     "status": "ready",
                     "skip_reason": None,
+                    "uses_news": bool(options["use_news"]),
+                    "uses_commodity": bool(options["use_commodity"]),
+                    "uses_module_c": bool(options.get("use_module_c", False)),
                     "n_features": len(bundle["feature_cols"]),
                     **bundle["validation_metrics"],
                 }
@@ -384,6 +412,9 @@ def run_training() -> None:
             "objective": options["objective"],
             "status": "ready",
             "skip_reason": None,
+            "uses_news": bool(options["use_news"]),
+            "uses_commodity": bool(options["use_commodity"]),
+            "uses_module_c": bool(options.get("use_module_c", False)),
             "n_features": len(feature_cols),
             **validation_metrics,
         }

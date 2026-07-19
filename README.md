@@ -8,7 +8,7 @@ WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** �
 raw_stock 일별 재고·출고 데이터 전처리
 → 수요 예측 feature 생성
 → baseline / ML 모델 학습
-→ 뉴스·원자재 위험 점수 생성
+→ 뉴스·원자재 위험 점수와 모듈 C 승인 경로 생성
 → 예측 결과 및 재고 권고 산출
 → AI serving API 제공
 ```
@@ -49,14 +49,17 @@ src/preprocessing.py            기관·부서·물품별 월간 재고/소비 �
 src/feature_engineering.py      예측 feature table 생성
 src/material_pipeline.py       원자재·공급위험·수요트리거 후보 생성
 src/modeling/baseline.py        baseline 예측
-src/modeling/training.py        Model A/B/C 학습
+src/modeling/training.py        Model A/B/C와 모듈 C challenger 학습
 src/modeling/prediction.py      예측 결과 생성
 src/modeling/classified_prediction.py 승인 분류별 예측 집계
 src/modeling/evaluation.py      평가 리포트 생성
 src/modeling/metrics.py         MAE/RMSE/MAPE/SMAPE/WAPE 평가 지표
 src/modeling/inventory_policy.py 기본재고 / 위험조정 목표재고 / 발주량 정책
-src/news/                       sample 뉴스 위험 점수 및 세부 weight scoring
-src/commodity/                  sample 원자재 위험 점수
+src/news/                       CSV/GDELT 뉴스 수집 및 세부 weight scoring
+src/commodity/                  CSV/API 가격 수집 및 원자재 위험 점수
+src/module_c/                   외부 위험 결합·승인 게이트·감사·알림
+src/module_c/supply_risk_policy.py 공급 메타코드 기준레벨 재도출·SS/ROP 단위 계약
+src/module_c/supply_risk_anomaly_filter.py 공급위험 오류 PASS/REVIEW/BLOCK 품질 게이트
 src/serving/                    AI serving API
 src/dashboard/                  AI 결과 확인용 Streamlit MVP
 ```
@@ -77,7 +80,8 @@ src/dashboard/                  AI 결과 확인용 Streamlit MVP
 재고량 출력은 사용량 예측과 분리됩니다. `predicted_usage`는 다음 달 예상 사용량,
 `base_stock`은 검토주기·리드타임 수요와 안전재고의 합, `target_stock`은 승인 매핑 기반
 위험 버퍼까지 반영한 목표 재고량입니다. 계산식과 API 입력은
-`docs/INVENTORY_QUANTITY_MODEL.md`를 참고합니다.
+`docs/INVENTORY_QUANTITY_MODEL.md`, 외부 신호와 승인 경로는
+`docs/MODULE_C_RISK_ADJUSTMENT.md`를 참고합니다.
 
 원자재 후보 생성 규칙은 기존 `94b5663` 통합본과 canonical 저장소
 `wep-stock-item-material-pipeline@74d3982`를 전체 데이터로 비교해 v2.1로 선별 통합했습니다.
@@ -153,6 +157,7 @@ python -m src.preprocessing
 python -m src.item_integrated_pipeline --with-excel --sample-size 1000
 python -m src.news.news_risk_scorer
 python -m src.commodity.commodity_risk_scorer
+python -m src.module_c.pipeline
 python -m src.feature_engineering
 python -m src.modeling.training
 python -m src.modeling.prediction
@@ -227,6 +232,20 @@ material_news_risk
 total_news_risk
 ```
 
+## Module C Providers
+
+운영 기본값은 뉴스·가격 모두 `disabled`입니다. `.env`에서 실제 공급자를 명시해야 하며
+`sample`은 합성 smoke test에만 사용합니다.
+
+```text
+NEWS_PROVIDER=csv | gdelt
+COMMODITY_PROVIDER=csv | alpha_vantage | fred | nasdaq_data_link
+COMMODITY_ALLOW_SAMPLE_FALLBACK=false
+```
+
+직접 나프타/선물 시계열은 계약 CSV 또는 접근 권한이 있는 데이터셋을 우선 사용하고,
+Brent 같은 대리변수는 `proxy_quality`와 전파 가중치를 낮춰 별도 감사합니다.
+
 ## Dashboard
 
 ```bash
@@ -243,6 +262,20 @@ outputs/stock_feature_table.parquet
 outputs/stock_news_risk_scores.csv
 outputs/stock_news_article_scores.csv
 outputs/stock_commodity_risk_scores.csv
+outputs/stock_commodity_risk_audit.csv
+outputs/stock_module_c_risk_scores.csv
+outputs/stock_module_c_risk_audit.csv
+outputs/stock_module_c_alerts.csv
+outputs/module_c_material_exposure_candidates.csv
+outputs/module_c_run_report.json
+outputs/module_c_supply_risk_level_audit.csv
+outputs/module_c_supply_risk_quality_classified.csv
+outputs/module_c_supply_risk_quality_issues.csv
+outputs/module_c_supply_risk_quality_passed.csv
+outputs/module_c_supply_risk_quality_review.csv
+outputs/module_c_supply_risk_quality_quarantine.csv
+outputs/module_c_supply_risk_quality_report.json
+data/sample/module_c_supply_risk_quality_sample_1000.csv
 outputs/stock_forecast_data_quality.json
 outputs/stock_model_cv_report.csv
 outputs/stock_model_validation_report.csv
@@ -257,8 +290,9 @@ models/stock_model_a_usage_tweedie.pkl
 models/stock_manifest.json
 ```
 
-`stock_model_b_news.pkl`과 `stock_model_c_news_commodity.pkl`은 검증된 위험 feature가 실제로
-존재할 때만 생성됩니다.
+`stock_model_b_news.pkl`, `stock_model_c_news_commodity.pkl`,
+`stock_model_d_module_c.pkl`은 각각 필요한 검증 위험 feature가 학습기간에 실제로 존재할
+때만 생성됩니다.
 
 ## Data/Artifact Policy
 

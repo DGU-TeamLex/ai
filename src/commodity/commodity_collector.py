@@ -1,35 +1,412 @@
+from __future__ import annotations
+
+import json
+import logging
+import os
+from pathlib import Path
+from typing import Callable
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
 import pandas as pd
 
+from ..config import (
+    COMMODITY_PRICE_CACHE_PATH,
+    MARKET_SERIES_REGISTRY_PATH,
+)
 
-def collect_commodity_prices() -> pd.DataFrame:
-    months = pd.date_range("2024-01-01", "2025-12-01", freq="MS")
-    materials = {
-        "oil_plastic": 100.0,
-        "latex": 80.0,
-        "general_material": 70.0,
-        "metal": 90.0,
-        "cotton_pulp": 60.0,
+
+LOGGER = logging.getLogger(__name__)
+PRICE_COLUMNS = [
+    "date",
+    "market_factor_id",
+    "material",
+    "price",
+    "volume",
+    "inventory",
+    "open_interest",
+    "provider",
+    "series_id",
+    "price_type",
+    "currency",
+    "unit",
+    "is_proxy",
+]
+REGISTRY_COLUMNS = [
+    "market_factor_id",
+    "provider",
+    "series_id",
+    "interval",
+    "price_type",
+    "currency",
+    "unit",
+    "is_direct_factor",
+    "source_url",
+    "review_status",
+]
+
+
+SAMPLE_MARKETS = {
+    "PETROCHEMICAL_NAPHTHA": (600.0, "USD_PER_TONNE"),
+    "BRENT_CRUDE": (80.0, "USD_PER_BARREL"),
+    "ALUMINUM": (2200.0, "USD_PER_TONNE"),
+    "COPPER": (8500.0, "USD_PER_TONNE"),
+    "COTTON": (100.0, "INDEX_OR_PROVIDER_UNIT"),
+    "CORN": (200.0, "INDEX_OR_PROVIDER_UNIT"),
+    "SUGAR": (120.0, "INDEX_OR_PROVIDER_UNIT"),
+}
+
+
+JsonRequester = Callable[[str, dict[str, str], int], dict]
+
+
+def _request_json(url: str, params: dict[str, str], timeout: int = 60) -> dict:
+    request = Request(
+        f"{url}?{urlencode(params)}",
+        headers={"User-Agent": "WeP-Stock-AI/1.0"},
+    )
+    with urlopen(request, timeout=timeout) as response:
+        return json.load(response)
+
+
+def _as_bool(series: pd.Series, default: bool = False) -> pd.Series:
+    normalized = series.astype("string").fillna("").str.strip().str.lower()
+    result = normalized.isin({"true", "t", "1", "yes", "y"})
+    if default:
+        result |= normalized.eq("")
+    return result
+
+
+def normalize_commodity_prices(prices: pd.DataFrame) -> pd.DataFrame:
+    if prices.empty:
+        return pd.DataFrame(columns=PRICE_COLUMNS)
+    result = prices.copy()
+    if "market_factor_id" not in result.columns:
+        if "material" not in result.columns:
+            raise ValueError("Commodity prices require market_factor_id or material")
+        result["market_factor_id"] = result["material"]
+    if "material" not in result.columns:
+        result["material"] = result["market_factor_id"]
+    if "date" not in result.columns or "price" not in result.columns:
+        raise ValueError("Commodity prices require date and price columns")
+
+    defaults = {
+        "volume": pd.NA,
+        "inventory": pd.NA,
+        "open_interest": pd.NA,
+        "provider": "csv",
+        "series_id": "",
+        "price_type": "unknown",
+        "currency": "",
+        "unit": "",
+        "is_proxy": False,
     }
+    for column, default in defaults.items():
+        if column not in result.columns:
+            result[column] = default
+
+    result["date"] = pd.to_datetime(result["date"], errors="coerce")
+    result["price"] = pd.to_numeric(result["price"], errors="coerce")
+    for column in ["volume", "inventory", "open_interest"]:
+        result[column] = pd.to_numeric(result[column], errors="coerce")
+    result["is_proxy"] = _as_bool(result["is_proxy"])
+    result["market_factor_id"] = (
+        result["market_factor_id"].astype("string").fillna("").str.strip()
+    )
+    result = result[
+        result["date"].notna()
+        & result["price"].notna()
+        & result["price"].gt(0)
+        & result["market_factor_id"].ne("")
+    ].copy()
+    result["material"] = result["market_factor_id"]
+    result["date"] = result["date"].dt.strftime("%Y-%m-%d")
+    return (
+        result[PRICE_COLUMNS]
+        .drop_duplicates(["date", "market_factor_id"], keep="last")
+        .sort_values(["market_factor_id", "date"])
+        .reset_index(drop=True)
+    )
+
+
+def load_market_series_registry(
+    path: Path = MARKET_SERIES_REGISTRY_PATH,
+) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame(columns=REGISTRY_COLUMNS)
+    registry = pd.read_csv(path, keep_default_na=False)
+    missing = [column for column in REGISTRY_COLUMNS if column not in registry.columns]
+    if missing:
+        raise ValueError(f"Market series registry is missing columns: {missing}")
+    registry = registry[
+        registry["review_status"].astype(str).str.strip().str.lower().eq("approved")
+    ].copy()
+    registry["is_direct_factor"] = _as_bool(registry["is_direct_factor"])
+    return registry.reset_index(drop=True)
+
+
+def collect_sample_prices(
+    start_date: str = "2024-01-01",
+    end_date: str = "2025-12-31",
+) -> pd.DataFrame:
+    months = pd.date_range(start_date, end_date, freq="MS")
     rows = []
-    for material, base_price in materials.items():
-        for i, month in enumerate(months):
+    for factor, (base_price, unit) in SAMPLE_MARKETS.items():
+        for index, month in enumerate(months):
+            trend = 1 + 0.004 * index
             shock = 1.0
-            if material == "oil_plastic" and month >= pd.Timestamp("2025-03-01"):
-                shock = 1.12
-            if material == "latex" and month >= pd.Timestamp("2025-02-01"):
-                shock = 1.10
-            price = base_price * shock * (1 + 0.01 * i)
+            if factor in {"PETROCHEMICAL_NAPHTHA", "BRENT_CRUDE"} and month >= pd.Timestamp("2025-03-01"):
+                shock = 1.18
+            if factor == "ALUMINUM" and month >= pd.Timestamp("2025-05-01"):
+                shock = 1.08
             rows.append(
                 {
-                    "date": month.strftime("%Y-%m-%d"),
-                    "material": material,
-                    "price": round(price, 4),
-                    "volume": 1000 + i * 10,
-                    "inventory": None,
-                    "open_interest": None,
+                    "date": month,
+                    "market_factor_id": factor,
+                    "price": base_price * trend * shock,
+                    "provider": "sample",
+                    "series_id": factor,
+                    "price_type": "synthetic_test_fixture",
+                    "currency": "USD",
+                    "unit": unit,
+                    "is_proxy": False,
                 }
             )
-    return pd.DataFrame(rows)
+    return normalize_commodity_prices(pd.DataFrame(rows))
+
+
+def collect_csv_prices(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(f"Commodity CSV not found: {path}")
+    return normalize_commodity_prices(pd.read_csv(path))
+
+
+def _registry_rows(registry: pd.DataFrame, provider: str) -> pd.DataFrame:
+    return registry[
+        registry["provider"].astype(str).str.strip().str.lower().eq(provider)
+    ].copy()
+
+
+def collect_alpha_vantage_prices(
+    registry: pd.DataFrame,
+    api_key: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    request_json: JsonRequester = _request_json,
+) -> pd.DataFrame:
+    if not api_key:
+        raise ValueError("ALPHA_VANTAGE_API_KEY is required")
+    rows = []
+    for _, series in _registry_rows(registry, "alpha_vantage").iterrows():
+        payload = request_json(
+            "https://www.alphavantage.co/query",
+            {
+                "function": str(series["series_id"]),
+                "interval": str(series["interval"]),
+                "apikey": api_key,
+            },
+            60,
+        )
+        if "data" not in payload:
+            message = payload.get("Error Message") or payload.get("Information") or payload.get("Note")
+            raise ValueError(f"Alpha Vantage response has no data: {message or 'unknown response'}")
+        for observation in payload["data"]:
+            rows.append(
+                {
+                    "date": observation.get("date"),
+                    "market_factor_id": series["market_factor_id"],
+                    "price": observation.get("value"),
+                    "provider": "alpha_vantage",
+                    "series_id": series["series_id"],
+                    "price_type": series["price_type"],
+                    "currency": series["currency"],
+                    "unit": series["unit"],
+                    "is_proxy": not bool(series["is_direct_factor"]),
+                }
+            )
+    return _filter_dates(normalize_commodity_prices(pd.DataFrame(rows)), start_date, end_date)
+
+
+def collect_fred_prices(
+    registry: pd.DataFrame,
+    api_key: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    request_json: JsonRequester = _request_json,
+) -> pd.DataFrame:
+    if not api_key:
+        raise ValueError("FRED_API_KEY is required")
+    rows = []
+    for _, series in _registry_rows(registry, "fred").iterrows():
+        params = {
+            "series_id": str(series["series_id"]),
+            "api_key": api_key,
+            "file_type": "json",
+        }
+        if start_date:
+            params["observation_start"] = start_date
+        if end_date:
+            params["observation_end"] = end_date
+        payload = request_json(
+            "https://api.stlouisfed.org/fred/series/observations",
+            params,
+            60,
+        )
+        for observation in payload.get("observations", []):
+            rows.append(
+                {
+                    "date": observation.get("date"),
+                    "market_factor_id": series["market_factor_id"],
+                    "price": observation.get("value"),
+                    "provider": "fred",
+                    "series_id": series["series_id"],
+                    "price_type": series["price_type"],
+                    "currency": series["currency"],
+                    "unit": series["unit"],
+                    "is_proxy": not bool(series["is_direct_factor"]),
+                }
+            )
+    return normalize_commodity_prices(pd.DataFrame(rows))
+
+
+def collect_nasdaq_data_link_prices(
+    registry: pd.DataFrame,
+    api_key: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    request_json: JsonRequester = _request_json,
+) -> pd.DataFrame:
+    if not api_key:
+        raise ValueError("NASDAQ_DATA_LINK_API_KEY is required")
+    rows = []
+    for _, series in _registry_rows(registry, "nasdaq_data_link").iterrows():
+        params = {"api_key": api_key, "order": "asc"}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        payload = request_json(
+            f"https://data.nasdaq.com/api/v3/datasets/{series['series_id']}/data.json",
+            params,
+            60,
+        )
+        dataset = payload.get("dataset_data", {})
+        names = [str(value).strip().lower() for value in dataset.get("column_names", [])]
+        if "date" not in names:
+            raise ValueError(f"Nasdaq series has no Date column: {series['series_id']}")
+        price_name = next(
+            (name for name in ["settle", "value", "close", "last"] if name in names),
+            None,
+        )
+        if not price_name:
+            raise ValueError(f"Nasdaq series has no supported price column: {series['series_id']}")
+        date_index = names.index("date")
+        price_index = names.index(price_name)
+        volume_index = names.index("volume") if "volume" in names else None
+        oi_name = next((name for name in ["open interest", "prev. day open interest"] if name in names), None)
+        oi_index = names.index(oi_name) if oi_name else None
+        for values in dataset.get("data", []):
+            rows.append(
+                {
+                    "date": values[date_index],
+                    "market_factor_id": series["market_factor_id"],
+                    "price": values[price_index],
+                    "volume": values[volume_index] if volume_index is not None else None,
+                    "open_interest": values[oi_index] if oi_index is not None else None,
+                    "provider": "nasdaq_data_link",
+                    "series_id": series["series_id"],
+                    "price_type": series["price_type"],
+                    "currency": series["currency"],
+                    "unit": series["unit"],
+                    "is_proxy": not bool(series["is_direct_factor"]),
+                }
+            )
+    return normalize_commodity_prices(pd.DataFrame(rows))
+
+
+def _filter_dates(
+    prices: pd.DataFrame,
+    start_date: str | None,
+    end_date: str | None,
+) -> pd.DataFrame:
+    if prices.empty:
+        return prices
+    dates = pd.to_datetime(prices["date"])
+    mask = pd.Series(True, index=prices.index)
+    if start_date:
+        mask &= dates.ge(pd.Timestamp(start_date))
+    if end_date:
+        mask &= dates.le(pd.Timestamp(end_date))
+    return prices[mask].reset_index(drop=True)
+
+
+def collect_commodity_prices(
+    provider: str | None = None,
+    data_path: str | Path | None = None,
+    cache_path: Path = COMMODITY_PRICE_CACHE_PATH,
+    refresh: bool | None = None,
+    registry: pd.DataFrame | None = None,
+    request_json: JsonRequester = _request_json,
+) -> pd.DataFrame:
+    selected = (provider or os.getenv("COMMODITY_PROVIDER", "disabled")).strip().lower()
+    start_date = os.getenv("COMMODITY_START_DATE", "2024-01-01")
+    end_date = os.getenv("COMMODITY_END_DATE", "2025-12-31")
+    refresh = refresh if refresh is not None else os.getenv("COMMODITY_REFRESH", "false").lower() == "true"
+    allow_fallback = os.getenv("COMMODITY_ALLOW_SAMPLE_FALLBACK", "false").lower() == "true"
+    registry = load_market_series_registry() if registry is None else registry
+
+    if selected in {"disabled", "none"}:
+        return pd.DataFrame(columns=PRICE_COLUMNS)
+    if selected == "sample":
+        return collect_sample_prices(start_date, end_date)
+    if selected != "csv" and cache_path.exists() and not refresh:
+        LOGGER.info("Loading cached commodity prices: %s", cache_path)
+        return collect_csv_prices(cache_path)
+
+    try:
+        if selected == "csv":
+            selected_path = data_path or os.getenv("COMMODITY_DATA_PATH")
+            if not selected_path:
+                raise ValueError("COMMODITY_DATA_PATH is required when COMMODITY_PROVIDER=csv")
+            result = collect_csv_prices(Path(selected_path))
+        elif selected == "alpha_vantage":
+            result = collect_alpha_vantage_prices(
+                registry,
+                os.getenv("ALPHA_VANTAGE_API_KEY", ""),
+                start_date,
+                end_date,
+                request_json,
+            )
+        elif selected == "fred":
+            result = collect_fred_prices(
+                registry,
+                os.getenv("FRED_API_KEY", ""),
+                start_date,
+                end_date,
+                request_json,
+            )
+        elif selected == "nasdaq_data_link":
+            result = collect_nasdaq_data_link_prices(
+                registry,
+                os.getenv("NASDAQ_DATA_LINK_API_KEY", ""),
+                start_date,
+                end_date,
+                request_json,
+            )
+        else:
+            raise ValueError(f"Unsupported COMMODITY_PROVIDER: {selected}")
+        if result.empty:
+            raise ValueError(f"Commodity provider returned no valid rows: {selected}")
+    except Exception:
+        if not allow_fallback:
+            raise
+        LOGGER.exception("Commodity collection failed; using sample fallback")
+        return collect_sample_prices(start_date, end_date)
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(cache_path, index=False)
+    LOGGER.info("Saved commodity price cache: %s (%s rows)", cache_path, len(result))
+    return result
 
 
 if __name__ == "__main__":

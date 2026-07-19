@@ -12,6 +12,9 @@ def _result(
     severity: float,
     confidence: float,
     reason: str,
+    material_meta_codes: list[str] | None = None,
+    demand_risk_meta_codes: list[str] | None = None,
+    external_event_codes: list[str] | None = None,
 ) -> dict:
     return {
         "event_type": event_type,
@@ -24,6 +27,9 @@ def _result(
         "severity": severity,
         "confidence": confidence,
         "reason": reason,
+        "material_meta_codes": material_meta_codes or [],
+        "demand_risk_meta_codes": demand_risk_meta_codes or [],
+        "external_event_codes": external_event_codes or [],
     }
 
 
@@ -58,22 +64,29 @@ def analyze_news_row(row: pd.Series) -> dict:
             severity=0.70,
             confidence=0.75,
             reason="감염병 또는 호흡기 질환 확산 관련 키워드가 포함됨",
+            demand_risk_meta_codes=["RESPIRATORY_INFECTIOUS_DISEASE"],
         )
 
     if any(
         keyword in text
         for keyword in [
             "원유",
+            "나프타",
             "플라스틱",
             "폴리프로필렌",
+            "폴리에틸렌",
+            "폴리염화비닐",
             "라텍스",
             "고무",
             "구리",
             "알루미늄",
             "니켈",
             "crude oil",
+            "naphtha",
             "plastic",
             "polypropylene",
+            "polyethylene",
+            "pvc",
             "latex",
             "rubber",
             "nitrile",
@@ -82,7 +95,42 @@ def analyze_news_row(row: pd.Series) -> dict:
             "nickel",
         ]
     ):
-        material = "latex" if any(keyword in text for keyword in ["라텍스", "고무", "latex", "rubber", "nitrile"]) else "oil_plastic"
+        if any(keyword in text for keyword in ["니트릴", "nitrile"]):
+            material = "nitrile"
+            material_meta_codes = ["SYNTHETIC_NITRILE_RUBBER"]
+        elif any(keyword in text for keyword in ["라텍스", "고무", "latex", "rubber"]):
+            material = "latex"
+            material_meta_codes = ["NATURAL_RUBBER_LATEX"]
+        elif any(keyword in text for keyword in ["알루미늄", "aluminum"]):
+            material = "aluminum"
+            material_meta_codes = ["ALUMINUM"]
+        elif any(keyword in text for keyword in ["폴리프로필렌", "polypropylene"]):
+            material = "polypropylene"
+            material_meta_codes = ["POLYPROPYLENE_PP"]
+        elif any(keyword in text for keyword in ["폴리에틸렌", "polyethylene"]):
+            material = "polyethylene"
+            material_meta_codes = ["POLYETHYLENE_PE"]
+        elif any(keyword in text for keyword in ["폴리염화비닐", "pvc"]):
+            material = "pvc"
+            material_meta_codes = ["POLYVINYL_CHLORIDE_PVC"]
+        else:
+            material = "oil_plastic"
+            material_meta_codes = [
+                "CRUDE_OIL_REFINED",
+                "POLYPROPYLENE_PP",
+                "POLYETHYLENE_PE",
+                "POLYVINYL_CHLORIDE_PVC",
+            ]
+        middle_east = any(
+            keyword in text
+            for keyword in ["중동", "middle east", "gulf", "호르무즈", "hormuz"]
+        )
+        naphtha = any(keyword in text for keyword in ["나프타", "naphtha"])
+        external_event_codes = (
+            ["MIDEAST_NAPHTHA_PETROCHEM_SHOCK"]
+            if middle_east and naphtha
+            else []
+        )
         return _result(
             event_type="raw_material_shortage_or_price_spike",
             country=country,
@@ -93,6 +141,8 @@ def analyze_news_row(row: pd.Series) -> dict:
             severity=0.65,
             confidence=0.70,
             reason="원자재 가격, 부족, 변동성 관련 키워드가 포함됨",
+            material_meta_codes=material_meta_codes,
+            external_event_codes=external_event_codes,
         )
 
     if any(

@@ -10,6 +10,7 @@ PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 SAMPLE_DATA_DIR = PROJECT_ROOT / "data" / "sample"
 MAPPING_DATA_DIR = PROJECT_ROOT / "data" / "mapping"
 EXTERNAL_MASTER_DIR = PROJECT_ROOT / "data" / "external" / "official"
+EXTERNAL_MARKET_DATA_DIR = PROJECT_ROOT / "data" / "external" / "market"
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 MODEL_DIR = PROJECT_ROOT / "models"
 EXTERNAL_FEATURE_PATH = PROJECT_ROOT / "data" / "external_features.csv"
@@ -19,6 +20,15 @@ FEATURE_TABLE_PATH = OUTPUT_DIR / "stock_feature_table.parquet"
 NEWS_RISK_SCORE_PATH = OUTPUT_DIR / "stock_news_risk_scores.csv"
 NEWS_ARTICLE_SCORE_PATH = OUTPUT_DIR / "stock_news_article_scores.csv"
 COMMODITY_RISK_SCORE_PATH = OUTPUT_DIR / "stock_commodity_risk_scores.csv"
+COMMODITY_PRICE_CACHE_PATH = EXTERNAL_MARKET_DATA_DIR / "commodity_prices.csv"
+COMMODITY_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_commodity_risk_audit.csv"
+MODULE_C_RISK_SCORE_PATH = OUTPUT_DIR / "stock_module_c_risk_scores.csv"
+MODULE_C_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_module_c_risk_audit.csv"
+MODULE_C_ALERT_PATH = OUTPUT_DIR / "stock_module_c_alerts.csv"
+MODULE_C_EXPOSURE_CANDIDATE_PATH = (
+    OUTPUT_DIR / "module_c_material_exposure_candidates.csv"
+)
+MODULE_C_RUN_REPORT_PATH = OUTPUT_DIR / "module_c_run_report.json"
 PREDICTION_PATH = OUTPUT_DIR / "stock_predictions.csv"
 BACKTEST_PREDICTION_PATH = OUTPUT_DIR / "stock_backtest_predictions.csv"
 CLASSIFIED_PREDICTION_PATH = OUTPUT_DIR / "stock_predictions_by_subtype.csv"
@@ -30,6 +40,7 @@ MODEL_CV_REPORT_PATH = OUTPUT_DIR / "stock_model_cv_report.csv"
 FORECAST_DATA_QUALITY_REPORT_PATH = OUTPUT_DIR / "stock_forecast_data_quality.json"
 MODEL_MANIFEST_PATH = MODEL_DIR / "stock_manifest.json"
 ITEM_ALIAS_CANDIDATE_PATH = PROCESSED_DATA_DIR / "item_alias_candidates_v0.3.parquet"
+ITEM_ALIAS_TO_PRODUCT_PATH = PROCESSED_DATA_DIR / "item_alias_to_product_v1.parquet"
 ITEM_GROUPED_VERIFIED_PATH = PROCESSED_DATA_DIR / "item_grouped_verified_v1.parquet"
 ITEM_PRODUCT_WORKLIST_PATH = PROCESSED_DATA_DIR / "item_product_worklist_v1.parquet"
 ITEM_REPRESENTATIVE_ATTRIBUTES_PATH = (
@@ -69,6 +80,41 @@ ITEM_FAMILY_TAXONOMY_PATH = MAPPING_DATA_DIR / "item_family_taxonomy.csv"
 APPROVED_ITEM_CLASSIFICATION_PATH = MAPPING_DATA_DIR / "item_forecast_classification_approved.csv"
 
 STOCK_MATERIAL_MAPPING_PATH = MAPPING_DATA_DIR / "stock_item_material_mapping.csv"
+MARKET_SERIES_REGISTRY_PATH = MAPPING_DATA_DIR / "market_series_registry.csv"
+MATERIAL_MARKET_FACTOR_MAPPING_PATH = (
+    MAPPING_DATA_DIR / "material_market_factor_mapping.csv"
+)
+MODULE_C_RISK_WEIGHT_PATH = MAPPING_DATA_DIR / "module_c_risk_weights.json"
+SUPPLY_RISK_LEVEL_POLICY_PATH = (
+    MAPPING_DATA_DIR / "supply_risk_level_policy.json"
+)
+SUPPLY_RISK_ANOMALY_RULES_PATH = (
+    MAPPING_DATA_DIR / "supply_risk_anomaly_rules.json"
+)
+MODULE_C_SUPPLY_LEVEL_AUDIT_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_level_audit.csv"
+)
+MODULE_C_SUPPLY_QUALITY_CLASSIFIED_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_quality_classified.csv"
+)
+MODULE_C_SUPPLY_QUALITY_ISSUES_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_quality_issues.csv"
+)
+MODULE_C_SUPPLY_QUALITY_PASSED_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_quality_passed.csv"
+)
+MODULE_C_SUPPLY_QUALITY_REVIEW_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_quality_review.csv"
+)
+MODULE_C_SUPPLY_QUALITY_QUARANTINE_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_quality_quarantine.csv"
+)
+MODULE_C_SUPPLY_QUALITY_REPORT_PATH = (
+    OUTPUT_DIR / "module_c_supply_risk_quality_report.json"
+)
+MODULE_C_SUPPLY_QUALITY_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "module_c_supply_risk_quality_sample_1000.csv"
+)
 COUNTRY_WEIGHT_PATH = MAPPING_DATA_DIR / "country_weight.csv"
 NEWS_RISK_WEIGHT_PATH = MAPPING_DATA_DIR / "news_risk_weights.yaml"
 
@@ -101,21 +147,31 @@ MODEL_VARIANTS = {
     "stock_model_a_usage_only": {
         "use_news": False,
         "use_commodity": False,
+        "use_module_c": False,
         "objective": "regression_l1",
     },
     "stock_model_a_usage_tweedie": {
         "use_news": False,
         "use_commodity": False,
+        "use_module_c": False,
         "objective": "tweedie",
     },
     "stock_model_b_news": {
         "use_news": True,
         "use_commodity": False,
+        "use_module_c": False,
         "objective": "tweedie",
     },
     "stock_model_c_news_commodity": {
         "use_news": True,
         "use_commodity": True,
+        "use_module_c": False,
+        "objective": "tweedie",
+    },
+    "stock_model_d_module_c": {
+        "use_news": False,
+        "use_commodity": False,
+        "use_module_c": True,
         "objective": "tweedie",
     },
 }

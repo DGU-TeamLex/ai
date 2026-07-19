@@ -42,6 +42,13 @@ RISK_COLUMNS = [
     "material_news_risk",
     "total_news_risk",
     "commodity_risk",
+    "module_c_demand_risk",
+    "module_c_supply_news_risk",
+    "module_c_material_news_risk",
+    "module_c_market_price_risk",
+    "module_c_supply_risk",
+    "module_c_total_risk",
+    "module_c_signal_confidence",
 ]
 
 
@@ -170,6 +177,15 @@ def _build_prediction_frame(
     primary_column = _selected_prediction_column(manifest, set(prediction_columns))
     output["primary_model"] = primary_column
     output["predicted_usage"] = output[primary_column]
+    primary_name = primary_column.removesuffix("_pred")
+    primary_spec = next(
+        (row for row in manifest if row.get("model") == primary_name),
+        {},
+    )
+    output["external_demand_signal_in_forecast"] = bool(
+        primary_spec.get("uses_news", False)
+        or primary_spec.get("uses_module_c", False)
+    )
     output["current_stock"] = output["month_end_stock"].fillna(0.0)
     output["prediction_type"] = prediction_type
     output = attach_approved_material_mapping_metadata(output)

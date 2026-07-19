@@ -18,6 +18,7 @@ MAPPING = pd.DataFrame(
             "item_code": "RESP1",
             "item_name": "호흡기 물품",
             "related_material": "respiratory disease",
+            "demand_risk_meta_code": "RESPIRATORY_INFECTIOUS_DISEASE",
             "mapping_weight": 1.0,
         },
         {
@@ -64,7 +65,10 @@ class NewsRiskScorerTest(unittest.TestCase):
         self.assertEqual(set(audit["stock_item_key"]), {"INST::DEPT::RESP1"})
         self.assertEqual(float(audit.iloc[0]["novelty_weight"]), 1.0)
         self.assertEqual(int(audit.iloc[0]["duplicate_count"]), 0)
+        self.assertEqual(audit.iloc[0]["approved_mapping_path"], "demand")
         self.assertEqual(scores.iloc[0]["STD_YYYYMM"], "2024-01")
+        self.assertTrue(scores.iloc[0]["has_approved_demand_mapping"])
+        self.assertFalse(scores.iloc[0]["has_approved_material_mapping"])
 
     def test_duplicate_articles_share_cluster_penalty(self):
         news = pd.DataFrame(
@@ -103,8 +107,30 @@ class NewsRiskScorerTest(unittest.TestCase):
         combined_weight = float(combined_audit[combined_audit["article_id"] == "jan"].iloc[0]["recency_weight"])
         self.assertAlmostEqual(january_weight, combined_weight)
 
+    def test_unapproved_material_mapping_is_not_scored(self):
+        mapping = MAPPING.copy()
+        mapping["review_status"] = "needs_review"
+
+        scores, audit = build_news_risk_outputs(
+            news=pd.DataFrame([infectious_news("2024-01-10", "a1")]),
+            mapping=mapping,
+            country_weights=COUNTRY_WEIGHTS,
+        )
+
+        self.assertTrue(scores.empty)
+        self.assertTrue(audit.empty)
+
 
 class NewsCollectorTest(unittest.TestCase):
+    def test_disabled_provider_returns_no_news_signal(self):
+        result = collect_news(provider="disabled")
+
+        self.assertTrue(result.empty)
+        self.assertEqual(
+            list(result.columns),
+            ["date", "title", "summary", "source", "country", "url"],
+        )
+
     def test_csv_provider_normalizes_and_deduplicates_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "news.csv"
@@ -163,6 +189,41 @@ class NewsCollectorTest(unittest.TestCase):
             )
         )
         self.assertEqual(analysis["event_type"], "export_restriction_or_sanction")
+
+    def test_middle_east_naphtha_news_emits_reusable_event_and_material_codes(self):
+        analysis = analyze_news_row(
+            pd.Series(
+                {
+                    "title": "중동 나프타 가격 급등으로 석유화학 공급 불안",
+                    "summary": "호르무즈 운송 차질 우려가 커졌다.",
+                    "country": "Global",
+                }
+            )
+        )
+
+        self.assertIn(
+            "MIDEAST_NAPHTHA_PETROCHEM_SHOCK",
+            analysis["external_event_codes"],
+        )
+        self.assertIn("POLYPROPYLENE_PP", analysis["material_meta_codes"])
+        self.assertIn("POLYETHYLENE_PE", analysis["material_meta_codes"])
+        self.assertIn("POLYVINYL_CHLORIDE_PVC", analysis["material_meta_codes"])
+
+    def test_infectious_news_emits_demand_trigger_code(self):
+        analysis = analyze_news_row(
+            pd.Series(
+                {
+                    "title": "독감 유행으로 호흡기 환자 증가",
+                    "summary": "감염병 확산이 지속되고 있다.",
+                    "country": "Korea",
+                }
+            )
+        )
+
+        self.assertIn(
+            "RESPIRATORY_INFECTIOUS_DISEASE",
+            analysis["demand_risk_meta_codes"],
+        )
 
 
 if __name__ == "__main__":

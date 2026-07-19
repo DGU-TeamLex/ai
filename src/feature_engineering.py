@@ -6,6 +6,7 @@ from .config import (
     COMMODITY_RISK_SCORE_PATH,
     FEATURE_TABLE_PATH,
     GROUP_KEYS,
+    MODULE_C_RISK_SCORE_PATH,
     MONTHLY_STOCK_PATH,
     NEWS_RISK_SCORE_PATH,
     OUTPUT_DIR,
@@ -109,10 +110,20 @@ def build_feature_table() -> pd.DataFrame:
 
     news_columns = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
     commodity_columns = ["commodity_risk", "material_return_30d", "material_volatility_30d"]
+    module_c_columns = [
+        "module_c_demand_risk",
+        "module_c_supply_news_risk",
+        "module_c_material_news_risk",
+        "module_c_market_price_risk",
+        "module_c_supply_risk",
+        "module_c_total_risk",
+        "module_c_signal_confidence",
+    ]
     feature_table = _merge_risk(feature_table, NEWS_RISK_SCORE_PATH, news_columns)
     feature_table = _merge_risk(feature_table, COMMODITY_RISK_SCORE_PATH, commodity_columns)
-    feature_table[[*news_columns, *commodity_columns]] = feature_table[
-        [*news_columns, *commodity_columns]
+    feature_table = _merge_risk(feature_table, MODULE_C_RISK_SCORE_PATH, module_c_columns)
+    feature_table[[*news_columns, *commodity_columns, *module_c_columns]] = feature_table[
+        [*news_columns, *commodity_columns, *module_c_columns]
     ].fillna(0.0).astype("float32")
     return feature_table.sort_values(GROUP_KEYS).reset_index(drop=True)
 

@@ -1,0 +1,351 @@
+from __future__ import annotations
+
+import logging
+
+import numpy as np
+import pandas as pd
+
+from .config import load_module_c_config
+
+
+LOGGER = logging.getLogger(__name__)
+KEY_COLUMNS = ["STD_YYYYMM", "stock_item_key"]
+MODULE_C_SCORE_COLUMNS = [
+    *KEY_COLUMNS,
+    "module_c_demand_risk",
+    "module_c_supply_news_risk",
+    "module_c_material_news_risk",
+    "module_c_market_price_risk",
+    "module_c_supply_news_contribution",
+    "module_c_material_news_contribution",
+    "module_c_market_price_contribution",
+    "module_c_supply_risk",
+    "module_c_total_risk",
+    "module_c_signal_confidence",
+    "module_c_has_approved_material_mapping",
+    "module_c_has_approved_demand_mapping",
+    "module_c_adjustment_enabled",
+    "module_c_risk_level",
+    "module_c_event_supply_risk_level",
+    "module_c_news_event_codes",
+    "module_c_market_event_codes",
+    "module_c_event_codes",
+    "module_c_config_version",
+    "module_c_calibration_status",
+]
+AUDIT_COLUMNS = [
+    *KEY_COLUMNS,
+    "signal_type",
+    "raw_score",
+    "signal_weight",
+    "weighted_contribution",
+    "mapping_approved",
+    "signal_confidence",
+    "event_codes",
+    "config_version",
+    "calibration_status",
+]
+ALERT_COLUMNS = [
+    *KEY_COLUMNS,
+    "risk_level",
+    "demand_risk",
+    "supply_risk",
+    "top_driver",
+    "event_codes",
+    "market_event_codes",
+    "recommended_action",
+    "config_version",
+    "calibration_status",
+]
+
+
+def _empty_scores() -> pd.DataFrame:
+    return pd.DataFrame(columns=MODULE_C_SCORE_COLUMNS)
+
+
+def _empty_audit() -> pd.DataFrame:
+    return pd.DataFrame(columns=AUDIT_COLUMNS)
+
+
+def _empty_alerts() -> pd.DataFrame:
+    return pd.DataFrame(columns=ALERT_COLUMNS)
+
+
+def _normalize_month(df: pd.DataFrame) -> pd.DataFrame:
+    result = df.copy()
+    if "STD_YYYYMM" not in result.columns and "year_month" in result.columns:
+        result["STD_YYYYMM"] = result["year_month"]
+    if "STD_YYYYMM" not in result.columns:
+        return result
+    parsed = pd.to_datetime(result["STD_YYYYMM"].astype(str), errors="coerce")
+    result["STD_YYYYMM"] = parsed.dt.strftime("%Y-%m")
+    return result[result["STD_YYYYMM"].notna()].copy()
+
+
+def _numeric(df: pd.DataFrame, column: str, default: float = 0.0) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(default, index=df.index, dtype="float64")
+    return pd.to_numeric(df[column], errors="coerce").fillna(default).clip(0, 1)
+
+
+def _boolean(df: pd.DataFrame, column: str, default: bool = False) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(default, index=df.index, dtype=bool)
+    return (
+        df[column]
+        .astype("string")
+        .fillna("")
+        .str.strip()
+        .str.lower()
+        .isin({"true", "t", "1", "yes", "y", "approved"})
+    )
+
+
+def _risk_level(score: float, thresholds: dict) -> str:
+    if score >= float(thresholds["critical"]):
+        return "critical"
+    if score >= float(thresholds["warning"]):
+        return "warning"
+    if score >= float(thresholds["watch"]):
+        return "watch"
+    return "normal"
+
+
+def _prepare_news(news_scores: pd.DataFrame) -> pd.DataFrame:
+    if news_scores.empty:
+        return pd.DataFrame(columns=KEY_COLUMNS)
+    news = _normalize_month(news_scores)
+    if not set(KEY_COLUMNS).issubset(news.columns):
+        raise ValueError("News risk scores require STD_YYYYMM and stock_item_key")
+    keep = [
+        *KEY_COLUMNS,
+        "disease_news_risk",
+        "supply_news_risk",
+        "material_news_risk",
+        "news_signal_confidence",
+        "has_approved_demand_mapping",
+        "has_approved_material_mapping",
+        "news_event_codes",
+    ]
+    for column in keep[2:]:
+        if column not in news.columns:
+            if column.startswith("has_approved"):
+                news[column] = False
+            elif column == "news_event_codes":
+                news[column] = ""
+            elif column == "news_signal_confidence":
+                news[column] = 0.60
+            else:
+                news[column] = 0.0
+    return news[keep].drop_duplicates(KEY_COLUMNS, keep="last")
+
+
+def _prepare_market(commodity_scores: pd.DataFrame) -> pd.DataFrame:
+    if commodity_scores.empty:
+        return pd.DataFrame(columns=KEY_COLUMNS)
+    market = _normalize_month(commodity_scores)
+    if not set(KEY_COLUMNS).issubset(market.columns):
+        raise ValueError("Commodity risk scores require STD_YYYYMM and stock_item_key")
+    keep = [
+        *KEY_COLUMNS,
+        "commodity_risk",
+        "market_signal_confidence",
+        "market_factor_count",
+        "market_event_codes",
+    ]
+    for column in keep[2:]:
+        if column not in market.columns:
+            market[column] = "" if column == "market_event_codes" else 0.0
+    return market[keep].drop_duplicates(KEY_COLUMNS, keep="last")
+
+
+def _build_audit(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
+    supply_weights = config["supply_signal"]
+    rows = []
+    signal_specs = [
+        (
+            "demand_news",
+            "module_c_demand_risk",
+            1.0,
+            "module_c_has_approved_demand_mapping",
+        ),
+        (
+            "supply_news",
+            "module_c_supply_news_risk",
+            float(supply_weights["supply_news"]),
+            "module_c_has_approved_material_mapping",
+        ),
+        (
+            "material_news",
+            "module_c_material_news_risk",
+            float(supply_weights["material_news"]),
+            "module_c_has_approved_material_mapping",
+        ),
+        (
+            "market_price",
+            "module_c_market_price_risk",
+            float(supply_weights["market_price"]),
+            "module_c_has_approved_material_mapping",
+        ),
+    ]
+    for _, row in scores.iterrows():
+        for signal_type, score_column, weight, gate_column in signal_specs:
+            raw_score = float(row[score_column])
+            rows.append(
+                {
+                    "STD_YYYYMM": row["STD_YYYYMM"],
+                    "stock_item_key": row["stock_item_key"],
+                    "signal_type": signal_type,
+                    "raw_score": raw_score,
+                    "signal_weight": weight,
+                    "weighted_contribution": raw_score * weight,
+                    "mapping_approved": bool(row[gate_column]),
+                    "signal_confidence": float(row["module_c_signal_confidence"]),
+                    "event_codes": (
+                        row["module_c_market_event_codes"]
+                        if signal_type == "market_price"
+                        else row["module_c_news_event_codes"]
+                    ),
+                    "config_version": config["version"],
+                    "calibration_status": config["calibration_status"],
+                }
+            )
+    return pd.DataFrame(rows, columns=AUDIT_COLUMNS)
+
+
+def _build_alerts(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
+    if scores.empty:
+        return _empty_alerts()
+    thresholds = config["alert_thresholds"]
+    active = scores[scores["module_c_total_risk"].ge(float(thresholds["watch"]))]
+    rows = []
+    for _, row in active.iterrows():
+        demand = float(row["module_c_demand_risk"])
+        supply = float(row["module_c_supply_risk"])
+        top_driver = "demand" if demand > supply else "supply"
+        action = (
+            "수요 급증 가능성을 반영해 예상 사용량과 재고 소진 속도를 재검토"
+            if top_driver == "demand"
+            else "조달 리드타임과 대체 공급처를 확인하고 안전재고 상향분을 검토"
+        )
+        rows.append(
+            {
+                "STD_YYYYMM": row["STD_YYYYMM"],
+                "stock_item_key": row["stock_item_key"],
+                "risk_level": row["module_c_risk_level"],
+                "demand_risk": demand,
+                "supply_risk": supply,
+                "top_driver": top_driver,
+                "event_codes": row["module_c_event_codes"],
+                "market_event_codes": row["module_c_market_event_codes"],
+                "recommended_action": action,
+                "config_version": config["version"],
+                "calibration_status": config["calibration_status"],
+            }
+        )
+    return pd.DataFrame(rows, columns=ALERT_COLUMNS)
+
+
+def build_module_c_risk_outputs(
+    news_scores: pd.DataFrame,
+    commodity_scores: pd.DataFrame,
+    config: dict | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    config = config or load_module_c_config()
+    news = _prepare_news(news_scores)
+    market = _prepare_market(commodity_scores)
+    if news.empty and market.empty:
+        return _empty_scores(), _empty_audit(), _empty_alerts()
+
+    merged = news.merge(market, on=KEY_COLUMNS, how="outer")
+    demand_gate = _boolean(merged, "has_approved_demand_mapping")
+    material_gate = _boolean(merged, "has_approved_material_mapping")
+    material_gate |= _numeric(merged, "market_factor_count").gt(0)
+
+    demand_risk = _numeric(merged, "disease_news_risk") * demand_gate.astype(float)
+    supply_news = _numeric(merged, "supply_news_risk") * material_gate.astype(float)
+    material_news = _numeric(merged, "material_news_risk") * material_gate.astype(float)
+    market_price = _numeric(merged, "commodity_risk") * material_gate.astype(float)
+
+    supply_weights = config["supply_signal"]
+    supply_news_contribution = float(supply_weights["supply_news"]) * supply_news
+    material_news_contribution = float(supply_weights["material_news"]) * material_news
+    market_price_contribution = float(supply_weights["market_price"]) * market_price
+    supply_risk = (
+        supply_news_contribution
+        + material_news_contribution
+        + market_price_contribution
+    ).clip(0, 1)
+
+    news_confidence = _numeric(merged, "news_signal_confidence", 0.60)
+    market_confidence = _numeric(merged, "market_signal_confidence")
+    any_news = supply_news.gt(0) | material_news.gt(0) | demand_risk.gt(0)
+    confidence_denominator = any_news.astype(float) + market_price.gt(0).astype(float)
+    confidence = (
+        news_confidence * any_news.astype(float)
+        + market_confidence * market_price.gt(0).astype(float)
+    ).div(confidence_denominator.replace(0, np.nan)).fillna(0.0).clip(0, 1)
+
+    market_event_codes = (
+        merged["market_event_codes"].fillna("")
+        if "market_event_codes" in merged.columns
+        else pd.Series("", index=merged.index, dtype="string")
+    )
+    news_event_codes = (
+        merged["news_event_codes"].fillna("")
+        if "news_event_codes" in merged.columns
+        else pd.Series("", index=merged.index, dtype="string")
+    )
+    combined_event_codes = pd.Series(
+        [
+            ";".join(
+                sorted(
+                    {
+                        code.strip()
+                        for value in [news_value, market_value]
+                        for code in str(value).split(";")
+                        if code.strip()
+                    }
+                )
+            )
+            for news_value, market_value in zip(
+                news_event_codes, market_event_codes, strict=False
+            )
+        ],
+        index=merged.index,
+        dtype="string",
+    )
+    scores = pd.DataFrame(
+        {
+            "STD_YYYYMM": merged["STD_YYYYMM"],
+            "stock_item_key": merged["stock_item_key"].astype(str),
+            "module_c_demand_risk": demand_risk,
+            "module_c_supply_news_risk": supply_news,
+            "module_c_material_news_risk": material_news,
+            "module_c_market_price_risk": market_price,
+            "module_c_supply_news_contribution": supply_news_contribution,
+            "module_c_material_news_contribution": material_news_contribution,
+            "module_c_market_price_contribution": market_price_contribution,
+            "module_c_supply_risk": supply_risk,
+            "module_c_total_risk": pd.concat([demand_risk, supply_risk], axis=1).max(axis=1),
+            "module_c_signal_confidence": confidence,
+            "module_c_has_approved_material_mapping": material_gate,
+            "module_c_has_approved_demand_mapping": demand_gate,
+            "module_c_adjustment_enabled": material_gate | demand_gate,
+            "module_c_news_event_codes": news_event_codes,
+            "module_c_market_event_codes": market_event_codes,
+            "module_c_event_codes": combined_event_codes,
+            "module_c_config_version": config["version"],
+            "module_c_calibration_status": config["calibration_status"],
+        }
+    )
+    scores["module_c_risk_level"] = scores["module_c_total_risk"].map(
+        lambda value: _risk_level(float(value), config["alert_thresholds"])
+    )
+    scores["module_c_event_supply_risk_level"] = scores[
+        "module_c_supply_risk"
+    ].map(lambda value: _risk_level(float(value), config["alert_thresholds"]))
+    scores = scores[MODULE_C_SCORE_COLUMNS].sort_values(KEY_COLUMNS).reset_index(drop=True)
+    audit = _build_audit(scores, config)
+    alerts = _build_alerts(scores, config)
+    return scores, audit, alerts

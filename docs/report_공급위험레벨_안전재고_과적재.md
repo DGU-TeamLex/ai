@@ -1,0 +1,305 @@
+# 공급위험 레벨 오정합 → 안전재고 과적재 진단 보고서
+
+| 항목 | 내용 |
+|---|---|
+| 작성일 | 2026-07-18 |
+| 대상 | AI팀 (모듈 C/D 소유) |
+| 관련 이슈 | `DGU-TeamLex/ai#20` (C↔D 커플링), `ai#19`(전파사슬) |
+| 데이터 출처 | backend Neon DB `inventory`(409,459행) · `item_meta_map`(15,824) — 2026-07-18 실측 |
+| 근거 스크립트 | backend `scripts/fix_inventory_stats.py` (SS/ROP·레벨 산정), 정본 파이프라인 메타코드 |
+
+---
+
+## TL;DR
+
+1. **inventory 45%(184,032행)가 `supply_risk_level=CRITICAL`** 로 잡혀 있고, **전체 안전재고(SS)의 87%가 CRITICAL에 집중**돼 있음.
+2. 원인은 "CRITICAL 정의가 공격적"이 아니라 **정합성 버그**: `inventory.supply_risk_level` 이 현재 `item_meta_map.raw_material_risk_meta_code` 와 **따로 논다**. 저위험 코드(`GENERAL_LOW_RISK`)가 4개 레벨에 흩어져 있고, 그중 148,255행이 CRITICAL로 격상돼 있음.
+3. **정량 영향**: 저위험인데 CRITICAL/WARNING으로 격상된 품목의 SS가 14,398,522 단위 = **전체 SS의 77.7%**. 레벨을 코드에 맞게 재산정하면 **총 안전재고 약 43% 절감**(추정, 18.5M→10.6M).
+4. **필요 조치(AI팀)**: ① 레벨 산정을 현재 메타코드에서 **결정론적으로 재도출**하는 매핑표 확정 → ② 재적재 → ③ CRITICAL은 "국가필수 + 단일 수입원" 등 실제 위험군으로 제한.
+
+---
+
+## 1. 배경
+
+SS/ROP는 공급위험 레벨과 커플링돼 있음(모듈 C↔D):
+
+```
+SS  = z(level) · σ · √( L · lt_mult(level) )
+ROP = μ̄ · L · lt_mult(level) + SS
+z  = {NORMAL 1.28, CAUTION 1.65, WARNING 2.05, CRITICAL 2.33}
+lt_mult = {NORMAL 1.0, CAUTION 1.15, WARNING 1.3, CRITICAL 1.5}   (스크립트 값)
+```
+
+즉 레벨이 한 단계 오르면 z와 리드타임 배수가 동시에 올라 SS가 급증. 따라서 **레벨 배정이 정확해야** 안전재고가 합리적으로 나옴.
+
+---
+
+## 2. 현상
+
+### 2-1. 레벨 분포 (inventory 409,459행)
+
+| supply_risk_level | 행수 | 비중 | avg z | avg L(일) | avg μ | avg SS | avg ROP | BELOW_ROP |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **CRITICAL** | 184,032 | **44.9%** | 2.33 | 25.6 | 3.17 | 87.5 | 156.6 | 30,068 |
+| WARNING | 88,397 | 21.6% | 2.05 | 27.6 | 1.26 | 17.7 | 46.3 | 27,009 |
+| CAUTION | 70,719 | 17.3% | 1.65 | 22.7 | 0.71 | 7.9 | 23.3 | 18,350 |
+| NORMAL | 66,311 | 16.2% | 1.28 | 25.3 | 0.78 | 4.5 | 21.9 | 17,541 |
+
+### 2-2. 안전재고(SS) 총량의 레벨별 쏠림
+
+| level | SS 합계 | 전체 대비 |
+|---|---:|---:|
+| **CRITICAL** | 16,110,143 | **86.9%** |
+| WARNING | 1,562,034 | 8.4% |
+| CAUTION | 560,815 | 3.0% |
+| NORMAL | 300,359 | 1.6% |
+
+> 카탈로그의 절반이 CRITICAL이고, 안전재고의 87%가 거기 묶여 있음. 이대로 발주권고가 나가면 **저위험 품목에까지 과잉 안전재고**가 쌓임.
+
+---
+
+## 3. 근본원인 진단 — 레벨↔메타코드 오정합
+
+`raw_material_risk_meta_code × supply_risk_level` 교차표:
+
+| raw_material_risk_meta_code | CRITICAL | WARNING | CAUTION | NORMAL |
+|---|---:|---:|---:|---:|
+| **GENERAL_LOW_RISK** (저위험) | **148,255** | 55,267 | 31,464 | 36,612 |
+| GENERIC_API_IMPORT_DEPENDENCY | 27,790 | 1,210 | 297 | 34 |
+| ANTIBIOTIC_API_IMPORT | 5,056 | — | — | 23 |
+| PANDEMIC_SURGE_SENSITIVE | 1,909 | 1,225 | 183 | 5 |
+| COLD_CHAIN_DEPENDENT | 648 | — | — | 6 |
+| PROPRIETARY_DEVICE_LOCKIN | 296 | 27,359 | 38,775 | 167 |
+| BASIC_INFUSION_HIGH_VOLUME | 78 | 1,851 | — | 17 |
+| SINGLE_USE_HIGH_TURNOVER | — | 1,279 | — | 75 |
+| COMMODITY_PRICE_VOLATILE | — | 206 | — | — |
+| (매핑 없음) | — | — | — | 29,372 |
+
+**핵심 관찰**
+- 같은 리스크코드가 **여러 레벨에 흩어짐**. 레벨이 현재 메타코드의 함수가 **아니라는** 증거 (함수라면 코드 하나당 레벨 하나여야 함).
+- 이름부터 저위험인 `GENERAL_LOW_RISK`가 **CRITICAL 148,255행** — 이게 CRITICAL 44.9%의 80%를 차지.
+- 반대로 실제 단일공급 위험이 큰 `PROPRIETARY_DEVICE_LOCKIN`은 대부분 CAUTION/WARNING (역전).
+
+**추정 메커니즘** (코드+적재순서 감사로 확정 필요)
+- 통합 코어로 재적재하면서 메타코드 네이밍이 바뀜(내 구네이밍 `API_IMPORT_DEPENDENCY_CN_IN` → 나연 코어 `GENERIC_API_IMPORT_DEPENDENCY` 등).
+- `item_meta_map`은 신 네이밍으로 갱신됐으나 `inventory.supply_risk_level`은 **이전 적재분(구 메타코드 기준)이 남아** 서로 다른 빈티지가 공존 → 오정합.
+- `fix_inventory_stats.py`의 `RISK_LEVEL` 딕셔너리 키가 신 네이밍과 불일치해 상당수가 기본값/구값으로 남았을 가능성.
+
+> 즉 이 문제는 "위험 판단 기준 논쟁"이 아니라 **재적재 시 레벨을 현재 메타코드에서 다시 계산하지 않아 생긴 배치 정합성 결함**. 기준 확정 + 결정론적 재도출로 해결됨.
+
+---
+
+## 4. 영향 정량화
+
+- 저위험(`GENERAL_LOW_RISK`)인데 CRITICAL/WARNING으로 격상된 품목: **203,522행**, SS 합계 **14,398,522 = 전체 SS의 77.7%**.
+- 이들을 NORMAL 기준(z 2.33→1.28, lt_mult 1.5→1.0)으로 재산정하면 SS가 약 0.45배로 축소.
+  - SS 절감 ≈ 7.9M → **총 SS 18.5M → 약 10.6M (약 43%↓, 추정)**.
+- 추정 가정·한계: WARNING격상분도 CRITICAL 배수로 근사(보수적), μ는 이미 0복원값 사용. 정밀치는 확정 매핑으로 전량 재계산해야 함.
+
+---
+
+## 5. 권고 조치 (AI팀)
+
+1. **레벨 결정론적 재도출** — `supply_risk_level`을 반드시 현재 `raw_material_risk_meta_code`(및 필요 시 `demand_risk_meta_code`)에서 **매핑표로 계산**. inventory에 잔존값 금지.
+2. **매핑표 팀 비준** — 아래 §6 초안을 검토·확정. 특히 **CRITICAL은 "국가필수의약품 ∧ 단일 수입원" 같은 실제 고위험군으로 제한**.
+3. **재적재 후 검증** — §7 쿼리로 "코드 하나당 레벨 하나" 정합성과 SS 총량 재확인. `fix_inventory_stats.py`의 `RISK_LEVEL` 키를 신 네이밍으로 갱신.
+4. **축 분리 확인** — `PANDEMIC_SURGE_SENSITIVE`는 **수요축(D)** 코드이므로 공급위험 레벨(C)을 직접 올리면 안 됨. C/D 커플링에서 D는 z가 아니라 수요분포로 반영할지 규칙 정리.
+
+---
+
+## 6. 제안 매핑표 (초안 — 팀 비준 필요)
+
+| raw_material_risk_meta_code | 제안 레벨 | 근거/비고 |
+|---|---|---|
+| GENERAL_LOW_RISK | **NORMAL** | 저위험 기본값 |
+| (매핑 없음) | **NORMAL** | 미상은 보수적으로 기본 |
+| SINGLE_USE_HIGH_TURNOVER | NORMAL | 회전 빠른 범용 소모품 |
+| BASIC_INFUSION_HIGH_VOLUME | NORMAL~CAUTION | 국내생산 기초수액, 대량 |
+| COMMODITY_PRICE_VOLATILE | CAUTION | 가격변동, 가용성은 대체로 OK |
+| COLD_CHAIN_DEPENDENT | CAUTION | 물류(콜드체인) 리스크 |
+| PROPRIETARY_DEVICE_LOCKIN | WARNING | 단일공급자 lock-in |
+| GENERIC_API_IMPORT_DEPENDENCY | WARNING | 원료 수입의존, 단 제네릭이라 대체여지 |
+| ANTIBIOTIC_API_IMPORT | WARNING~CRITICAL | 항생제 원료 수입, 품절이력 잦음 |
+| PANDEMIC_SURGE_SENSITIVE | (D축 처리) | 수요트리거 — 레벨 직접상향 대신 수요분포로 |
+| **CRITICAL 전용** | CRITICAL | 별도 지정: 국가필수의약품 ∧ 단일 수입원 ∧ 대체불가 |
+
+> 표의 레벨은 제안값이며 팀이 확정해야 함. 원칙: **CRITICAL은 희소하게**, 그리고 **레벨은 반드시 코드에서 재계산**.
+
+---
+
+## 7. 재현·검증 쿼리
+
+```sql
+-- (진단) 코드가 여러 레벨에 흩어졌는지 = 오정합 여부
+SELECT COALESCE(m.raw_material_risk_meta_code,'(none)') code,
+       i.supply_risk_level lvl, count(*) n
+FROM inventory i LEFT JOIN item_meta_map m USING(standard_code)
+GROUP BY 1,2 ORDER BY 1, 3 DESC;
+
+-- (수용기준) 재적재 후 코드 하나당 레벨 하나여야 통과
+SELECT code, count(DISTINCT lvl) FROM (
+  SELECT COALESCE(m.raw_material_risk_meta_code,'(none)') code, i.supply_risk_level lvl
+  FROM inventory i LEFT JOIN item_meta_map m USING(standard_code)) t
+GROUP BY 1 HAVING count(DISTINCT lvl) > 1;   -- 결과 0행이면 정합
+
+-- (영향) SS 총량 레벨별 비중
+SELECT supply_risk_level, sum(ss)::int ss_sum,
+       round((100.0*sum(ss)/(SELECT sum(ss) FROM inventory))::numeric,1) pct
+FROM inventory GROUP BY 1 ORDER BY 2 DESC;
+```
+
+---
+
+## 8. 부록
+
+- **데이터 한계**: SS 절감 43%는 근사(격상분을 CRITICAL 배수로 일괄 환산). 확정 매핑으로 전량 재산정 시 정밀치 갱신.
+- **μ/σ는 이미 0복원 반영**(mu 12.77→1.95). 본 이슈는 μ가 아니라 **레벨 배정**의 문제로, 0복원과 독립.
+- **리드타임**: L_POLICY=p25(평균 25.5일) 적용 상태. 레벨 재산정은 L 정책과 독립적으로 SS를 바꿈.
+- **소유권**: 레벨↔z/LT 커플링은 모듈 C(AI팀). backend는 산정 스크립트(`fix_inventory_stats.py`)와 서빙만 담당 — 매핑표만 확정되면 재적재는 backend에서 즉시 반영 가능.
+
+*(수치는 2026-07-18 Neon DB 실측. 파이프라인 정본: `DGU-TeamLex/wep-stock-item-material-pipeline`)*
+
+---
+
+## 9. AI팀 판단 및 반영사항 (2026-07-18)
+
+### 9-1. 판단
+
+교차표가 보여주는 **현재 레벨과 현재 메타코드의 비결정성**은 충분히 확인된다. 따라서
+`inventory.supply_risk_level` 잔존값을 신뢰하지 않고 현재 코드와 정책 버전으로 매 배치
+재도출해야 한다는 결론에 동의한다.
+
+다만 "구 네이밍 적재분이 남았다"는 설명은 현재 가장 유력한 원인 가설이지, 이 문서의
+집계만으로 확정된 사실은 아니다. backend 적재 job별 `mapping_version`, `policy_version`,
+갱신시각과 `fix_inventory_stats.py` 실행 로그를 대조해야 확정할 수 있다.
+
+### 9-2. 43% 절감 추정의 보정
+
+레벨별 SS 축소비는 다음과 같다.
+
+```text
+CRITICAL -> NORMAL: 1.28 / (2.33 * sqrt(1.50)) = 0.448
+WARNING  -> NORMAL: 1.28 / (2.05 * sqrt(1.30)) = 0.548
+```
+
+CRITICAL과 WARNING의 SS 원금 분할이 없으므로 14,398,522 전체를 0.448배로 계산한 43%는
+상한에 가까운 추정이다. 현재 집계로 정직하게 말할 수 있는 총 SS 절감 범위는 약
+**35.1~42.9%**다. 확정치는 행별 `sigma`, `lead_time_days`, 기존 레벨로 다시 계산한다.
+WARNING을 CRITICAL 배수로 근사하는 것은 절감량 관점에서는 보수적이지 않고 절감 효과를
+크게 보는 가정이다.
+
+### 9-3. AI 적용 정책 계약 (팀 비준 대기)
+
+정책 정본은 `data/mapping/supply_risk_level_policy.json`으로 추가했다.
+
+| 코드 | 기준 공급레벨 | 처리 |
+|---|---|---|
+| `GENERAL_LOW_RISK` | NORMAL | 결정론적 재도출 |
+| `SINGLE_USE_HIGH_TURNOVER` | NORMAL | 회전율은 공급취약성 근거에서 제외 |
+| `BASIC_INFUSION_HIGH_VOLUME` | CAUTION | 팀 비준 전 잠정값 |
+| `COMMODITY_PRICE_VOLATILE` | CAUTION | 가격과 가용성 위험을 분리 |
+| `COLD_CHAIN_DEPENDENT` | CAUTION | 물류 제약 반영 |
+| `PROPRIETARY_DEVICE_LOCKIN` | WARNING | 대체공급 제한 |
+| `GENERIC_API_IMPORT_DEPENDENCY` | WARNING | 수입의존 반영 |
+| `ANTIBIOTIC_API_IMPORT` | WARNING | 코드만으로 CRITICAL 금지 |
+| `PANDEMIC_SURGE_SENSITIVE` | NORMAL | 공급축에서 제외하고 수요축으로 이동 |
+
+`CRITICAL`은 아래 네 조건을 모두 만족할 때만 허용한다.
+
+```text
+is_national_essential = true
+AND is_single_import_source = true
+AND is_non_substitutable = true
+AND critical_override_review_status = approved
+```
+
+미매핑 코드는 자동 상향하지 않고 `NORMAL`로 계산하되
+`supply_risk_policy_needs_review=true`를 함께 남긴다. 따라서 미매핑을 정상 품질로 오인하지
+않으면서도 알 수 없는 코드가 대량 CRITICAL로 번지는 것을 막는다.
+
+### 9-4. 축과 필드 분리
+
+다음 세 값을 같은 컬럼에 덮어쓰지 않는다.
+
+```text
+baseline_supply_risk_level  메타코드에서 결정되는 고정 기준레벨
+event_supply_risk_level     뉴스·가격으로 변하는 월별 사건레벨
+module_c_supply_risk        0~1 연속형 동적 공급위험 점수
+```
+
+"코드 하나당 레벨 하나" 수용기준은 `baseline_supply_risk_level`에만 적용한다. 월별 사건을
+반영한 동적 레벨까지 같은 쿼리로 검사하면 정상적인 시간변화를 오정합으로 잘못 판정한다.
+
+### 9-5. 정본 데이터 사전 감사
+
+정본 후보 101,546개에 새 정책을 적용한 결과, 미매핑은 0개였고 기존 low/medium/high를
+운영 레벨로 환산한 값과 5,207개가 달랐다.
+
+| 변경 원인 코드 | 품목수 | 새 기준레벨 |
+|---|---:|---|
+| `PANDEMIC_SURGE_SENSITIVE` | 2,885 | NORMAL, 수요축 이관 |
+| `SINGLE_USE_HIGH_TURNOVER` | 1,397 | NORMAL |
+| `BASIC_INFUSION_HIGH_VOLUME` | 682 | CAUTION |
+| `COLD_CHAIN_DEPENDENT` | 232 | CAUTION |
+| `COMMODITY_PRICE_VOLATILE` | 11 | CAUTION |
+
+감사 파일은 `outputs/canonical_supply_risk_policy_audit.csv`에 생성했다. 이 수치는 대표 품목
+기준이며 backend `inventory` 409,459행 재계산 결과를 대신하지 않는다.
+
+현재 승인 분류 4,969개 로컬 품목에 적용한 결과는 NORMAL 3,756개, WARNING 1,213개다.
+이 중 322개는 구 코드 `DOMESTIC_OLIGOPOLY_CONCENTRATION`이어서
+`NORMAL + needs_review`로 남겼다. 현재 승인 분류에서는 모두 수액세트지만, 구 코드 전체
+884개 대표 품목에는 기초수액과 수액세트가 함께 포함되어 있다. 따라서 이 코드를
+`BASIC_INFUSION_HIGH_VOLUME` 또는 `SINGLE_USE_HIGH_TURNOVER` 하나로 일괄 alias하지 않는다.
+품목 family를 사용해 신 정본 코드를 다시 생성해야 한다. 로컬 감사 파일은
+`outputs/module_c_supply_risk_level_audit.csv`다.
+
+### 9-6. 계산 단위와 중복 적용 금지
+
+레벨 기반 SS/ROP 계산은 입력 단위를 명시적으로 고정한다.
+
+```text
+mean_daily_usage: 일평균 사용량
+daily_demand_stddev: 일 수요의 표준편차
+lead_time_days: 일 단위 리드타임
+```
+
+월 사용량과 일 리드타임을 변환 없이 곱하지 않는다. AI API에서 기존에 사용하던
+`sigma=mu*0.5`, 리드타임 1.25의 임의 fallback은 제거했다. 세 입력이 없으면 SS/ROP를
+만들지 않고 `INSUFFICIENT_DAILY_VARIANCE_OR_LEAD_TIME`을 반환한다.
+
+또한 `level_based_daily_ss_rop`와 `module_c_continuous_target_stock`은 서로 다른 재고정책이다.
+backend 적재 시 둘 중 승인된 한 정책을 선택해야 하며 두 안전재고를 합산하지 않는다.
+
+### 9-7. 추가된 구현
+
+```text
+data/mapping/supply_risk_level_policy.json
+src/module_c/supply_risk_policy.py
+outputs/module_c_supply_risk_level_audit.csv
+tests/test_supply_risk_policy.py
+```
+
+backend는 JSON 정책의 `version`과 함께 기준레벨을 재산정하고, DB에는 원본 코드,
+`baseline_supply_risk_level`, `supply_risk_policy_version`, CRITICAL 근거 필드를 함께 저장해야
+한다. 재적재 후에는 §7 쿼리를 기준레벨 컬럼과 정책 버전 기준으로 수정해 실행한다.
+
+### 9-8. 유사 오류 자동 분류 게이트
+
+동일 오류의 재발과 유사 오류를 적재 전에 차단하기 위해 21개 규칙의 품질 게이트를
+추가했다. 레벨 불일치 외에도 축 혼입, 구 코드, 미매핑, 근거 없는 CRITICAL, 정책 버전,
+z·리드타임 배수, SS/ROP 재계산, 숫자·단위 오류, 정책 중복 적용과 데이터셋 집중도를
+검사한다.
+
+```text
+src/module_c/supply_risk_anomaly_filter.py
+data/mapping/supply_risk_anomaly_rules.json
+docs/SUPPLY_RISK_QUALITY_GATE.md
+```
+
+현재 승인 분류 4,969개 후보 모드 결과는 PASS 0, REVIEW 4,647, BLOCK 322다.
+4,647건에는 `MIDEAST_NAPHTHA_PETROCHEM_SHOCK` 사건 코드가 기준 공급코드 필드에 포함되어
+있고, 그중 1,213건은 구 API 코드 alias도 사용한다. 322건은 미매핑 구 국내과점 코드다.
+현재 필드를 운영 레벨 입력으로 사용할 수 없다는 뜻이며, 신 정본 공급코드로 재생성한 뒤
+PASS 행만 backend에 적재해야 한다. 현재 품질 리포트의
+`batch_release_allowed`는 `false`다.

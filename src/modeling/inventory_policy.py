@@ -10,6 +10,14 @@ from ..config import (
     SAFETY_STOCK_RATE,
     SUPPLY_RISK_BUFFER_RATE,
 )
+from ..module_c.config import load_module_c_config
+
+
+MODULE_C_POLICY_COLUMNS = {
+    "module_c_demand_risk",
+    "module_c_supply_risk",
+    "module_c_total_risk",
+}
 
 
 def _numeric_column(
@@ -49,6 +57,19 @@ def _approved_mapping_gate(df: pd.DataFrame) -> pd.Series:
     return gate
 
 
+def _boolean_column(df: pd.DataFrame, column: str, default: bool = False) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(default, index=df.index, dtype=bool)
+    return (
+        df[column]
+        .astype("string")
+        .fillna("")
+        .str.strip()
+        .str.lower()
+        .isin({"true", "t", "1", "yes", "y"})
+    )
+
+
 def calculate_risk_components(df: pd.DataFrame) -> pd.DataFrame:
     mapping_gate = _approved_mapping_gate(df).astype(float)
     demand = _numeric_column(df, "disease_news_risk", 0.0, 0.0, 1.0) * mapping_gate
@@ -86,6 +107,7 @@ def add_inventory_recommendations(
     review_period_days_col: str | None = None,
     on_order_qty_col: str | None = None,
     backorder_qty_col: str | None = None,
+    module_c_config: dict | None = None,
 ) -> pd.DataFrame:
     result = df.copy()
     if prediction_col not in result.columns:
@@ -114,38 +136,152 @@ def add_inventory_recommendations(
     result["safety_stock"] = protection_period_demand * SAFETY_STOCK_RATE
     result["base_stock"] = protection_period_demand + result["safety_stock"]
 
-    risk = calculate_risk_components(result)
-    for column in risk.columns:
-        result[column] = risk[column]
-    result["external_risk_score"] = calculate_external_risk_score(result)
+    if MODULE_C_POLICY_COLUMNS.issubset(result.columns):
+        config = module_c_config or load_module_c_config()
+        adjustment = config["inventory_adjustment"]
+        demand_risk = _numeric_column(
+            result, "module_c_demand_risk", 0.0, lower=0.0, upper=1.0
+        )
+        supply_risk = _numeric_column(
+            result, "module_c_supply_risk", 0.0, lower=0.0, upper=1.0
+        )
+        total_risk = _numeric_column(
+            result, "module_c_total_risk", 0.0, lower=0.0, upper=1.0
+        )
+        result["demand_risk_score"] = demand_risk
+        result["supply_risk_score"] = supply_risk
+        result["material_risk_score"] = _numeric_column(
+            result,
+            "module_c_market_price_risk",
+            0.0,
+            lower=0.0,
+            upper=1.0,
+        )
+        result["external_risk_score"] = total_risk
 
-    result["demand_risk_buffer"] = (
-        protection_period_demand
-        * result["demand_risk_score"]
-        * DEMAND_RISK_BUFFER_RATE
-    )
-    result["supply_risk_buffer"] = (
-        protection_period_demand
-        * result["supply_risk_score"]
-        * SUPPLY_RISK_BUFFER_RATE
-    )
-    result["material_risk_buffer"] = (
-        protection_period_demand
-        * result["material_risk_score"]
-        * MATERIAL_RISK_BUFFER_RATE
-    )
+        demand_embedded = _boolean_column(
+            result,
+            "external_demand_signal_in_forecast",
+        )
+        policy_demand_risk = demand_risk.where(~demand_embedded, 0.0)
+        result["module_c_demand_embedded_in_forecast"] = demand_embedded
+        result["module_c_policy_demand_risk"] = policy_demand_risk
+        demand_uplift = policy_demand_risk * float(
+            adjustment["demand_usage_uplift_max"]
+        )
+        result["risk_adjusted_predicted_usage"] = predicted_usage * (
+            1 + demand_uplift
+        )
+        lead_time_multiplier = 1 + supply_risk * float(
+            adjustment["supply_lead_time_multiplier_max"]
+        )
+        extra_lead_time_days = supply_risk * float(
+            adjustment["supply_extra_lead_time_days_max"]
+        )
+        result["effective_lead_time_days"] = (
+            lead_time_days * lead_time_multiplier + extra_lead_time_days
+        )
+        result["risk_adjusted_protection_period_days"] = (
+            review_period_days + result["effective_lead_time_days"]
+        )
+        result["risk_adjusted_protection_period_demand"] = (
+            result["risk_adjusted_predicted_usage"]
+            * result["risk_adjusted_protection_period_days"]
+            / 30.0
+        )
+        result["dynamic_safety_stock_rate"] = (
+            SAFETY_STOCK_RATE
+            + supply_risk * float(adjustment["safety_stock_rate_uplift_max"])
+        )
+        result["risk_adjusted_safety_stock"] = (
+            result["risk_adjusted_protection_period_demand"]
+            * result["dynamic_safety_stock_rate"]
+        )
+        result["unconstrained_target_stock"] = (
+            result["risk_adjusted_protection_period_demand"]
+            + result["risk_adjusted_safety_stock"]
+        )
 
-    raw_risk_buffer = result[
-        ["demand_risk_buffer", "supply_risk_buffer", "material_risk_buffer"]
-    ].sum(axis=1)
-    risk_buffer_cap = protection_period_demand * MAX_RISK_BUFFER_RATE
-    scale = (risk_buffer_cap / raw_risk_buffer.replace(0, np.nan)).clip(upper=1.0).fillna(1.0)
-    for column in ["demand_risk_buffer", "supply_risk_buffer", "material_risk_buffer"]:
-        result[column] = result[column] * scale
-    result["risk_buffer"] = result[
-        ["demand_risk_buffer", "supply_risk_buffer", "material_risk_buffer"]
-    ].sum(axis=1)
-    result["target_stock"] = result["base_stock"] + result["risk_buffer"]
+        result["demand_risk_buffer"] = result["base_stock"] * demand_uplift
+        result["supply_risk_buffer"] = (
+            result["unconstrained_target_stock"]
+            - result["base_stock"]
+            - result["demand_risk_buffer"]
+        ).clip(lower=0.0)
+        result["material_risk_buffer"] = 0.0
+        raw_risk_buffer = (
+            result["unconstrained_target_stock"] - result["base_stock"]
+        ).clip(lower=0.0)
+        risk_buffer_cap = protection_period_demand * float(
+            adjustment["total_risk_buffer_rate_cap"]
+        )
+        result["risk_buffer"] = pd.concat(
+            [raw_risk_buffer, risk_buffer_cap], axis=1
+        ).min(axis=1)
+        scale = (
+            result["risk_buffer"] / raw_risk_buffer.replace(0, np.nan)
+        ).fillna(1.0).clip(upper=1.0)
+        result["demand_risk_buffer"] *= scale
+        result["supply_risk_buffer"] *= scale
+        result["target_stock"] = result["base_stock"] + result["risk_buffer"]
+        result["module_c_policy_applied"] = demand_risk.gt(0) | supply_risk.gt(0)
+        result["module_c_policy_demand_uplift_applied"] = demand_uplift.gt(0)
+        result["module_c_config_version"] = config["version"]
+        result["module_c_calibration_status"] = config["calibration_status"]
+        result["inventory_policy_method"] = "module_c_continuous_target_stock"
+    else:
+        risk = calculate_risk_components(result)
+        for column in risk.columns:
+            result[column] = risk[column]
+        result["external_risk_score"] = calculate_external_risk_score(result)
+
+        result["demand_risk_buffer"] = (
+            protection_period_demand
+            * result["demand_risk_score"]
+            * DEMAND_RISK_BUFFER_RATE
+        )
+        result["supply_risk_buffer"] = (
+            protection_period_demand
+            * result["supply_risk_score"]
+            * SUPPLY_RISK_BUFFER_RATE
+        )
+        result["material_risk_buffer"] = (
+            protection_period_demand
+            * result["material_risk_score"]
+            * MATERIAL_RISK_BUFFER_RATE
+        )
+
+        raw_risk_buffer = result[
+            ["demand_risk_buffer", "supply_risk_buffer", "material_risk_buffer"]
+        ].sum(axis=1)
+        risk_buffer_cap = protection_period_demand * MAX_RISK_BUFFER_RATE
+        scale = (
+            risk_buffer_cap / raw_risk_buffer.replace(0, np.nan)
+        ).clip(upper=1.0).fillna(1.0)
+        for column in [
+            "demand_risk_buffer",
+            "supply_risk_buffer",
+            "material_risk_buffer",
+        ]:
+            result[column] = result[column] * scale
+        result["risk_buffer"] = result[
+            ["demand_risk_buffer", "supply_risk_buffer", "material_risk_buffer"]
+        ].sum(axis=1)
+        result["target_stock"] = result["base_stock"] + result["risk_buffer"]
+        result["risk_adjusted_predicted_usage"] = predicted_usage
+        result["effective_lead_time_days"] = lead_time_days
+        result["risk_adjusted_protection_period_days"] = protection_period_days
+        result["risk_adjusted_protection_period_demand"] = protection_period_demand
+        result["dynamic_safety_stock_rate"] = SAFETY_STOCK_RATE
+        result["risk_adjusted_safety_stock"] = result["safety_stock"]
+        result["unconstrained_target_stock"] = result["target_stock"]
+        result["module_c_policy_applied"] = False
+        result["module_c_demand_embedded_in_forecast"] = False
+        result["module_c_policy_demand_risk"] = 0.0
+        result["module_c_policy_demand_uplift_applied"] = False
+        result["module_c_config_version"] = "legacy-risk-policy"
+        result["module_c_calibration_status"] = "legacy-policy"
+        result["inventory_policy_method"] = "legacy_fixed_rate_target_stock"
     result["recommended_stock"] = result["target_stock"]
 
     if current_stock_col and current_stock_col in result.columns:

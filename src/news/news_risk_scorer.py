@@ -23,12 +23,22 @@ from .news_llm_analyzer import analyze_news_row
 LOGGER = logging.getLogger(__name__)
 
 NEWS_RISK_COLUMNS = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
+NEWS_RISK_METADATA_COLUMNS = [
+    "news_signal_confidence",
+    "has_approved_material_mapping",
+    "has_approved_demand_mapping",
+    "news_event_codes",
+]
 ARTICLE_SCORE_COLUMNS = [
     "article_id",
     "date",
     "STD_YYYYMM",
     "title",
     "source",
+    "event_subject_codes",
+    "demand_trigger_codes",
+    "external_event_codes",
+    "approved_mapping_path",
     "stock_item_key",
     "event_type",
     "risk_bucket",
@@ -148,6 +158,19 @@ def _load_stock_mapping() -> pd.DataFrame:
     return mapping
 
 
+def _approved_input_mapping(mapping: pd.DataFrame) -> pd.DataFrame:
+    result = mapping.copy()
+    if "review_status" in result.columns:
+        result = result[
+            result["review_status"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .eq("approved")
+        ].copy()
+    return result
+
+
 def _parse_scalar(value: str) -> Any:
     value = value.strip().strip('"').strip("'")
     if value.lower() in {"true", "false"}:
@@ -260,6 +283,13 @@ def _item_relevance_key(row: pd.Series, analysis: dict, item: pd.Series) -> str:
     code = str(item.get("item_code", "")).lower()
     item_name = str(item.get("item_name", "")).lower()
     material = analysis.get("disease_or_material")
+    material_codes = {
+        str(value).strip() for value in analysis.get("material_meta_codes", [])
+    }
+    demand_codes = {
+        str(value).strip()
+        for value in analysis.get("demand_risk_meta_codes", [])
+    }
     related_items = [str(value).lower() for value in analysis.get("related_medical_items", [])]
 
     if code and code in text:
@@ -270,6 +300,20 @@ def _item_relevance_key(row: pd.Series, analysis: dict, item: pd.Series) -> str:
         return "item_group_match"
     if material and str(item.get("related_material")) == str(material):
         return "material_match"
+    item_material_codes = {
+        value.strip()
+        for value in str(item.get("raw_material_meta_code", "")).split(";")
+        if value.strip()
+    }
+    if material_codes & item_material_codes:
+        return "material_match"
+    item_demand_codes = {
+        value.strip()
+        for value in str(item.get("demand_risk_meta_code", "")).split(";")
+        if value.strip()
+    }
+    if demand_codes & item_demand_codes:
+        return "item_group_match"
     if any(token in text for token in ["medical supplies", "healthcare products", "의료물품", "의료기기", "보건소"]):
         return "healthcare_supply_generic"
     return "general_macro_risk"
@@ -311,7 +355,14 @@ def _event_cluster_id(row: pd.Series, analysis: dict, event_type: str, news_date
 
 
 def _empty_score_frame() -> pd.DataFrame:
-    return pd.DataFrame(columns=["STD_YYYYMM", "stock_item_key", *NEWS_RISK_COLUMNS])
+    return pd.DataFrame(
+        columns=[
+            "STD_YYYYMM",
+            "stock_item_key",
+            *NEWS_RISK_COLUMNS,
+            *NEWS_RISK_METADATA_COLUMNS,
+        ]
+    )
 
 
 def _empty_article_score_frame() -> pd.DataFrame:
@@ -350,7 +401,113 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
         if col not in pivot.columns:
             pivot[col] = 0.0
     pivot["total_news_risk"] = pivot[NEWS_RISK_COLUMNS[:-1]].sum(axis=1).clip(0, 1)
-    return pivot[["STD_YYYYMM", "stock_item_key", *NEWS_RISK_COLUMNS]]
+    confidence = (
+        scored.groupby(["STD_YYYYMM", "stock_item_key"], as_index=False, observed=True)
+        .agg(news_signal_confidence=("confidence", "mean"))
+    )
+    pivot = pivot.merge(
+        confidence,
+        on=["STD_YYYYMM", "stock_item_key"],
+        how="left",
+        validate="one_to_one",
+    )
+    event_codes = (
+        scored.groupby(["STD_YYYYMM", "stock_item_key"], as_index=False, observed=True)
+        .agg(
+            news_event_codes=(
+                "external_event_codes",
+                lambda values: ";".join(
+                    sorted(
+                        {
+                            code.strip()
+                            for value in values
+                            for code in str(value).split(";")
+                            if code.strip()
+                        }
+                    )
+                ),
+            )
+        )
+    )
+    pivot = pivot.merge(
+        event_codes,
+        on=["STD_YYYYMM", "stock_item_key"],
+        how="left",
+        validate="one_to_one",
+    )
+    approvals = (
+        scored.groupby(
+            ["STD_YYYYMM", "stock_item_key"],
+            as_index=False,
+            observed=True,
+        )
+        .agg(
+            has_approved_material_mapping=(
+                "approved_mapping_path",
+                lambda values: any(str(value) == "material" for value in values),
+            ),
+            has_approved_demand_mapping=(
+                "approved_mapping_path",
+                lambda values: any(str(value) == "demand" for value in values),
+            ),
+        )
+    )
+    pivot = pivot.merge(
+        approvals,
+        on=["STD_YYYYMM", "stock_item_key"],
+        how="left",
+        validate="one_to_one",
+    )
+    return pivot[
+        [
+            "STD_YYYYMM",
+            "stock_item_key",
+            *NEWS_RISK_COLUMNS,
+            *NEWS_RISK_METADATA_COLUMNS,
+        ]
+    ]
+
+
+def _codes_in_mapping(mapping: pd.DataFrame, column: str, codes: set[str]) -> pd.Series:
+    if column not in mapping.columns or not codes:
+        return pd.Series(False, index=mapping.index, dtype=bool)
+    return mapping[column].astype(str).map(
+        lambda value: bool(
+            codes & {code.strip() for code in value.split(";") if code.strip()}
+        )
+    )
+
+
+def _match_stock_mapping(
+    mapping: pd.DataFrame,
+    analysis: dict,
+    event_type: str,
+) -> tuple[pd.DataFrame, str]:
+    if event_type == "infectious_disease_outbreak":
+        demand_codes = {
+            str(value).strip()
+            for value in analysis.get("demand_risk_meta_codes", [])
+            if str(value).strip()
+        }
+        matched = mapping[_codes_in_mapping(mapping, "demand_risk_meta_code", demand_codes)]
+        if not matched.empty:
+            return matched, "demand"
+
+    material_codes = {
+        str(value).strip()
+        for value in analysis.get("material_meta_codes", [])
+        if str(value).strip()
+    }
+    if material_codes:
+        matched = mapping[
+            _codes_in_mapping(mapping, "raw_material_meta_code", material_codes)
+        ]
+        if not matched.empty:
+            return matched, "material"
+    material = analysis.get("disease_or_material")
+    matched = mapping[mapping["related_material"].eq(material)]
+    path = "demand" if event_type == "infectious_disease_outbreak" else "material"
+    return matched, path
 
 
 def build_news_risk_outputs(
@@ -365,7 +522,7 @@ def build_news_risk_outputs(
 
     config = config or _load_weight_config()
     country_weights = _ensure_country_weight() if country_weights is None else country_weights
-    mapping = _load_stock_mapping() if mapping is None else mapping
+    mapping = _load_stock_mapping() if mapping is None else _approved_input_mapping(mapping)
     if mapping.empty:
         return _empty_score_frame(), _empty_article_score_frame()
     country_weight_map = dict(zip(country_weights["country"], country_weights["region_weight"]))
@@ -395,7 +552,11 @@ def build_news_risk_outputs(
     rows = []
     for row, analysis, event_type, news_date, cluster_id in analyzed_rows:
         material = analysis.get("disease_or_material")
-        matched = mapping[mapping["related_material"].eq(material)]
+        matched, approved_mapping_path = _match_stock_mapping(
+            mapping,
+            analysis,
+            event_type,
+        )
         if matched.empty:
             LOGGER.warning("No stock item mapping found for material=%s; article=%s", material, row.get("title", ""))
             continue
@@ -439,6 +600,36 @@ def build_news_risk_outputs(
                     "date": news_date.strftime("%Y-%m-%d"),
                     "title": row.get("title", ""),
                     "source": row.get("source", ""),
+                    "event_subject_codes": ";".join(
+                        sorted(
+                            {
+                                str(value).strip()
+                                for value in analysis.get("material_meta_codes", [])
+                                if str(value).strip()
+                            }
+                        )
+                    ),
+                    "demand_trigger_codes": ";".join(
+                        sorted(
+                            {
+                                str(value).strip()
+                                for value in analysis.get(
+                                    "demand_risk_meta_codes", []
+                                )
+                                if str(value).strip()
+                            }
+                        )
+                    ),
+                    "external_event_codes": ";".join(
+                        sorted(
+                            {
+                                str(value).strip()
+                                for value in analysis.get("external_event_codes", [])
+                                if str(value).strip()
+                            }
+                        )
+                    ),
+                    "approved_mapping_path": approved_mapping_path,
                     "stock_item_key": item["stock_item_key"],
                     "event_type": event_type,
                     "risk_bucket": risk_bucket,

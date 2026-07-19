@@ -19,8 +19,9 @@ DEFAULT_GDELT_QUERIES = {
     "infectious_disease": '(pandemic OR epidemic OR influenza OR covid OR "disease outbreak")',
     "medical_supply": '("medical supplies" OR "medical device" OR syringe OR catheter OR respirator) '
     '(shortage OR disruption OR shutdown OR "export ban")',
-    "raw_material": '(latex OR polypropylene OR nitrile OR "medical grade plastic") '
-    '(shortage OR price OR disruption OR shutdown)',
+    "raw_material": '(naphtha OR "crude oil" OR polypropylene OR polyethylene OR PVC '
+    'OR latex OR nitrile OR aluminum OR cotton OR pulp) '
+    '(shortage OR price OR disruption OR shutdown OR sanction)',
 }
 
 
@@ -204,7 +205,9 @@ def collect_gdelt_news(
 
 
 def collect_news(provider: str | None = None, data_path: str | Path | None = None) -> pd.DataFrame:
-    selected_provider = (provider or os.getenv("NEWS_PROVIDER", "sample")).strip().lower()
+    selected_provider = (provider or os.getenv("NEWS_PROVIDER", "disabled")).strip().lower()
+    if selected_provider in {"disabled", "none"}:
+        return pd.DataFrame(columns=NEWS_COLUMNS)
     if selected_provider == "sample":
         return _normalize_news(pd.DataFrame(SAMPLE_NEWS))
     if selected_provider == "csv":
