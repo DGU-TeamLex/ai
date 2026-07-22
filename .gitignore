@@ -29,6 +29,11 @@ models/
 !data/mapping/
 !data/mapping/*.csv
 
+# Keep handoff datasets (팀 간 전달용 산출물 — 재생성 비용이 크고 정의 고정이 필요한 것만)
+!data/handoff/
+!data/handoff/*.parquet
+!data/handoff/*.md
+
 # Local notebooks and system files
 .ipynb_checkpoints/
 .DS_Store
