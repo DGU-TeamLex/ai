@@ -1,23 +1,13 @@
 """
 이슈 #25 첫 산출물 적재: demand_class, mu_corrected
 
-전제조건
--------
-1. backend가 먼저 스키마 변경을 해야 함:
-     ALTER TABLE inventory ADD COLUMN demand_class TEXT;
-     ALTER TABLE inventory ADD COLUMN mu_corrected DOUBLE PRECISION;
-   (이슈#25 소유권 경계: 스키마=backend, 데이터=ai)
-2. DATABASE_URL 환경변수 설정 필요.
-3. compute_demand_class_mu_corrected.py 를 먼저 실행해서
-   output_full/backtest/demand_class_mu_corrected_handoff.csv 를 만들어둬야 함.
-
-이슈#25가 지적한 함정 반영
-------------------------
-- Neon pooled(PgBouncer) 세션 재사용 대응: 임시테이블 DROP TABLE IF EXISTS + ON COMMIT DROP
-- COPY -> 임시테이블 -> UPDATE ... FROM 패턴 (409k행 단건 UPDATE 방지)
-- 적재 후 저장된 on_hand 기준으로 order_recommendation/status 재계산 (backend#52 사고 재발 방지)
-- 기관코드 매핑은 backend와 동일한 정렬 zip 방식 사용 (단, 이 매핑 자체가
-  backend#16에서 부정확 이슈로 열려있다는 점 인지하고 있을 것)
+[PR #26 리뷰 반영 - 2차]
+- 기관코드 매핑 길이 불일치 시 경고만 찍고 zip()으로 조용히 자르던 버그 수정
+  -> raise로 중단 (68개 어긋난 매핑이 조용히 들어가던 문제)
+- institution_ids_sorted.csv 경로를 실제 위치(data/mapping/)로 수정
+- backend#16(기관 매핑 부정확 이슈)이 해결되기 전까지는, 매핑 정합성이
+  100% 보장되지 않는다는 점을 감안해 DRY_RUN 기본값을 유지할 것을 권장
+  (리뷰 코멘트 그대로 반영)
 """
 
 import io
@@ -30,7 +20,8 @@ import psycopg
 DRY_RUN = os.environ.get("DRY_RUN", "1") == "1"
 
 handoff = pd.read_csv("output_full/backtest/demand_class_mu_corrected_handoff.csv")
-real_ids = pd.read_csv("institution_ids_sorted.csv")["institution_id"].tolist()
+# [수정] 실제 저장 위치인 data/mapping/ 으로 경로 수정 (리뷰 지적)
+real_ids = pd.read_csv("data/mapping/institution_ids_sorted.csv")["institution_id"].tolist()
 
 # --- 기관코드 매핑 (backend import_ssis_dataset.py:222 와 동일 방식) ---
 anon_codes = sorted(handoff["anon_institution_code"].dropna().unique())
@@ -38,9 +29,15 @@ real_ids_sorted = sorted(real_ids)
 
 print(f"우리 데이터 고유 기관코드 수: {len(anon_codes)}")
 print(f"실제 institution_id 수: {len(real_ids_sorted)}")
+
+# [수정] 경고만 찍고 넘어가던 것을 raise로 변경 (리뷰 지적 - 68개 조용히 잘려나가던 버그)
 if len(anon_codes) != len(real_ids_sorted):
-    print("\n*** 경고: 길이 불일치. backend#16(기관 매핑 부정확 이슈)과 관련 가능성. "
-          "진행 전 반드시 확인. ***")
+    raise ValueError(
+        f"기관코드 매핑 길이 불일치: 우리 데이터 {len(anon_codes)}개 vs "
+        f"institution_ids_sorted.csv {len(real_ids_sorted)}개. "
+        f"zip()으로 그냥 진행하면 짧은 쪽 기준으로 조용히 잘려서 매핑이 어긋납니다. "
+        f"backend#16(기관 매핑 부정확) 관련 여부를 먼저 확인하세요."
+    )
 
 mapping = dict(zip(anon_codes, real_ids_sorted))
 handoff["institution_id"] = handoff["anon_institution_code"].map(mapping)
@@ -53,7 +50,6 @@ update_df = handoff[["institution_id", "standard_code", "demand_class", "mu_corr
 with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
     cur = conn.cursor()
 
-    # 사전 확인: 신규 컬럼이 실제로 존재하는지
     cur.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_name='inventory' AND column_name IN ('demand_class', 'mu_corrected')
@@ -99,7 +95,9 @@ with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         print("\n=== DRY RUN: DORMANT 분류 샘플 (미리보기, 아직 반영 안 됨) ===")
         for row in cur.fetchall():
             print(row)
-        print("\n*** DRY_RUN=1 이라 반영되지 않았습니다. 확인 후 DRY_RUN=0 으로 재실행하세요. ***")
+        print("\n*** DRY_RUN=1 이라 반영되지 않았습니다. ***")
+        print("*** zero_ratio가 아직 월 패널 근사치입니다. censored_demand.parquet")
+        print("*** 로 정확한 값을 확보하기 전까지는 DRY_RUN=0 실행을 보류하는 것을 권장합니다. ***")
         conn.rollback()
     else:
         cur.execute("""
@@ -112,7 +110,6 @@ with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         """)
         print(f"demand_class/mu_corrected 갱신: {cur.rowcount:,}행")
 
-        # DORMANT는 status를 'DORMANT'로 덮어씀. 나머지는 기존 on_hand vs rop 규칙 그대로 둠(건드리지 않음)
         cur.execute("""
             UPDATE inventory SET status = 'DORMANT', updated_at = now()
             WHERE demand_class = 'DORMANT'

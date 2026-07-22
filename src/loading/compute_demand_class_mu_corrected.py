@@ -1,13 +1,17 @@
 """
 이슈 #25 첫 산출물: demand_class(DORMANT/CENSORED/ACTIVE) + mu_corrected
 
-- demand_class 는 이슈 #25가 명시한 규칙 그대로 적용 (기관+물품 단위, DB grain과 일치)
-- mu_corrected 는 이슈#25가 제안한 단순 가드(out_sum/held_eff, *10 캡) 대신
-  우리가 이슈#24에서 검증한 v3(Buhlmann shrinkage) + v5(상대배수 캡) 결과를 사용
-  (더 정교하고, 대조군 검증까지 거친 값이라는 게 채택 이유)
-
-출력: anon_institution_code, standard_code, demand_class, mu_corrected, mu_naive
+[PR #26 리뷰 반영 - 2차]
+- zero_ratio를 재고(closing) 기반으로 재정의 (기존: 거래유무 기반 observed_ratio의
+  보수(1-observed_ratio)를 썼는데, 이는 ai#24의 "재고0 비율"과 다른 정의였음 - 리뷰 지적)
+  -> 월말 마감재고(closing) 스냅샷 기준으로 재정의 (리뷰가 제시한 옵션2: 근사치)
+  -> 한계: 월말 시점만 보므로 월중 결품(예: 15일에 소진, 25일에 재입고)을 놓쳐
+     zero_ratio가 실제보다 과소추정될 수 있음. 정확한 값은 censored_demand.parquet
+     (원장 기준 일별 재고0일수, choigod1023 보유) 확보 후 교체 예정.
+- compute_demand_class_mu_corrected.py 의 입력 경로를 환경변수로 분리 (리뷰 지적)
 """
+
+import os
 
 import numpy as np
 import pandas as pd
@@ -18,25 +22,38 @@ MIN_INSTITUTIONS_FOR_ITEM_K = 5
 K_FALLBACK_CAP_PERCENTILE = 90
 RATIO_CAP_PERCENTILE = 95
 
-panel = pd.read_parquet("output_full/backtest/stock_monthly_panel.parquet")
+# 리뷰 반영: 다른 저장소(wep-stock-item-material-pipeline) 경로를 하드코딩하지 않고
+# 환경변수로 받음. 기본값은 기존 로컬 개발 경로를 유지.
+STOCK_PANEL_PATH = os.environ.get(
+    "STOCK_PANEL_PATH", "output_full/backtest/stock_monthly_panel.parquet"
+)
 
-# --- 1) 기관+물품+월 단위로 부서 합산 ---
+panel = pd.read_parquet(STOCK_PANEL_PATH)
+
+# --- 1) 기관+물품+월 단위로 부서 합산 (demand, closing 모두 합산) ---
 agg = panel.groupby(["보건기관코드_en", "물품코드", "ym"], as_index=False).agg(
     demand=("demand", "sum"),
     observed=("observed", "max"),
+    closing=("closing", "sum"),  # 부서 합산 재고 (기관 전체 관점의 재고 보유 여부 판단용)
 )
+agg["stock_zero_month"] = agg["closing"] <= 0
 
 # --- 2) 기관+물품 단위 series 통계 ---
 series = agg.groupby(["보건기관코드_en", "물품코드"], as_index=False).agg(
     months=("ym", "count"),
     obs_months=("observed", "sum"),
     demand_total=("demand", "sum"),
+    zero_stock_months=("stock_zero_month", "sum"),
 )
 series["mu_naive"] = series["demand_total"] / series["months"]
 series["observed_ratio"] = series["obs_months"] / series["months"]
-series["zero_ratio"] = 1 - series["observed_ratio"]  # 재고0 비율 (월 단위 근사)
 
-# --- 3) 이슈#25 규칙 그대로 demand_class 분류 ---
+# [수정] zero_ratio: 거래유무가 아니라 월말 재고(closing) 기준으로 재정의.
+# NOTE: 월말 스냅샷 근사치이므로 월중 결품은 놓침 -> 과소추정 가능성 있음.
+#       censored_demand.parquet(원장 기준 일별) 확보 시 이 컬럼을 교체할 것.
+series["zero_ratio"] = series["zero_stock_months"] / series["months"]
+
+# --- 3) demand_class 분류 (정의는 리뷰 지적대로 유지, zero_ratio만 재고기반으로 교체됨) ---
 series["demand_class"] = np.select(
     [
         (series["demand_total"] == 0) & (series["zero_ratio"] < 0.5),
@@ -45,13 +62,15 @@ series["demand_class"] = np.select(
     ["DORMANT", "CENSORED"],
     default="ACTIVE",
 )
-print("=== demand_class 분포 ===")
+print("=== demand_class 분포 (재고 기반 zero_ratio, 월 패널 근사치) ===")
 print(series["demand_class"].value_counts())
 print(series["demand_class"].value_counts(normalize=True).round(3))
+print("\n주의: 월말 스냅샷 근사치입니다. 원장 기준 일별 값(censored_demand.parquet)"
+      " 확보 시 재계산 필요.")
 
 is_true_zero_demand = (series["demand_total"] == 0) & (series["observed_ratio"] >= CONTROL_THRESHOLD)
 
-# --- 4) v3: Buhlmann shrinkage (기존 로직 재사용) ---
+# --- 4) v3: Buhlmann shrinkage (기존 로직 그대로) ---
 reliable = series[
     (series["observed_ratio"] >= CONTROL_THRESHOLD)
     & (series["obs_months"] >= MIN_OBS_FOR_PRIOR)
@@ -109,13 +128,12 @@ series["mu_corrected"] = series["mu_shrink"]
 over_cap = needs_cap & (series["mu_shrink"] > cap_value)
 series.loc[over_cap, "mu_corrected"] = cap_value[over_cap]
 
-# DORMANT는 정의상 진짜 무사용이므로 mu_corrected도 0 유지 (보정 대상 아님)
 series.loc[series["demand_class"] == "DORMANT", "mu_corrected"] = 0.0
 
 print(f"\n기관+물품 series 수: {len(series)}")
 
 output = series[
-    ["보건기관코드_en", "물품코드", "demand_class", "mu_corrected", "mu_naive"]
+    ["보건기관코드_en", "물품코드", "demand_class", "mu_corrected", "mu_naive", "zero_ratio"]
 ].rename(columns={"보건기관코드_en": "anon_institution_code", "물품코드": "standard_code"})
 
 output.to_csv("output_full/backtest/demand_class_mu_corrected_handoff.csv", index=False, encoding="utf-8-sig")
