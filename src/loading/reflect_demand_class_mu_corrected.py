@@ -1,13 +1,13 @@
 """
 이슈 #25 첫 산출물 적재: demand_class, mu_corrected
 
-[PR #26 리뷰 반영 - 2차]
-- 기관코드 매핑 길이 불일치 시 경고만 찍고 zip()으로 조용히 자르던 버그 수정
-  -> raise로 중단 (68개 어긋난 매핑이 조용히 들어가던 문제)
-- institution_ids_sorted.csv 경로를 실제 위치(data/mapping/)로 수정
-- backend#16(기관 매핑 부정확 이슈)이 해결되기 전까지는, 매핑 정합성이
-  100% 보장되지 않는다는 점을 감안해 DRY_RUN 기본값을 유지할 것을 권장
-  (리뷰 코멘트 그대로 반영)
+[PR #26 리뷰 반영 - 3차]
+- status='DORMANT' 덮어쓰는 UPDATE 블록 제거 (리뷰 지시)
+  -> demand_class/mu_corrected만 적재하고, status는 건드리지 않음
+     (status는 기존 on_hand vs rop 로직이 별도로 관리)
+- backend 스키마는 PR #54로 이미 프로덕션 적용 완료 (컬럼 존재 확인은 유지)
+- 기관코드 매핑 길이 불일치 시 raise 유지
+- institution_ids_sorted.csv 경로(data/mapping/) 유지
 """
 
 import io
@@ -20,17 +20,14 @@ import psycopg
 DRY_RUN = os.environ.get("DRY_RUN", "1") == "1"
 
 handoff = pd.read_csv("output_full/backtest/demand_class_mu_corrected_handoff.csv")
-# [수정] 실제 저장 위치인 data/mapping/ 으로 경로 수정 (리뷰 지적)
 real_ids = pd.read_csv("data/mapping/institution_ids_sorted.csv")["institution_id"].tolist()
 
-# --- 기관코드 매핑 (backend import_ssis_dataset.py:222 와 동일 방식) ---
 anon_codes = sorted(handoff["anon_institution_code"].dropna().unique())
 real_ids_sorted = sorted(real_ids)
 
 print(f"우리 데이터 고유 기관코드 수: {len(anon_codes)}")
 print(f"실제 institution_id 수: {len(real_ids_sorted)}")
 
-# [수정] 경고만 찍고 넘어가던 것을 raise로 변경 (리뷰 지적 - 68개 조용히 잘려나가던 버그)
 if len(anon_codes) != len(real_ids_sorted):
     raise ValueError(
         f"기관코드 매핑 길이 불일치: 우리 데이터 {len(anon_codes)}개 vs "
@@ -58,7 +55,7 @@ with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
     missing = {"demand_class", "mu_corrected"} - existing_cols
     if missing:
         print(f"\n*** 중단: inventory 테이블에 컬럼이 없습니다: {missing} ***")
-        print("*** backend에게 ALTER TABLE 먼저 요청하세요. ***")
+        print("*** backend PR #54가 실제로 적용됐는지 확인하세요. ***")
         raise SystemExit(1)
 
     cur.execute("DROP TABLE IF EXISTS _demand_class_update")
@@ -95,11 +92,10 @@ with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         print("\n=== DRY RUN: DORMANT 분류 샘플 (미리보기, 아직 반영 안 됨) ===")
         for row in cur.fetchall():
             print(row)
-        print("\n*** DRY_RUN=1 이라 반영되지 않았습니다. ***")
-        print("*** zero_ratio가 아직 월 패널 근사치입니다. censored_demand.parquet")
-        print("*** 로 정확한 값을 확보하기 전까지는 DRY_RUN=0 실행을 보류하는 것을 권장합니다. ***")
+        print("\n*** DRY_RUN=1 이라 반영되지 않았습니다. 확인 후 DRY_RUN=0 으로 재실행하세요. ***")
         conn.rollback()
     else:
+        # [수정] demand_class, mu_corrected만 갱신. status는 건드리지 않음 (리뷰 지시로 블록 제거)
         cur.execute("""
             UPDATE inventory i SET
                 demand_class = u.demand_class,
@@ -109,12 +105,6 @@ with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
             WHERE i.institution_id = u.institution_id AND i.standard_code = u.standard_code
         """)
         print(f"demand_class/mu_corrected 갱신: {cur.rowcount:,}행")
-
-        cur.execute("""
-            UPDATE inventory SET status = 'DORMANT', updated_at = now()
-            WHERE demand_class = 'DORMANT'
-        """)
-        print(f"DORMANT 상태 반영: {cur.rowcount:,}행")
 
         conn.commit()
         print("\n*** 커밋 완료. ***")

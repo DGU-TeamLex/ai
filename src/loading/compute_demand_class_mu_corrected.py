@@ -1,14 +1,13 @@
 """
 이슈 #25 첫 산출물: demand_class(DORMANT/CENSORED/ACTIVE) + mu_corrected
 
-[PR #26 리뷰 반영 - 2차]
-- zero_ratio를 재고(closing) 기반으로 재정의 (기존: 거래유무 기반 observed_ratio의
-  보수(1-observed_ratio)를 썼는데, 이는 ai#24의 "재고0 비율"과 다른 정의였음 - 리뷰 지적)
-  -> 월말 마감재고(closing) 스냅샷 기준으로 재정의 (리뷰가 제시한 옵션2: 근사치)
-  -> 한계: 월말 시점만 보므로 월중 결품(예: 15일에 소진, 25일에 재입고)을 놓쳐
-     zero_ratio가 실제보다 과소추정될 수 있음. 정확한 값은 censored_demand.parquet
-     (원장 기준 일별 재고0일수, choigod1023 보유) 확보 후 교체 예정.
-- compute_demand_class_mu_corrected.py 의 입력 경로를 환경변수로 분리 (리뷰 지적)
+[PR #26 리뷰 반영 - 3차]
+- censored_demand.parquet(choigod1023 제공, data/handoff/) 기반으로
+  zero_ratio를 정확하게 계산 (월 패널 closing 근사치 대체)
+- grain 차이(기관×부서×물품 416,128 vs DB 기준 기관×물품)를 리뷰 가이드대로
+  부서 합산 후 비율 재계산 (합산 전 비율을 합치면 안 됨)
+- mu_corrected는 계속 Buhlmann(v3)/캡(v5) 방식 사용 (censored_demand.parquet의
+  mu_보정 컬럼은 진단값이라 그대로 쓰면 안 된다는 안내 반영 - 원래도 안 썼음)
 """
 
 import os
@@ -22,38 +21,45 @@ MIN_INSTITUTIONS_FOR_ITEM_K = 5
 K_FALLBACK_CAP_PERCENTILE = 90
 RATIO_CAP_PERCENTILE = 95
 
-# 리뷰 반영: 다른 저장소(wep-stock-item-material-pipeline) 경로를 하드코딩하지 않고
-# 환경변수로 받음. 기본값은 기존 로컬 개발 경로를 유지.
 STOCK_PANEL_PATH = os.environ.get(
     "STOCK_PANEL_PATH", "output_full/backtest/stock_monthly_panel.parquet"
 )
+CENSORED_DEMAND_PATH = os.environ.get(
+    "CENSORED_DEMAND_PATH", "data/handoff/censored_demand.parquet"
+)
 
+# --- 1) mu 계산용: 기존과 동일하게 기관+물품+월 단위로 부서 합산 ---
 panel = pd.read_parquet(STOCK_PANEL_PATH)
-
-# --- 1) 기관+물품+월 단위로 부서 합산 (demand, closing 모두 합산) ---
-agg = panel.groupby(["보건기관코드_en", "물품코드", "ym"], as_index=False).agg(
+agg = panel.groupby(["보건기관코드_en", "물품코드", "ym"], as_index=False, observed=True).agg(
     demand=("demand", "sum"),
     observed=("observed", "max"),
-    closing=("closing", "sum"),  # 부서 합산 재고 (기관 전체 관점의 재고 보유 여부 판단용)
 )
-agg["stock_zero_month"] = agg["closing"] <= 0
-
-# --- 2) 기관+물품 단위 series 통계 ---
-series = agg.groupby(["보건기관코드_en", "물품코드"], as_index=False).agg(
+series = agg.groupby(["보건기관코드_en", "물품코드"], as_index=False, observed=True).agg(
     months=("ym", "count"),
     obs_months=("observed", "sum"),
     demand_total=("demand", "sum"),
-    zero_stock_months=("stock_zero_month", "sum"),
 )
 series["mu_naive"] = series["demand_total"] / series["months"]
 series["observed_ratio"] = series["obs_months"] / series["months"]
 
-# [수정] zero_ratio: 거래유무가 아니라 월말 재고(closing) 기준으로 재정의.
-# NOTE: 월말 스냅샷 근사치이므로 월중 결품은 놓침 -> 과소추정 가능성 있음.
-#       censored_demand.parquet(원장 기준 일별) 확보 시 이 컬럼을 교체할 것.
-series["zero_ratio"] = series["zero_stock_months"] / series["months"]
+# --- 2) zero_ratio: censored_demand.parquet에서 정확히 계산 (부서 합산 후 재계산) ---
+censored = pd.read_parquet(CENSORED_DEMAND_PATH)
+censored_agg = censored.groupby(["보건기관코드_en", "물품코드"], as_index=False, observed=True).agg(
+    재고0일=("재고0일", "sum"),
+    T=("T", "max"),
+)
+censored_agg["zero_ratio"] = (censored_agg["재고0일"] / censored_agg["T"]).clip(0, 1)
 
-# --- 3) demand_class 분류 (정의는 리뷰 지적대로 유지, zero_ratio만 재고기반으로 교체됨) ---
+series = series.merge(
+    censored_agg[["보건기관코드_en", "물품코드", "zero_ratio"]],
+    on=["보건기관코드_en", "물품코드"],
+    how="left",
+)
+missing_zero_ratio = series["zero_ratio"].isna().sum()
+print(f"censored_demand.parquet과 매칭 안 된 series: {missing_zero_ratio}건 "
+      f"(grain 차이로 인한 소수 불일치는 정상, 대량이면 매칭키 재확인 필요)")
+
+# --- 3) demand_class 분류 ---
 series["demand_class"] = np.select(
     [
         (series["demand_total"] == 0) & (series["zero_ratio"] < 0.5),
@@ -62,15 +68,14 @@ series["demand_class"] = np.select(
     ["DORMANT", "CENSORED"],
     default="ACTIVE",
 )
-print("=== demand_class 분포 (재고 기반 zero_ratio, 월 패널 근사치) ===")
+print("\n=== demand_class 분포 (censored_demand.parquet 기반, 정확한 값) ===")
 print(series["demand_class"].value_counts())
 print(series["demand_class"].value_counts(normalize=True).round(3))
-print("\n주의: 월말 스냅샷 근사치입니다. 원장 기준 일별 값(censored_demand.parquet)"
-      " 확보 시 재계산 필요.")
+print("\n검증 기준(리뷰어 제시): CENSORED 91,798건(22.4%) 근처여야 함")
 
 is_true_zero_demand = (series["demand_total"] == 0) & (series["observed_ratio"] >= CONTROL_THRESHOLD)
 
-# --- 4) v3: Buhlmann shrinkage (기존 로직 그대로) ---
+# --- 4) v3: Buhlmann shrinkage (기존 로직 그대로 - 리뷰에서 계속 사용 확인받음) ---
 reliable = series[
     (series["observed_ratio"] >= CONTROL_THRESHOLD)
     & (series["obs_months"] >= MIN_OBS_FOR_PRIOR)
@@ -93,7 +98,7 @@ def buhlmann_item_params(g: pd.DataFrame) -> pd.Series:
     return pd.Series({"item_mean": m, "k": k, "n": n})
 
 
-item_params = reliable.groupby("물품코드").apply(buhlmann_item_params, include_groups=False)
+item_params = reliable.groupby("물품코드", observed=True).apply(buhlmann_item_params, include_groups=False)
 finite_k = item_params["k"].dropna()
 k_cap = finite_k.quantile(K_FALLBACK_CAP_PERCENTILE / 100) if len(finite_k) > 0 else 6.0
 item_params["k"] = item_params["k"].fillna(k_cap).clip(upper=k_cap)
