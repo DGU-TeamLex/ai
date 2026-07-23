@@ -2,8 +2,8 @@
 
 > 2026-07-11 기준 변경: `device/` 데이터 의존성은 제거되었습니다. 현재 파이프라인은 `raw_stock/*.DAT`만 사용하며 `MED_DEVICE_5`와 `SIDO`는 더 이상 모델 키가 아닙니다.
 
-작성일: 2026-07-06
-프로젝트: WeP-Stock AI Service
+작성일: 2026-07-06  
+프로젝트: WeP-Stock AI Service  
 GitHub: https://github.com/DGU-TeamLex/ai
 
 ## 1. 현재 상태 요약

@@ -241,6 +241,32 @@ class ItemNormalizationTest(unittest.TestCase):
         self.assertEqual(normalized["item_family_id_candidate"], "MEDICAL_GAUZE")
         self.assertEqual(normalized["item_group_id_candidate"], "MED_SUPPLY")
 
+    def test_gauze_dimensions_are_preserved_across_positions_and_separators(self):
+        cases = [
+            ("거즈(4*4)", "4 x 4"),
+            ("거즈 5*5", "5 x 5"),
+            ("거즈2*2", "2 x 2"),
+            ("2*2거즈", "2 x 2"),
+            ("멸균거즈 7.5cm*7.5cm", "7.5cm x 7.5cm"),
+            ("거즈 10x10cm", "10cm x 10cm"),
+            ("Y거즈 5×5", "5 x 5"),
+            ("바세린거즈 10X10", "10 x 10"),
+            ("멸균포장Y거즈 5*5", "5 x 5"),
+            ("거즈 4 X 8", "4 x 8"),
+        ]
+
+        for name, specification in cases:
+            with self.subTest(name=name):
+                normalized = normalize_alias(alias(name))
+                self.assertEqual(
+                    normalized["item_family_id_candidate"],
+                    "MEDICAL_GAUZE",
+                )
+                self.assertEqual(
+                    normalized["normalized_specification_candidate"],
+                    specification,
+                )
+
     def test_known_substring_collisions_do_not_override_product_type(self):
         trental = normalize_alias(alias("트렌탈400서방정(한독약품)-1정", "W123456"))
         dishcloth = normalize_alias(alias("감염-행주", "USE0000100"))

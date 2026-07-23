@@ -77,7 +77,7 @@ target_stock = base_stock + risk_buffer
 수요 뉴스 또는 모듈 C feature를 이미 사용한 학습 모델이 선택된 경우
 `external_demand_signal_in_forecast=true`로 표시하고 35% 고정 수요 상향은 다시 적용하지
 않는다. 공급 위험은 사용량을 늘리는 대신 리드타임과 안전재고율에만 반영한다. 상세한
-신호 결합식과 감사 산출물은 `docs/MODULE_C_RISK_ADJUSTMENT.md`에 정리되어 있다.
+신호 결합식과 감사 산출물은 `docs/2026-07-18_05_MODULE_C_RISK_ADJUSTMENT.md`에 정리되어 있다.
 
 ## 4. 매핑 적용 경계
 
@@ -155,5 +155,5 @@ effective_lead_time_days = lead_time_days * lead_time_multiplier(level)
 월 사용량이나 임의 생성 표준편차를 이 식에 넣지 않는다. 세 일 단위 입력이 없으면 계산
 불가 상태를 반환한다. 이 정책과 모듈 C 연속형 `target_stock` 정책을 동시에 적용해 두
 안전재고를 합산하는 것도 금지한다. 공급레벨 오정합 분석과 정책 결정은
-`docs/report_공급위험레벨_안전재고_과적재.md` §9를 참고한다. 적재 전 오류 분류와 격리
-절차는 `docs/SUPPLY_RISK_QUALITY_GATE.md`를 따른다.
+`docs/2026-07-18_04_공급위험레벨_안전재고_과적재_보고서.md` §9를 참고한다. 적재 전 오류 분류와 격리
+절차는 `docs/2026-07-18_06_SUPPLY_RISK_QUALITY_GATE.md`를 따른다.

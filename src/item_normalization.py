@@ -318,6 +318,11 @@ DIMENSION_PATTERN = re.compile(
     r"(\d+(?:\.\d+)?)\s*(cm|mm)\s*[x*×]\s*(\d+(?:\.\d+)?)\s*(m|cm|mm)",
     re.IGNORECASE,
 )
+GAUZE_DIMENSION_PATTERN = re.compile(
+    r"(?<![\d.])(\d+(?:\.\d+)?)\s*(cm|mm)?\s*[x*×]\s*"
+    r"(\d+(?:\.\d+)?)\s*(cm|mm)?(?![\d.])",
+    re.IGNORECASE,
+)
 VOLUME_PATTERN = re.compile(
     r"(?<!\d)(\d+(?:\.\d+)?)\s*(밀리리터|리터|cc|mL|ml|L)\s*(이하|초과)?",
     re.IGNORECASE,
@@ -529,7 +534,17 @@ def extract_specification(product_name: str, family: FamilyRule | None) -> str:
     if family_id == "INFUSION_SET":
         return "수액세트"
 
-    if family_id in {"EO_STERILIZATION_PACKAGING", "MEDICAL_GAUZE"}:
+    if family_id == "MEDICAL_GAUZE":
+        dimension = GAUZE_DIMENSION_PATTERN.search(normalized_name)
+        if dimension:
+            width, width_unit, height, height_unit = dimension.groups()
+            # A single trailing unit conventionally applies to both dimensions.
+            width_unit = (width_unit or height_unit or "").lower()
+            height_unit = (height_unit or width_unit or "").lower()
+            return f"{width}{width_unit} x {height}{height_unit}"
+        return ""
+
+    if family_id == "EO_STERILIZATION_PACKAGING":
         dimension = DIMENSION_PATTERN.search(normalized_name)
         if dimension:
             return (

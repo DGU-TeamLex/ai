@@ -1,7 +1,7 @@
 # 원자재·리스크 메타코드 파이프라인 통합
 
 현재 운영 후보 생성 버전은 `combined-material-v2.1`이다. 전체 비교 수치와 경계 사례는
-`ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고한다.
+`2026-07-18_02_ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고한다.
 
 ## 입력
 

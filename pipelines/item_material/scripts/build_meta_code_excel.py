@@ -12,14 +12,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
-if len(sys.argv) != 4:
-    raise SystemExit(
-        "usage: build_meta_code_excel.py <glossary.csv> <mapping.csv> <output.xlsx>"
-    )
-
-GLOSSARY_FILE = sys.argv[1]
-DATA_FILE = sys.argv[2]
-OUT_FILE = sys.argv[3]
+GLOSSARY_FILE = sys.argv[1] if len(sys.argv) > 1 else "/Users/jangjunhyeok/Downloads/분류/output/meta_code_glossary.csv"
+DATA_FILE = sys.argv[2] if len(sys.argv) > 2 else "/Users/jangjunhyeok/Downloads/분류/output/item_material_event_mapping_final.csv"
+OUT_FILE = sys.argv[3] if len(sys.argv) > 3 else "/Users/jangjunhyeok/Downloads/분류/output/meta_code_glossary.xlsx"
 
 CATEGORY_SHEET = [
     ("raw_material", "원재료코드", "raw_material_meta_code"),

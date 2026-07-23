@@ -205,4 +205,4 @@ limit
 
 2026-07-16 실행 결과는 승인 매핑 4,948행, 매칭 예측 2,396행, 예측 사용량 커버리지
 1.74%, 세부유형 출력 2,348행이다. 상세 분류 기준과 검토 큐는
-`docs/ITEM_CLASSIFICATION_V1_RESULT.md`를 참고한다.
+`docs/2026-07-16_04_ITEM_CLASSIFICATION_V1_RESULT.md`를 참고한다.

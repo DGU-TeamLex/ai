@@ -1,5 +1,8 @@
 # WeP-Stock AI Service Scope
 
+> 2026-07-22 갱신: 일반 운영 트랜잭션과 DDL은 backend 소유지만, 품질 게이트를 통과한
+> AI 배치 산출물의 DML 적재는 AI가 담당한다.
+
 이 저장소는 WeP-Stock 전체 백엔드가 아니라 AI 학습 및 서빙 시스템만 담당합니다.
 
 ## 책임 범위
@@ -13,6 +16,7 @@
 6. 예측 결과 생성
 7. safety stock / recommended stock 계산 (`src/modeling/inventory_policy.py`)
 8. AI 결과 조회용 serving API 제공
+9. 검증된 AI 배치 산출물 DML 적재 (`src/loading/`)
 ```
 
 ## 제외 범위
@@ -26,7 +30,7 @@
 기관/중앙/운영 대시보드 aggregation API
 알림 상태 관리 및 발송
 재배치 승인 워크플로우
-DB 트랜잭션, 감사 로그, row-level permission
+DB 스키마 변경, 운영 트랜잭션, 감사 로그, row-level permission
 ```
 
 ## AI API Contract

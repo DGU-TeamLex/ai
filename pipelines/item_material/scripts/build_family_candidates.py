@@ -4,7 +4,7 @@
 item_grouping_review_sample_1000.csv 의 대표품목 1,000건에 대해
 item_family_id / standard_family_name '후보'를 제안한다. (v2 — 괄호 패턴 확장 + 사전 대폭 보강)
 
-이 스크립트가 만드는 값은 전부 미검증 후보다. ITEM_STANDARDIZATION_TEAM_GUIDE.md
+이 스크립트가 만드는 값은 전부 미검증 후보다. 2026-07-13_02_ITEM_STANDARDIZATION_TEAM_GUIDE.md
 규칙에 따라 verified_* 필드나 canonical_item_id 는 절대 채우지 않고, 별도 파일로만
 출력한다. family_basis 컬럼에 근거 종류를 명시해서 검토자가 신뢰도를 바로 판단할
 수 있게 한다.
@@ -15,18 +15,12 @@ import re
 import sys
 
 # 보조 데이터(brand_dict_extra.tsv, ingredient_ko_en.tsv)가 있는 폴더.
-# 환경변수 PIPE_DATA_DIR 로 재정의 가능하며 기본값은 파이프라인의 data 폴더다.
-PIPELINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.environ.get("PIPE_DATA_DIR", os.path.join(PIPELINE_DIR, "data"))
+# 환경변수 PIPE_DATA_DIR 로 재정의 가능. 기본은 이 세션의 output 폴더.
+DATA_DIR = os.environ.get("PIPE_DATA_DIR", "/Users/jangjunhyeok/Downloads/분류/output")
 
-if len(sys.argv) != 4:
-    raise SystemExit(
-        "usage: build_family_candidates.py <input.csv> <output.csv> <unresolved_queue.csv>"
-    )
-
-IN_FILE = sys.argv[1]
-OUT_FILE = sys.argv[2]
-QUEUE_FILE = sys.argv[3]
+IN_FILE = sys.argv[1] if len(sys.argv) > 1 else "/Users/jangjunhyeok/Downloads/분류/item_grouping_review_sample_1000.csv"
+OUT_FILE = sys.argv[2] if len(sys.argv) > 2 else "/Users/jangjunhyeok/Downloads/분류/output/item_family_candidate_suggestions.csv"
+QUEUE_FILE = sys.argv[3] if len(sys.argv) > 3 else OUT_FILE.replace(".csv", "_unresolved_queue.csv")
 TODAY = "2026-07-18"
 SEARCHED_TODAY = "web_search_2026_07_15"
 GENERAL = "general_knowledge_unverified"

@@ -65,6 +65,40 @@ class CommodityCollectorTest(unittest.TestCase):
         self.assertEqual(result.iloc[0]["provider"], "alpha_vantage")
         self.assertEqual(float(result.iloc[0]["price"]), 80.0)
 
+    def test_alpha_vantage_adapter_spaces_provider_requests(self):
+        registry = pd.DataFrame(
+            [
+                {
+                    "market_factor_id": factor,
+                    "provider": "alpha_vantage",
+                    "series_id": series,
+                    "interval": "daily",
+                    "price_type": "benchmark_spot",
+                    "currency": "USD",
+                    "unit": "USD_PER_BARREL",
+                    "is_direct_factor": True,
+                }
+                for factor, series in [
+                    ("BRENT_CRUDE", "BRENT"),
+                    ("WTI_CRUDE", "WTI"),
+                ]
+            ]
+        )
+        delays = []
+
+        result = collect_alpha_vantage_prices(
+            registry,
+            api_key="test-key",
+            request_json=lambda *_: {
+                "data": [{"date": "2025-01-01", "value": "80.0"}]
+            },
+            request_delay_seconds=1.2,
+            sleeper=delays.append,
+        )
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(delays, [1.2])
+
 
 class CommodityPropagationTest(unittest.TestCase):
     def setUp(self):
@@ -253,6 +287,24 @@ class ModuleCInventoryPolicyTest(unittest.TestCase):
         self.assertEqual(result["base_stock"], 120.0)
         self.assertEqual(result["target_stock"], 120.0)
         self.assertFalse(result["module_c_policy_applied"])
+
+    def test_zero_module_c_signal_has_no_floating_point_residual_buffer(self):
+        source = pd.DataFrame(
+            [
+                {
+                    "predicted_usage": 716.056027,
+                    "module_c_demand_risk": 0.0,
+                    "module_c_supply_risk": 0.0,
+                    "module_c_total_risk": 0.0,
+                }
+            ]
+        )
+        result = add_inventory_recommendations(
+            source, module_c_config=module_c_config()
+        ).iloc[0]
+
+        self.assertEqual(result["risk_buffer"], 0.0)
+        self.assertEqual(result["target_stock"], result["base_stock"])
 
     def test_demand_signal_is_not_applied_twice_when_embedded_in_forecast(self):
         source = pd.DataFrame(

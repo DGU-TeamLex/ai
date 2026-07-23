@@ -5,6 +5,9 @@
 작업 브랜치: `feature/module-c-risk-adjustment`
 검토 범위: 현재 작업 트리의 Module C, 공급위험 정책, 품질 게이트, 생성 데이터
 
+> 2026-07-22 최신 이슈 판정은
+> `docs/2026-07-22_05_GITHUB_ISSUE_PR_ALIGNMENT.md`를 우선한다.
+
 ## 1. 결론
 
 공급위험 오류 분류 코드는 구현됐고 전체 테스트 입력에 재현 가능하게 적용된다. 다만 현재
@@ -152,13 +155,13 @@ data/sample/module_c_supply_risk_quality_sample_1000.csv
 |---|---|---|
 | [#2 실제 뉴스 API](https://github.com/DGU-TeamLex/ai/issues/2) | 부분 구현 | GDELT/CSV 수집과 캐시 구현. 운영 기간, 스케줄, 장애 정책 확정 필요 |
 | [#4 원자재 가격 API](https://github.com/DGU-TeamLex/ai/issues/4) | 부분 구현 | Alpha Vantage/FRED/Nasdaq/CSV adapter 구현. 실제 운영 가격 입력은 없음 |
-| [#5 API 통합 테스트](https://github.com/DGU-TeamLex/ai/issues/5) | 부분 구현 | 함수 단위 예측·발주 테스트 존재. `/health` 포함 실제 HTTP TestClient 검증 필요 |
+| [#5 API 통합 테스트](https://github.com/DGU-TeamLex/ai/issues/5) | 코드 완료 | 임시 uvicorn 서버와 CSV fixture로 `/health`, `/predictions`, `/recommend-order` 검증 |
 | [#8 device 의존성 제거](https://github.com/DGU-TeamLex/ai/issues/8) | 코드 완료 | `src/`, `tests/` 의존성 제거. 이슈의 남은 조건은 dev 병합 |
 | [#9 실제 수요예측](https://github.com/DGU-TeamLex/ai/issues/9) | 핵심 구현 | 실제 예측·서빙과 모델 비교 구현. 재고 목적함수 기반 최종 champion 검증 필요 |
 | [#10 raw_stock 전체 전처리](https://github.com/DGU-TeamLex/ai/issues/10) | 대부분 구현 | 16,265,602건 처리 및 3,729,983 월별 행 생성. 자원 사용·재현성 보고 보강 필요 |
 | [#11 품목-원자재 매핑](https://github.com/DGU-TeamLex/ai/issues/11) | 후보 생성 완료 | 101,546개 후보 생성, 운영 승인 관계는 0건 |
 | [#12 질병-품목 수요 매핑](https://github.com/DGU-TeamLex/ai/issues/12) | 후보 단계 | 수요코드 후보는 있으나 검수 승인과 1~4주 선행성 검증 없음 |
-| [#14 규격 토큰 분리](https://github.com/DGU-TeamLex/ai/issues/14) | 대부분 구현 | 게이지·용량·포장수 분리와 충돌 게이트 구현. 명시된 거즈 회귀 fixture 보강 필요 |
+| [#14 규격 토큰 분리](https://github.com/DGU-TeamLex/ai/issues/14) | 코드 완료 | 게이지·용량·포장수 분리, 거즈 10종과 주사기 용량별 병합 방지 회귀 고정 |
 | [#15 정규화 파이프라인 소유](https://github.com/DGU-TeamLex/ai/issues/15) | 핵심 구현 | 101,546개 전체 및 1,000개 샘플 재생성 가능. 팀 검수·병합 필요 |
 | [#16 기준표 밖 분류](https://github.com/DGU-TeamLex/ai/issues/16) | 부분 구현 | 미확정 잔류 정책 구현. 공식 근거 사전과 외부 검증 커버리지 부족 |
 | [#18 나프타 가격축](https://github.com/DGU-TeamLex/ai/issues/18) | 코드 완료, 운영 차단 | PP/PE/PVC 경로와 proxy 품질 구현. 승인 품목 관계와 나프타 운영 시계열 필요 |
@@ -216,7 +219,7 @@ data/sample/module_c_supply_risk_quality_sample_1000.csv
 - 변환 전후 코드와 정책 버전을 감사 CSV로 저장한다.
 - `SR018`, `SR019`가 0건인지 재실행으로 검증한다.
 
-### 신규 B: 공급위험 품질 게이트 CI·backend 적재 연동
+### 신규 B: 공급위험 품질 게이트 CI·AI 적재 연동
 
 완료 조건:
 
@@ -244,7 +247,7 @@ data/sample/module_c_supply_risk_quality_sample_1000.csv
 2. 신규 C로 미매핑 국내과점 76개 대표품목을 검증한다.
 3. #11에서 우선품목의 품목-원자재 관계를 승인한다.
 4. #2와 #4의 운영 뉴스·가격 데이터를 연결한다.
-5. 신규 B로 backend 적재 전 품질 게이트를 강제한다.
+5. 신규 B로 AI 배치 DML 전 품질 게이트를 강제한다.
 6. #20과 #23의 재고정책을 단일 방식으로 선택한다.
 7. #21 사건연구로 가중치와 임계값을 보정한다.
 

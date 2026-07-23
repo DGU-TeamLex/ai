@@ -1,9 +1,9 @@
 # 품목 정규화 v0.2 감사 결과
 
-> 상태: 이 감사에서 확인된 규칙 오류는 후속 버전에서 수정되었다. 최신 전체 생성 및 검증 결과는 `docs/ITEM_NORMALIZATION_V0.4_RESULT.md`를 기준으로 한다.
+> 상태: 이 감사에서 확인된 규칙 오류는 후속 버전에서 수정되었다. 최신 전체 생성 및 검증 결과는 `docs/2026-07-16_05_ITEM_NORMALIZATION_V0.4_RESULT.md`를 기준으로 한다.
 
-작성일: 2026-07-12
-검토 대상: `data/sample/raw_stock_item_normalization_sample_1000.csv`
+작성일: 2026-07-12  
+검토 대상: `data/sample/raw_stock_item_normalization_sample_1000.csv`  
 규칙 버전: `item-normalization-v0.2`
 
 ## 1. 결론

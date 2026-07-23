@@ -16,16 +16,8 @@ item_supply_clusters_final.csv 의 24개 클러스터(+기타 세부)에 실제 
 import csv
 import sys
 
-if len(sys.argv) != 5:
-    raise SystemExit(
-        "usage: build_material_events.py <input.csv> <output.csv> "
-        "<glossary.csv> <reverse_index.md>"
-    )
-
-IN_FILE = sys.argv[1]
-OUT_FILE = sys.argv[2]
-GLOSSARY_FILE = sys.argv[3]
-REVERSE_INDEX_FILE = sys.argv[4]
+IN_FILE = sys.argv[1] if len(sys.argv) > 1 else "/Users/jangjunhyeok/Downloads/분류/output/item_supply_clusters_final.csv"
+OUT_FILE = sys.argv[2] if len(sys.argv) > 2 else "/Users/jangjunhyeok/Downloads/분류/output/item_material_event_mapping_final.csv"
 TODAY = "2026-07-18"
 PIPELINE_VERSION = "combined-material-v2.1"
 
@@ -943,7 +935,8 @@ def main():
         writer.writeheader()
         writer.writerows(out_rows)
 
-    with open(GLOSSARY_FILE, "w", encoding="utf-8-sig", newline="") as f:
+    glossary_file = sys.argv[3] if len(sys.argv) > 3 else OUT_FILE.replace("item_material_event_mapping_final.csv", "meta_code_glossary.csv")
+    with open(glossary_file, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
             "meta_code", "category", "description", "supply_stage",
@@ -977,7 +970,8 @@ def main():
                 (r["representative_name"], float(r["usage_sum"] or 0))
             )
 
-    with open(REVERSE_INDEX_FILE, "w", encoding="utf-8") as f:
+    reverse_index_file = sys.argv[4] if len(sys.argv) > 4 else OUT_FILE.replace("item_material_event_mapping_final.csv", "raw_material_to_items_index.md")
+    with open(reverse_index_file, "w", encoding="utf-8") as f:
         f.write("# 원재료 메타코드 -> 실제 품목 역인덱스\n\n")
         f.write(f"작성일: {TODAY}\n\n")
         for code, items in sorted(material_to_items.items(), key=lambda kv: -len(kv[1])):
@@ -1001,8 +995,8 @@ def main():
     print("대분류 폴백(group_coarse)으로 재질미상 회피된 행:", group_recovered)
     print("신규 승격 코드 수:", len(dynamic_glossary))
     print("저장:", OUT_FILE)
-    print("저장:", GLOSSARY_FILE)
-    print("저장:", REVERSE_INDEX_FILE)
+    print("저장:", glossary_file)
+    print("저장:", reverse_index_file)
 
 
 if __name__ == "__main__":

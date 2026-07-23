@@ -40,6 +40,26 @@ class ItemEnrichmentTest(unittest.TestCase):
         self.assertEqual(normalize_match_name("멸균거즈 4*4"), "멸균거즈4x4")
         self.assertNotEqual(normalize_match_name("0.5mg"), normalize_match_name("05mg"))
 
+    def test_different_syringe_capacities_keep_distinct_representative_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            aliases = pd.DataFrame(
+                [
+                    self._alias("A", "USE1", "주사기 3cc", "주사기 3cc", 10),
+                    self._alias("A", "USE2", "주사기 5cc", "주사기 5cc", 10),
+                ]
+            )
+            alias_path = root / "aliases.parquet"
+            worklist_path = root / "worklist.parquet"
+            links_path = root / "links.parquet"
+            aliases.to_parquet(alias_path, index=False)
+
+            result = build_product_worklist(alias_path, worklist_path, links_path)
+            links = pd.read_parquet(links_path)
+
+        self.assertEqual(result["representative_items"], 2)
+        self.assertEqual(links["representative_item_id"].nunique(), 2)
+
     def test_build_worklist_groups_same_product_across_institutions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

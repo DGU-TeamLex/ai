@@ -1,12 +1,20 @@
+import json
 from pathlib import Path
+import socket
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import pandas as pd
 from fastapi import HTTPException
+import uvicorn
 
 from src.serving.api import (
+    app,
     get_predictions,
     get_predictions_by_subtype,
     inventory_policy,
@@ -15,7 +23,109 @@ from src.serving.api import (
 from src.serving.schemas import RecommendOrderRequest
 
 
+def http_json_request(
+    base_url: str,
+    method: str,
+    path: str,
+    params: dict[str, str] | None = None,
+    json_body: dict | None = None,
+) -> tuple[int, object]:
+    query = f"?{urlencode(params)}" if params else ""
+    body = json.dumps(json_body).encode("utf-8") if json_body is not None else None
+    headers = {"Content-Type": "application/json"} if json_body is not None else {}
+    request = Request(
+        f"{base_url}{path}{query}",
+        data=body,
+        headers=headers,
+        method=method,
+    )
+    with urlopen(request, timeout=5) as response:
+        return response.status, json.loads(response.read().decode("utf-8"))
+
+
 class ServingForecastTest(unittest.TestCase):
+    def test_health_predictions_and_recommend_order_endpoints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stock_predictions.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "year_month": "2026-07-01",
+                        "institution_code": "INST001",
+                        "department": "진료실",
+                        "item_code": "ITEM1",
+                        "predicted_usage": 100.0,
+                        "is_stale_data": False,
+                    }
+                ]
+            ).to_csv(path, index=False)
+
+            sock = None
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.bind(("127.0.0.1", 0))
+            except PermissionError:
+                if sock is not None:
+                    sock.close()
+                self.skipTest("environment policy blocks local TCP integration tests")
+            sock.listen(128)
+            port = sock.getsockname()[1]
+            server = uvicorn.Server(
+                uvicorn.Config(app, log_level="critical", lifespan="off")
+            )
+            thread = threading.Thread(
+                target=server.run,
+                kwargs={"sockets": [sock]},
+                daemon=True,
+            )
+
+            with patch("src.serving.api.PREDICTION_PATH", path):
+                thread.start()
+                try:
+                    deadline = time.monotonic() + 5
+                    while not server.started and time.monotonic() < deadline:
+                        time.sleep(0.01)
+                    self.assertTrue(server.started, "test API server did not start")
+                    base_url = f"http://127.0.0.1:{port}"
+                    health_response = http_json_request(base_url, "GET", "/health")
+                    prediction_response = http_json_request(
+                        base_url,
+                        "GET",
+                        "/predictions",
+                        params={
+                            "yyyymm": "2026-07",
+                            "item_code": "ITEM1",
+                            "institution_code": "INST001",
+                            "department": "진료실",
+                        },
+                    )
+                    order_response = http_json_request(
+                        base_url,
+                        "POST",
+                        "/recommend-order",
+                        json_body={
+                            "yyyymm": "2026-07",
+                            "item_code": "ITEM1",
+                            "institution_code": "INST001",
+                            "department": "진료실",
+                            "current_stock": 40,
+                        },
+                    )
+                finally:
+                    server.should_exit = True
+                    thread.join(timeout=5)
+                    sock.close()
+
+        self.assertFalse(thread.is_alive(), "test API server did not stop")
+
+        self.assertEqual(health_response[0], 200)
+        self.assertEqual(health_response[1]["status"], "ok")
+        self.assertEqual(prediction_response[0], 200)
+        self.assertEqual(prediction_response[1][0]["predicted_usage"], 100.0)
+        self.assertEqual(order_response[0], 200)
+        self.assertEqual(order_response[1]["base_stock"], 120.0)
+        self.assertEqual(order_response[1]["recommended_order"], 80.0)
+
     def test_inventory_policy_rederives_level_and_requires_explicit_daily_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "stock_predictions.csv"

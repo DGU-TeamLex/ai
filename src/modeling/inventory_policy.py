@@ -202,6 +202,11 @@ def add_inventory_recommendations(
             + result["risk_adjusted_safety_stock"]
         )
 
+        policy_applied = demand_risk.gt(0) | supply_risk.gt(0)
+        result["unconstrained_target_stock"] = result[
+            "unconstrained_target_stock"
+        ].where(policy_applied, result["base_stock"])
+
         result["demand_risk_buffer"] = result["base_stock"] * demand_uplift
         result["supply_risk_buffer"] = (
             result["unconstrained_target_stock"]
@@ -224,7 +229,7 @@ def add_inventory_recommendations(
         result["demand_risk_buffer"] *= scale
         result["supply_risk_buffer"] *= scale
         result["target_stock"] = result["base_stock"] + result["risk_buffer"]
-        result["module_c_policy_applied"] = demand_risk.gt(0) | supply_risk.gt(0)
+        result["module_c_policy_applied"] = policy_applied
         result["module_c_policy_demand_uplift_applied"] = demand_uplift.gt(0)
         result["module_c_config_version"] = config["version"]
         result["module_c_calibration_status"] = config["calibration_status"]

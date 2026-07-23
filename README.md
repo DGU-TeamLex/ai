@@ -2,6 +2,22 @@
 
 WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** 저장소입니다.
 
+현재 전체 구조와 진행 현황은
+`docs/2026-07-20_01_SYSTEM_STRUCTURE_AND_PROGRESS.md`를 참고합니다.
+
+처음 참여하는 팀원이 전체 배경, 용어, 데이터, 모델, Module C, GitHub 상태와 다음 작업을
+한 번에 이해하려면 `docs/2026-07-22_06_FULL_PROJECT_HANDOFF_GUIDE.md`부터 확인합니다.
+
+최신 전체 재분류 결과, 외부 군집 비교, 분류·Module C 가중치 대안은
+`docs/2026-07-22_07_ITEM_RECLASSIFICATION_ACCURACY_AND_WEIGHT_ALTERNATIVES.md`를 참고합니다.
+
+2026-07-23 중간점검 발표 자료는 다음 순서로 확인합니다.
+
+1. `docs/2026-07-22_01_MIDTERM_SIMPLE_INVENTORY_MODEL.md`
+2. `docs/2026-07-22_02_MIDTERM_WEIGHT_SELECTION_MODEL.md`
+3. `docs/2026-07-22_03_MIDTERM_FINAL_INVENTORY_SYSTEM.md`
+4. `docs/2026-07-22_04_MIDTERM_DECISION_PROCESS.md`
+
 전체 제품 백엔드 기능은 별도 서비스에서 담당하고, 이 저장소는 아래 책임만 가집니다.
 
 ```text
@@ -10,6 +26,7 @@ raw_stock 일별 재고·출고 데이터 전처리
 → baseline / ML 모델 학습
 → 뉴스·원자재 위험 점수와 모듈 C 승인 경로 생성
 → 예측 결과 및 재고 권고 산출
+→ 품질 게이트를 통과한 AI 배치 결과 DML 적재
 → AI serving API 제공
 ```
 
@@ -24,8 +41,13 @@ raw_stock 일별 재고·출고 데이터 전처리
 기관/중앙 운영 대시보드 API
 알림 상태 관리
 재배치 승인 워크플로우
-DB 트랜잭션/감사 로그
+운영 입출고·발주 트랜잭션/감사 로그
+DB 스키마 변경(DDL)
 ```
+
+DB 책임은 `스키마(DDL)=backend`, `검증된 AI 배치 산출물(DML)=AI`로 나눈다. 현재
+`demand_class`와 `mu_corrected` 적재는 `src/loading/`이 담당하며, 명시적인 기관코드
+매핑과 품질 리포트가 없으면 실행을 중단한다.
 
 ## Branch Policy
 
@@ -45,6 +67,7 @@ src/item_normalization.py       품목명·품목군·세부유형·규격 후�
 src/item_enrichment.py          기관별 별칭을 대표 품목으로 집계하고 공식 마스터 매칭
 src/item_classification.py      외부 근거 게이트 기반 승인 분류와 검토 큐 생성
 src/item_integrated_pipeline.py 품목·속성·원자재·상위개념 통합 및 전체/샘플 생성
+src/item_classification_evaluation.py 승인 회귀·외부 군집·가중치 민감도 평가
 src/preprocessing.py            기관·부서·물품별 월간 재고/소비 집계
 src/feature_engineering.py      예측 feature table 생성
 src/material_pipeline.py       원자재·공급위험·수요트리거 후보 생성
@@ -60,6 +83,7 @@ src/commodity/                  CSV/API 가격 수집 및 원자재 위험 점�
 src/module_c/                   외부 위험 결합·승인 게이트·감사·알림
 src/module_c/supply_risk_policy.py 공급 메타코드 기준레벨 재도출·SS/ROP 단위 계약
 src/module_c/supply_risk_anomaly_filter.py 공급위험 오류 PASS/REVIEW/BLOCK 품질 게이트
+src/loading/                    검증된 AI 배치 산출물의 보호된 DB 적재
 src/serving/                    AI serving API
 src/dashboard/                  AI 결과 확인용 Streamlit MVP
 ```
@@ -80,13 +104,13 @@ src/dashboard/                  AI 결과 확인용 Streamlit MVP
 재고량 출력은 사용량 예측과 분리됩니다. `predicted_usage`는 다음 달 예상 사용량,
 `base_stock`은 검토주기·리드타임 수요와 안전재고의 합, `target_stock`은 승인 매핑 기반
 위험 버퍼까지 반영한 목표 재고량입니다. 계산식과 API 입력은
-`docs/INVENTORY_QUANTITY_MODEL.md`, 외부 신호와 승인 경로는
-`docs/MODULE_C_RISK_ADJUSTMENT.md`를 참고합니다.
+`docs/2026-07-18_03_INVENTORY_QUANTITY_MODEL.md`, 외부 신호와 승인 경로는
+`docs/2026-07-18_05_MODULE_C_RISK_ADJUSTMENT.md`를 참고합니다.
 
 원자재 후보 생성 규칙은 기존 `94b5663` 통합본과 canonical 저장소
 `wep-stock-item-material-pipeline@74d3982`를 전체 데이터로 비교해 v2.1로 선별 통합했습니다.
 생성 결과는 모두 승인 전 후보입니다. 비교·실행 결과는
-`docs/ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고합니다.
+`docs/2026-07-18_02_ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고합니다.
 
 모델 학습, 예측, 평가, 재고 정책 관련 코드는 `src/modeling/` 아래에서만 관리합니다. `src/` 루트에는 데이터 파이프라인 공통 모듈과 앱 진입점만 둡니다.
 
@@ -165,6 +189,24 @@ python -m src.modeling.classified_prediction
 python -m src.modeling.evaluation
 ```
 
+원자재 매핑 승인과 최종 재고 영향 실험은
+[`docs/2026-07-23_01_MATERIAL_MAPPING_APPROVAL_FINAL_INVENTORY_REPORT.md`](docs/2026-07-23_01_MATERIAL_MAPPING_APPROVAL_FINAL_INVENTORY_REPORT.md)의
+승인 게이트와 재실행 순서를 따른다. `material_approval --apply`는 실험 정책과 감사표를
+검토한 뒤에만 명시적으로 실행한다.
+
+수요 절단편향 계산과 DB 적재 사전검사:
+
+```bash
+python -m src.loading.compute_demand_class_mu_corrected
+
+# 기본은 dry-run이며, 명시적 기관 매핑과 DATABASE_URL이 필요하다.
+python -m src.loading.reflect_demand_class_mu_corrected
+```
+
+`--apply`는 품질 리포트가 통과하고 `data/mapping/institution_id_mapping.csv`의
+익명기관-DB기관 대응이 검증된 뒤에만 사용한다. 정렬 순서로 두 기관 목록을 `zip()`하는
+방식은 기본 차단한다.
+
 품목 분류 전체 재실행:
 
 ```bash
@@ -173,13 +215,14 @@ python -m src.item_enrichment build-worklist
 python -m src.item_enrichment match
 python -m src.item_classification fetch-official-web --delay 0.15
 python -m src.item_integrated_pipeline --with-excel --sample-size 1000
+python -m src.item_classification_evaluation --baseline-approvals /path/to/frozen/approvals.csv
 python -m src.item_review_export
 python -m src.modeling.classified_prediction
 ```
 
 분류 상태, 승인 수, 외부 근거와 검토 큐는
-`docs/ITEM_CLASSIFICATION_V1_RESULT.md`를 참고합니다. 현재 작업 인수인계와 우선 검토용
-1,000건 설명은 `docs/ITEM_CLASSIFICATION_HANDOFF_2026-07-16.md`에 정리되어 있습니다.
+`docs/2026-07-16_04_ITEM_CLASSIFICATION_V1_RESULT.md`를 참고합니다. 현재 작업 인수인계와 우선 검토용
+1,000건 설명은 `docs/2026-07-16_03_ITEM_CLASSIFICATION_HANDOFF.md`에 정리되어 있습니다.
 
 ## Usage Forecast Validation
 
@@ -192,12 +235,12 @@ python -m src.modeling.classified_prediction
 학습하지 않고 보고서에 제외 사유를 기록합니다.
 
 현재 데이터 평가 결과와 제한사항은
-`docs/USAGE_FORECAST_MODEL_EVALUATION.md`를 참고합니다.
+`docs/2026-07-15_01_USAGE_FORECAST_MODEL_EVALUATION.md`를 참고합니다.
 
 승인된 품목 분류가 들어오면 재학습 없이 로컬 예측을
 `품목 + 세부 유형 품목 + 규격 + 단위`로 집계합니다. 분류와 taxonomy가 모두
 `review_status=approved`여야 하며 서로 다른 단위는 자동 환산하거나 합산하지 않습니다.
-입력 계약과 실행 방법은 `docs/CLASSIFIED_FORECAST_INTEGRATION.md`를 참고합니다.
+입력 계약과 실행 방법은 `docs/2026-07-16_02_CLASSIFIED_FORECAST_INTEGRATION.md`를 참고합니다.
 
 ## News Risk Weighting
 
@@ -258,6 +301,7 @@ streamlit run src/dashboard/app.py
 data/processed/stock_monthly.parquet
 data/processed/stock_model_dataset.parquet
 data/processed/item_material_pipeline/material_pipeline_run_report.json
+data/processed/censored_demand.parquet
 outputs/stock_feature_table.parquet
 outputs/stock_news_risk_scores.csv
 outputs/stock_news_article_scores.csv
@@ -285,10 +329,16 @@ outputs/stock_predictions_by_subtype.csv
 outputs/stock_predictions_by_subtype_quality.json
 outputs/stock_evaluation_report.csv
 outputs/stock_evaluation_by_segment.csv
+outputs/demand_class_mu_corrected_handoff.csv
+outputs/demand_class_mu_corrected_report.json
+data/sample/demand_class_mu_corrected_sample_1000.csv
 models/stock_model_a_usage_only.pkl
 models/stock_model_a_usage_tweedie.pkl
 models/stock_manifest.json
 ```
+
+현재 GitHub 이슈·PR과 로컬 구현의 대조 결과는
+`docs/2026-07-22_05_GITHUB_ISSUE_PR_ALIGNMENT.md`를 참고한다.
 
 `stock_model_b_news.pkl`, `stock_model_c_news_commodity.pkl`,
 `stock_model_d_module_c.pkl`은 각각 필요한 검증 위험 feature가 학습기간에 실제로 존재할

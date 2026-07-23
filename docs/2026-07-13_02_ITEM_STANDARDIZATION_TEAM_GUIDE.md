@@ -1,8 +1,8 @@
 # TeamLex 물품 표준화·정규화 팀 작업 가이드
 
-작성일: 2026-07-13
-대상 시스템: WeP-Stock
-기준 데이터: `raw_stock/*.DAT`
+작성일: 2026-07-13  
+대상 시스템: WeP-Stock  
+기준 데이터: `raw_stock/*.DAT`  
 현재 정규화 버전: `item-normalization-v0.4`, `item-enrichment-v1.0`,
 `classification-v1.0`
 
@@ -156,7 +156,7 @@ local_item_key       = 서로 다름
 
 이 파일의 이름 후보를 재사용하려면 `legacy_normalization_id`와 legacy alias 후보로만
 가져오고, 수치 fact는 반드시 `raw_stock/*.DAT`에서 다시 만든다. 자세한 감사 결과는
-`docs/RAW_STOCK_NORMALIZATION_GUIDE.md`를 기준으로 한다.
+`docs/2026-07-12_01_RAW_STOCK_NORMALIZATION_GUIDE.md`를 기준으로 한다.
 
 ### 6.4 실행 환경 준비
 
@@ -362,7 +362,7 @@ decision_id,representative_item_id,decision_action,canonical_item_id,verified_it
 이 수동 결정 CSV는 팀의 판정 이력을 보존하는 승인 원장이다. 예측 연동에는 원장의 결정을
 로컬 품목 단위로 펼친 `data/mapping/item_forecast_classification_approved.csv`를 사용한다.
 `data/processed/` 산출물을 직접 고치지 않는다. 승인 taxonomy와 로컬 매핑을 예측에 반영하는
-명령, 필수 컬럼 및 검증 규칙은 `docs/CLASSIFIED_FORECAST_INTEGRATION.md`를 따른다.
+명령, 필수 컬럼 및 검증 규칙은 `docs/2026-07-16_02_CLASSIFIED_FORECAST_INTEGRATION.md`를 따른다.
 
 ### 9.1 필수 입력
 
@@ -619,12 +619,12 @@ python -m unittest
 
 ## 15. 관련 문서
 
-- `docs/RAW_STOCK_NORMALIZATION_GUIDE.md`: 이전 `regulazation` 파일 감사와 raw_stock 재정규화 원칙
-- `docs/ITEM_EVIDENCE_ENRICHMENT_GUIDE.md`: 외부 근거 수집과 자동 매칭 개요
-- `docs/ITEM_NORMALIZATION_MATERIAL_MAPPING_PLAN.md`: 전체 설계와 원자재 매핑 구조
-- `docs/ITEM_NORMALIZATION_AUDIT.md`: 기존 정규화 데이터 감사 결과
-- `docs/ITEM_NORMALIZATION_V0.4_RESULT.md`: 최신 전체 정규화 결과
-- `docs/ITEM_CLASSIFICATION_V1_RESULT.md`: 외부 근거 기반 분류·승인 결과
+- `docs/2026-07-12_01_RAW_STOCK_NORMALIZATION_GUIDE.md`: 이전 `regulazation` 파일 감사와 raw_stock 재정규화 원칙
+- `docs/2026-07-16_01_ITEM_EVIDENCE_ENRICHMENT_GUIDE.md`: 외부 근거 수집과 자동 매칭 개요
+- `docs/2026-07-12_02_ITEM_NORMALIZATION_MATERIAL_MAPPING_PLAN.md`: 전체 설계와 원자재 매핑 구조
+- `docs/2026-07-12_03_ITEM_NORMALIZATION_AUDIT.md`: 기존 정규화 데이터 감사 결과
+- `docs/2026-07-16_05_ITEM_NORMALIZATION_V0.4_RESULT.md`: 최신 전체 정규화 결과
+- `docs/2026-07-16_04_ITEM_CLASSIFICATION_V1_RESULT.md`: 외부 근거 기반 분류·승인 결과
 
 이 문서와 실제 코드·보고서가 다르면 코드를 먼저 확인하고 문서를 함께 수정한다. 근거 없이
 모든 항목을 채우는 것보다 미해결 항목과 이유를 정확히 남기는 것이 이 시스템의 품질

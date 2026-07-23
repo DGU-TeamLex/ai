@@ -20,6 +20,7 @@ env/
 # Raw and generated data
 device/
 raw_stock/
+regulazation/
 data/raw/
 data/external/
 data/processed/

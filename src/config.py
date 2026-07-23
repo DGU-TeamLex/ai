@@ -76,6 +76,38 @@ ITEM_INTEGRATED_CLASSIFICATION_REPORT_PATH = (
 ITEM_INTEGRATED_SAMPLE_PATH = (
     SAMPLE_DATA_DIR / "item_integrated_classification_sample_1000.csv"
 )
+ITEM_CLASSIFICATION_EVALUATION_REPORT_PATH = (
+    OUTPUT_DIR / "item_classification_evaluation.json"
+)
+ITEM_CLASSIFICATION_FIELD_METRICS_PATH = (
+    OUTPUT_DIR / "item_classification_regression_metrics.csv"
+)
+ITEM_CLASSIFICATION_CLUSTER_METRICS_PATH = (
+    OUTPUT_DIR / "item_classification_reference_cluster_metrics.csv"
+)
+ITEM_CLASSIFICATION_WEIGHT_SCENARIOS_PATH = (
+    OUTPUT_DIR / "item_classification_weight_scenarios.csv"
+)
+ITEM_CLASSIFICATION_ATTENTION_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "item_classification_attention_sample_1000.csv"
+)
+MODULE_C_WEIGHT_SENSITIVITY_PATH = OUTPUT_DIR / "module_c_weight_sensitivity.csv"
+MATERIAL_APPROVAL_POLICY_PATH = MAPPING_DATA_DIR / "material_approval_policy.json"
+MATERIAL_APPROVAL_AUDIT_PATH = OUTPUT_DIR / "material_mapping_approval_audit.csv"
+MATERIAL_APPROVAL_REPORT_PATH = OUTPUT_DIR / "material_mapping_approval_report.json"
+MATERIAL_APPROVAL_SAMPLE_PATH = SAMPLE_DATA_DIR / "material_mapping_approval_sample_1000.csv"
+MATERIAL_INVENTORY_IMPACT_REPORT_PATH = (
+    OUTPUT_DIR / "material_mapping_inventory_impact_report.json"
+)
+MATERIAL_INVENTORY_IMPACT_DETAIL_PATH = (
+    OUTPUT_DIR / "material_mapping_inventory_impact_detail.csv"
+)
+MATERIAL_INVENTORY_IMPACT_BY_SPEC_PATH = (
+    OUTPUT_DIR / "material_mapping_inventory_impact_by_spec.csv"
+)
+MATERIAL_INVENTORY_IMPACT_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "material_mapping_inventory_impact_sample_1000.csv"
+)
 ITEM_FAMILY_TAXONOMY_PATH = MAPPING_DATA_DIR / "item_family_taxonomy.csv"
 APPROVED_ITEM_CLASSIFICATION_PATH = MAPPING_DATA_DIR / "item_forecast_classification_approved.csv"
 
@@ -115,6 +147,11 @@ MODULE_C_SUPPLY_QUALITY_REPORT_PATH = (
 MODULE_C_SUPPLY_QUALITY_SAMPLE_PATH = (
     SAMPLE_DATA_DIR / "module_c_supply_risk_quality_sample_1000.csv"
 )
+CENSORED_DEMAND_METRICS_PATH = PROCESSED_DATA_DIR / "censored_demand.parquet"
+DEMAND_CLASS_HANDOFF_PATH = OUTPUT_DIR / "demand_class_mu_corrected_handoff.csv"
+DEMAND_CLASS_REPORT_PATH = OUTPUT_DIR / "demand_class_mu_corrected_report.json"
+DEMAND_CLASS_SAMPLE_PATH = SAMPLE_DATA_DIR / "demand_class_mu_corrected_sample_1000.csv"
+INSTITUTION_ID_MAPPING_PATH = MAPPING_DATA_DIR / "institution_id_mapping.csv"
 COUNTRY_WEIGHT_PATH = MAPPING_DATA_DIR / "country_weight.csv"
 NEWS_RISK_WEIGHT_PATH = MAPPING_DATA_DIR / "news_risk_weights.yaml"
 

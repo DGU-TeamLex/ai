@@ -1,7 +1,7 @@
 # WeP-Stock 뉴스 리스크 세부 Weight 설정 레퍼런스 정리
 
-작성일: 2026-07-06
-대상 프로젝트: TeamLex / WeP-Stock AI Service
+작성일: 2026-07-06  
+대상 프로젝트: TeamLex / WeP-Stock AI Service  
 목적: 뉴스 기반 외부 리스크 점수 산정 로직에서 `event_type_weight`, `source_weight`, `recency_weight`, `item_relevance`, `exposure_weight`, `novelty_weight` 등을 어떻게 설계할지에 대한 논문·레퍼런스 근거 정리
 
 ---
@@ -74,7 +74,7 @@ external_risk_score = 0.4 * disease_news_risk
 
 ### 4.1 Baker, Bloom & Davis (2016) — Economic Policy Uncertainty Index
 
-**논문**
+**논문**  
 Scott R. Baker, Nicholas Bloom, Steven J. Davis. “Measuring Economic Policy Uncertainty.” *Quarterly Journal of Economics*, 2016.
 
 **핵심 내용**
@@ -94,7 +94,7 @@ Scott R. Baker, Nicholas Bloom, Steven J. Davis. “Measuring Economic Policy Un
 
 ### 4.2 Caldara & Iacoviello (2022) — Geopolitical Risk Index
 
-**논문**
+**논문**  
 Dario Caldara, Matteo Iacoviello. “Measuring Geopolitical Risk.” *American Economic Review*, 2022.
 
 **핵심 내용**
@@ -116,7 +116,7 @@ Dario Caldara, Matteo Iacoviello. “Measuring Geopolitical Risk.” *American E
 
 ### 4.3 Freifeld et al. (2008) — HealthMap
 
-**논문**
+**논문**  
 Clark C. Freifeld et al. “HealthMap: Global Infectious Disease Monitoring through Automated Classification and Visualization of Internet Media Reports.” *Journal of the American Medical Informatics Association*, 2008.
 
 **핵심 내용**
@@ -136,7 +136,7 @@ Clark C. Freifeld et al. “HealthMap: Global Infectious Disease Monitoring thro
 
 ### 4.4 최동엽·서용원 (2023) — 미디어 텍스트 분석 기반 공급망 리스크 모니터링
 
-**논문**
+**논문**  
 최동엽, 서용원. “미디어 텍스트 분석 기반의 공급망 리스크 모니터링 시스템의 개발.” *한국생산관리학회지*, 2023.
 
 **핵심 내용**
@@ -156,7 +156,7 @@ Clark C. Freifeld et al. “HealthMap: Global Infectious Disease Monitoring thro
 
 ### 4.5 Shahsavari et al. (2024) — Event Identification for Supply Chain Risk Management through News Analysis using LLMs
 
-**논문**
+**논문**  
 M. Shahsavari et al. “Event Identification for Supply Chain Risk Management Through News Analysis by Using Large Language Models.” *The Review of Socionetwork Strategies*, 2024.
 
 **핵심 내용**
@@ -174,7 +174,7 @@ M. Shahsavari et al. “Event Identification for Supply Chain Risk Management Th
 
 ### 4.6 Gelastopoulos & Keramydas (2025) — SCRM Text Mining Systematic Review
 
-**논문**
+**논문**  
 Georgios Gelastopoulos, Christos Keramydas. “A systematic review of text mining analytics for supply chain risk management using online data.” *Supply Chain Analytics*, 2025.
 
 **핵심 내용**
@@ -193,7 +193,7 @@ Georgios Gelastopoulos, Christos Keramydas. “A systematic review of text minin
 
 ### 4.7 Ganguly & Kumar (2019) — Supply Chain Risk Assessment: Fuzzy AHP Approach
 
-**논문**
+**논문**  
 Kunal K. Ganguly, Gopal Kumar. “Supply Chain Risk Assessment: A Fuzzy AHP Approach.” *Operations and Supply Chain Management*, 2019.
 
 **핵심 내용**
@@ -212,7 +212,7 @@ Kunal K. Ganguly, Gopal Kumar. “Supply Chain Risk Assessment: A Fuzzy AHP Appr
 
 ### 4.8 Jaberidoost et al. (2015) — Pharmaceutical Supply Chain Risk Assessment using AHP and SAW
 
-**논문**
+**논문**  
 Mona Jaberidoost et al. “Pharmaceutical supply chain risk assessment in Iran using analytic hierarchy process (AHP) and simple additive weighting (SAW) methods.” *Journal of Pharmaceutical Policy and Practice*, 2015.
 
 **핵심 내용**
@@ -230,7 +230,7 @@ Mona Jaberidoost et al. “Pharmaceutical supply chain risk assessment in Iran u
 
 ### 4.9 Benigno et al. (2022) — Global Supply Chain Pressure Index
 
-**논문**
+**논문**  
 Gianluca Benigno, Julian di Giovanni, Jan J. J. Groen, Adam I. Noble. “The GSCPI: A New Barometer of Global Supply Chain Pressures.” Federal Reserve Bank of New York Staff Reports, 2022.
 
 **핵심 내용**

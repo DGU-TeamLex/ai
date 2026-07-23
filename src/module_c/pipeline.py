@@ -19,7 +19,9 @@ from ..config import (
     MODULE_C_SUPPLY_QUALITY_SAMPLE_PATH,
     NEWS_RISK_SCORE_PATH,
     OUTPUT_DIR,
+    STOCK_MATERIAL_MAPPING_PATH,
 )
+from ..material_mapping import load_approved_stock_material_mapping
 from ..utils import ensure_dirs, setup_logging, write_json
 from .config import load_module_c_config
 from .exposure_candidates import build_module_c_exposure_candidates
@@ -41,6 +43,9 @@ def run_module_c_pipeline() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR, MODULE_C_SUPPLY_QUALITY_SAMPLE_PATH.parent)
     config = load_module_c_config()
+    approved_material_mapping = load_approved_stock_material_mapping(
+        STOCK_MATERIAL_MAPPING_PATH
+    )
     scores, audit, alerts = build_module_c_risk_outputs(
         _read_optional_csv(NEWS_RISK_SCORE_PATH),
         _read_optional_csv(COMMODITY_RISK_SCORE_PATH),
@@ -145,6 +150,13 @@ def run_module_c_pipeline() -> None:
             scores.get("module_c_adjustment_enabled", pd.Series(dtype=bool)).sum()
         ),
         "alert_count": int(len(alerts)),
+        "approved_material_mapping_rows": int(len(approved_material_mapping)),
+        "approved_material_stock_item_count": int(
+            approved_material_mapping["stock_item_key"].nunique()
+        ),
+        "approved_material_mapping_versions": sorted(
+            approved_material_mapping["mapping_version"].dropna().unique().tolist()
+        ),
         "exposure": exposure_report,
         "supply_risk_quality": supply_quality_report,
     }

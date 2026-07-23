@@ -224,12 +224,18 @@ def collect_news(provider: str | None = None, data_path: str | Path | None = Non
         cache_path = Path(cache_value) if cache_value else None
         refresh = os.getenv("NEWS_REFRESH", "false").strip().lower() == "true"
         max_records = int(os.getenv("GDELT_MAX_RECORDS", "250"))
+        request_delay_seconds = float(
+            os.getenv("GDELT_REQUEST_DELAY_SECONDS", "5.0")
+        )
+        if request_delay_seconds < 0:
+            raise ValueError("GDELT request delay must be non-negative")
         return collect_gdelt_news(
             start_date=start_date,
             end_date=end_date,
             cache_path=cache_path,
             refresh=refresh,
             max_records=max_records,
+            request_delay_seconds=request_delay_seconds,
         )
     raise ValueError(f"Unsupported NEWS_PROVIDER: {selected_provider}")
 

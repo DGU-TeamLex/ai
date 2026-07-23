@@ -1,6 +1,6 @@
 # 품목 전체 정규화 및 원자재 매핑 계획
 
-작성일: 2026-07-12
+작성일: 2026-07-12  
 대상: `raw_stock/*.DAT`, `regulazation/물품재고_정규화완료.parquet`, DB `item_groups`
 
 ## 1. 목표

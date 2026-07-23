@@ -1,8 +1,12 @@
 # TeamLex / WeP-Stock AI Handoff Context
 
 > 2026-07-11 기준 변경: 아래 과거 기록 중 `device/`, `MED_DEVICE_5`, `SIDO`를 입력으로 사용하는 내용은 폐기되었습니다. 현재 유일한 학습 입력은 `raw_stock/*.DAT`이며, 학습 단위는 `월 x 기관 x 부서 x 내부 물품코드`입니다.
+>
+> 2026-07-22 책임 경계 변경: DB 스키마와 일반 운영 트랜잭션은 backend가 담당하지만,
+> 품질 게이트를 통과한 AI 배치 산출물의 DML 적재는 AI가 담당합니다. 현재 첫 대상은
+> `demand_class`, `mu_corrected`이며 명시적 기관 매핑 없이는 적재하지 않습니다.
 
-작성일: 2026-07-11
+작성일: 2026-07-11  
 목적: 새 대화에서 WeP-Stock AI Service 작업을 바로 이어가기 위한 압축 컨텍스트
 
 ## 1. 프로젝트 한 줄 요약
@@ -20,6 +24,7 @@ WeP-Stock AI Service는 보건소 의료기기 사용량 데이터를 기반으�
 - 예측 사용량, 안전재고, 권장 재고량 산출
 - FastAPI 기반 AI 결과 서빙
 - Streamlit 기반 로컬 결과 확인
+- 품질 검증된 AI 배치 산출물의 DB DML 적재
 
 제외 범위:
 
@@ -28,7 +33,7 @@ WeP-Stock AI Service는 보건소 의료기기 사용량 데이터를 기반으�
 - 기관/중앙 운영 대시보드 API
 - 재고 입출고 트랜잭션
 - 발주 승인, 재배치 승인, 알림 관리
-- DB 트랜잭션, 감사 로그, row-level permission
+- DB 스키마 변경, 운영 트랜잭션, 감사 로그, row-level permission
 
 ## 2. 작업 위치와 Git 주의사항
 

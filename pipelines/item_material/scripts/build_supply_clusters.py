@@ -13,14 +13,9 @@ item_family_candidate_suggestions.csv 전체 1,000건에 빈칸 없이 '공급 �
 import csv
 import sys
 
-if len(sys.argv) != 4:
-    raise SystemExit(
-        "usage: build_supply_clusters.py <input.csv> <output.csv> <summary.md>"
-    )
-
-IN_FILE = sys.argv[1]
-OUT_FILE = sys.argv[2]
-SUMMARY_FILE = sys.argv[3]
+IN_FILE = sys.argv[1] if len(sys.argv) > 1 else "/Users/jangjunhyeok/Downloads/분류/output/item_family_candidate_suggestions.csv"
+OUT_FILE = sys.argv[2] if len(sys.argv) > 2 else "/Users/jangjunhyeok/Downloads/분류/output/item_supply_clusters_final.csv"
+SUMMARY_FILE = sys.argv[3] if len(sys.argv) > 3 else "/Users/jangjunhyeok/Downloads/분류/output/supply_cluster_summary.md"
 
 OTHER = ("OTHER", "기타")
 

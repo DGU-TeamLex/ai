@@ -158,14 +158,33 @@ def compose_integrated_classification(
         validate="one_to_one",
     )
 
+    classification_approved = _text_series(
+        integrated, "classification_review_status"
+    ).eq("approved")
+    classification_family = _text_series(
+        integrated, "classification_selected_item_family_id"
+    )
+    classification_family_name = _text_series(
+        integrated, "classification_selected_standard_family_name"
+    )
     integrated["effective_item_family_id"] = _fill_text(
         _text_series(integrated, "item_family_id_suggested"),
-        _text_series(integrated, "classification_selected_item_family_id"),
+        classification_family,
     )
+    integrated.loc[classification_approved, "effective_item_family_id"] = _fill_text(
+        classification_family,
+        integrated["effective_item_family_id"],
+    ).loc[classification_approved]
     integrated["effective_standard_family_name"] = _fill_text(
         _text_series(integrated, "standard_family_name_suggested"),
-        _text_series(integrated, "classification_selected_standard_family_name"),
+        classification_family_name,
     )
+    integrated.loc[
+        classification_approved, "effective_standard_family_name"
+    ] = _fill_text(
+        classification_family_name,
+        integrated["effective_standard_family_name"],
+    ).loc[classification_approved]
     integrated["effective_item_subtype_id"] = _fill_text(
         _text_series(integrated, "classification_selected_item_subtype_id"),
         _text_series(integrated, "item_subtype_id_candidate"),
@@ -187,9 +206,6 @@ def compose_integrated_classification(
     )
     integrated["effective_unit_code"] = _fill_text(
         integrated["effective_unit_code"], _text_series(integrated, "inventory_unit")
-    )
-    classification_family = _text_series(
-        integrated, "classification_selected_item_family_id"
     )
     family_changed = classification_family.ne("") & classification_family.ne(
         integrated["effective_item_family_id"]
@@ -246,9 +262,6 @@ def compose_integrated_classification(
         "exclude_non_forecastable_group"
     )
 
-    classification_approved = _text_series(
-        integrated, "classification_review_status"
-    ).eq("approved")
     family_verified = _text_series(integrated, "family_source").isin(
         {"verified_structured_family", "verified_ingredient_dictionary"}
     )
@@ -498,6 +511,38 @@ def run_integrated_pipeline(
     )
     sample = select_integrated_sample(integrated, sample_size=sample_size)
 
+    approved = _text_series(integrated, "classification_review_status").eq("approved")
+    approved_fields_preserved = (
+        integrated.loc[approved, "effective_item_family_id"]
+        .eq(
+            _text_series(
+                integrated.loc[approved], "classification_selected_item_family_id"
+            )
+        )
+        .all()
+        and integrated.loc[approved, "effective_item_subtype_id"]
+        .eq(
+            _text_series(
+                integrated.loc[approved], "classification_selected_item_subtype_id"
+            )
+        )
+        .all()
+        and integrated.loc[approved, "effective_specification"]
+        .eq(
+            _text_series(
+                integrated.loc[approved], "classification_selected_specification"
+            )
+        )
+        .all()
+        and integrated.loc[approved, "effective_unit_code"]
+        .eq(
+            _text_series(
+                integrated.loc[approved], "classification_selected_unit_code"
+            )
+        )
+        .all()
+    )
+
     for path in [full_csv_path, full_parquet_path, sample_path, report_path]:
         path.parent.mkdir(parents=True, exist_ok=True)
     integrated.to_csv(full_csv_path, index=False, encoding="utf-8-sig")
@@ -510,6 +555,9 @@ def run_integrated_pipeline(
         "full_ids_unique": not integrated["representative_item_id"].duplicated().any(),
         "sample_rows_exact": len(sample) == expected_sample_rows,
         "sample_ids_unique": not sample["representative_item_id"].duplicated().any(),
+        "approved_classification_fields_preserved": bool(
+            approved_fields_preserved
+        ),
         "no_verified_material_claims": "raw_material_verified" not in integrated.columns,
         "all_material_candidates_review_only": bool(
             _text_series(integrated, "material_review_status")

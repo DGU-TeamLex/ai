@@ -62,4 +62,4 @@ canonical 저장소의 이름-only family 결과와 확대 사전은 구조화 �
 7. glossary는 사용된 모든 코드와 축을 포함하고 `(category, meta_code)` 중복을 금지한다.
 
 실행 결과와 비교 수치는
-`docs/ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고한다.
+`docs/2026-07-18_02_ITEM_INTEGRATED_PIPELINE_V2_1_RESULT.md`를 참고한다.

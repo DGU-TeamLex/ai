@@ -90,4 +90,4 @@ API 키가 없을 때 `fetch-official-web`은 후보에 이미 연결된 식약�
 - `data/processed/item_classification_v1_report.json`: 분류 통계와 품질 게이트
 
 현재 실행 수치와 의료폐기물·카테터의 세부 판정 기준은
-`docs/ITEM_CLASSIFICATION_V1_RESULT.md`를 참고한다.
+`docs/2026-07-16_04_ITEM_CLASSIFICATION_V1_RESULT.md`를 참고한다.

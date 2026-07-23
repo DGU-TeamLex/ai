@@ -67,6 +67,34 @@ class ItemIntegratedPipelineTest(unittest.TestCase):
                     "institution_count": 2,
                     "usage_sum": 10,
                 },
+                {
+                    "representative_item_id": "APPROVED1",
+                    "representative_name": "란셋주사침28G",
+                    "item_group_id_candidate": "MED_SUPPLY",
+                    "item_family_id_suggested": "BLOOD_LANCET",
+                    "standard_family_name_suggested": "채혈침",
+                    "item_subtype_id_candidate": "BLOOD_LANCET",
+                    "standard_subtype_name_candidate": "채혈침",
+                    "normalized_specification_candidate": "28G",
+                    "standard_unit_candidate": "EA",
+                    "needle_gauge": "28G",
+                    "family_source": "context_explicit_rule",
+                    "family_resolution_status": (
+                        "family_conflict_context_explicit_rule_preferred"
+                    ),
+                    "family_conflict_flag": "true",
+                    "name_rule_item_family_id": "BLOOD_LANCET",
+                    "material_source_family_id": "BLOOD_LANCET",
+                    "material_source_subtype_id": "BLOOD_LANCET",
+                    "raw_material_suggested": "스테인리스강",
+                    "raw_material_meta_code": "STAINLESS_STEEL",
+                    "material_evidence_tier": "family_rule_candidate",
+                    "material_review_status": "needs_review",
+                    "activity_scope": "active_low",
+                    "occurrence_count": 2,
+                    "institution_count": 1,
+                    "usage_sum": 5,
+                },
             ]
         )
         classification = pd.DataFrame(
@@ -105,6 +133,23 @@ class ItemIntegratedPipelineTest(unittest.TestCase):
                     "is_forecastable": True,
                     "classification_version": "classification-v1.0",
                 },
+                {
+                    "representative_item_id": "APPROVED1",
+                    "selected_item_family_id": "INJECTION_NEEDLE",
+                    "selected_standard_family_name": "주사침",
+                    "selected_item_subtype_id": "INJECTION_NEEDLE",
+                    "selected_standard_subtype_name": "주사침",
+                    "selected_specification": "28G",
+                    "selected_unit_code": "EA",
+                    "classification_status": "approved_external_family",
+                    "classification_basis": "local_explicit_family_rule",
+                    "classification_confidence": 0.97,
+                    "review_status": "approved",
+                    "review_reason": "official_taxonomy",
+                    "verification_status": "verified_family",
+                    "is_forecastable": True,
+                    "classification_version": "classification-v1.0",
+                },
             ]
         )
         parent = pd.DataFrame(
@@ -131,6 +176,17 @@ class ItemIntegratedPipelineTest(unittest.TestCase):
                         "BLOOD_GLUCOSE_TESTING_SET::BLOOD_LANCET::UNSPECIFIED_SPEC::EA"
                     ),
                 },
+                {
+                    "representative_item_id": "APPROVED1",
+                    "parent_concept_id": "INJECTION_NEEDLE",
+                    "parent_concept_name": "주사침",
+                    "parent_concept_source": "structured_family",
+                    "child_original_name": "란셋주사침28G",
+                    "concept_match_key": "란셋주사침28g",
+                    "forecast_grouping_key_candidate": (
+                        "INJECTION_NEEDLE::INJECTION_NEEDLE::28G::EA"
+                    ),
+                },
             ]
         )
 
@@ -145,7 +201,7 @@ class ItemIntegratedPipelineTest(unittest.TestCase):
             integrated = compose_integrated_classification(
                 material_path, classification_path, parent_path
             )
-            sample = select_integrated_sample(integrated, sample_size=2)
+            sample = select_integrated_sample(integrated, sample_size=3)
 
         rows = integrated.set_index("representative_item_id")
         row = rows.loc["ITEM1"]
@@ -159,7 +215,11 @@ class ItemIntegratedPipelineTest(unittest.TestCase):
         )
         self.assertEqual(composite["effective_specification"], "")
         self.assertEqual(composite["effective_unit_code"], "EA")
-        self.assertEqual(len(sample), 2)
+        approved = rows.loc["APPROVED1"]
+        self.assertEqual(approved["effective_item_family_id"], "INJECTION_NEEDLE")
+        self.assertEqual(approved["effective_item_subtype_id"], "INJECTION_NEEDLE")
+        self.assertEqual(approved["effective_specification"], "28G")
+        self.assertEqual(len(sample), 3)
         self.assertTrue(sample["attention_flags"].str.contains("needle_gauge_parsed").any())
 
 

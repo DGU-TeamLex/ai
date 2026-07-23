@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import time
 from typing import Callable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -193,11 +194,18 @@ def collect_alpha_vantage_prices(
     start_date: str | None = None,
     end_date: str | None = None,
     request_json: JsonRequester = _request_json,
+    request_delay_seconds: float = 0.0,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> pd.DataFrame:
     if not api_key:
         raise ValueError("ALPHA_VANTAGE_API_KEY is required")
+    if request_delay_seconds < 0:
+        raise ValueError("Alpha Vantage request delay must be non-negative")
     rows = []
-    for _, series in _registry_rows(registry, "alpha_vantage").iterrows():
+    provider_rows = _registry_rows(registry, "alpha_vantage")
+    for request_index, (_, series) in enumerate(provider_rows.iterrows()):
+        if request_index and request_delay_seconds:
+            sleeper(request_delay_seconds)
         payload = request_json(
             "https://www.alphavantage.co/query",
             {
@@ -370,12 +378,16 @@ def collect_commodity_prices(
                 raise ValueError("COMMODITY_DATA_PATH is required when COMMODITY_PROVIDER=csv")
             result = collect_csv_prices(Path(selected_path))
         elif selected == "alpha_vantage":
+            request_delay_seconds = float(
+                os.getenv("ALPHA_VANTAGE_REQUEST_DELAY_SECONDS", "1.2")
+            )
             result = collect_alpha_vantage_prices(
-                registry,
-                os.getenv("ALPHA_VANTAGE_API_KEY", ""),
-                start_date,
-                end_date,
-                request_json,
+                registry=registry,
+                api_key=os.getenv("ALPHA_VANTAGE_API_KEY", ""),
+                start_date=start_date,
+                end_date=end_date,
+                request_json=request_json,
+                request_delay_seconds=request_delay_seconds,
             )
         elif selected == "fred":
             result = collect_fred_prices(

@@ -105,7 +105,8 @@ def load_approved_stock_material_mapping(
     if invalid_reviewed_at.any():
         raise ValueError("Approved stock item material mapping has invalid reviewed_at values")
 
-    invalid_key = approved["stock_item_key"].str.count("::").ne(2)
+    # Source institution codes can themselves contain the historical ``::`` delimiter.
+    invalid_key = approved["stock_item_key"].str.count("::").lt(2)
     if invalid_key.any():
         examples = approved.loc[invalid_key, "stock_item_key"].head(5).tolist()
         raise ValueError(f"Approved material mapping has invalid stock_item_key values: {examples}")

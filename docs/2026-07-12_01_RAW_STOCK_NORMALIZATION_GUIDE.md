@@ -1,7 +1,7 @@
 # raw_stock 정규화 검증 및 적용 가이드
 
-작성일: 2026-07-12
-검증 대상: `regulazation/물품재고_정규화완료.parquet`
+작성일: 2026-07-12  
+검증 대상: `regulazation/물품재고_정규화완료.parquet`  
 원본 대상: `raw_stock/*.DAT`
 
 ## 1. 결론

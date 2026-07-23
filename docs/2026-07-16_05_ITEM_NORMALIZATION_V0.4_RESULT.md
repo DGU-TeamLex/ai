@@ -1,7 +1,7 @@
 # 품목 정규화 v0.4 전체 생성 결과
 
-작성일: 2026-07-16
-원본: `raw_stock/*.DAT` 10개 파일
+작성일: 2026-07-16  
+원본: `raw_stock/*.DAT` 10개 파일  
 규칙 버전: `item-normalization-v0.4`
 
 파일명은 기존 연동 호환을 위해 `v0.3`을 유지하지만, Parquet 컬럼과 실행 보고서의
@@ -43,4 +43,4 @@
 
 별칭 상태는 `family_candidate` 30,396개, `group_candidate` 214,794개,
 `unresolved` 164,329개다. 이는 최종 승인 상태가 아니며, 승인·검토 결과는
-`docs/ITEM_CLASSIFICATION_V1_RESULT.md`를 기준으로 한다.
+`docs/2026-07-16_04_ITEM_CLASSIFICATION_V1_RESULT.md`를 기준으로 한다.
