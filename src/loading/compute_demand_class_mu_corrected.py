@@ -118,7 +118,7 @@ alpha = series["prior_mean"] * series["beta_item"]
 series["mu_shrink"] = (alpha + series["demand_total"]) / (series["beta_item"] + series["obs_months"])
 series.loc[is_true_zero_demand, "mu_shrink"] = series.loc[is_true_zero_demand, "mu_naive"]
 
-# --- 5) v5: 관측부족 pair만 사전 대비 배수로 캡 ---
+# --- 5) v5: 사전 대비 배수 캡 (관측부족 pair) ---
 reliable2 = series[
     (series["observed_ratio"] >= CONTROL_THRESHOLD)
     & (series["obs_months"] >= MIN_OBS_FOR_PRIOR)
@@ -132,6 +132,19 @@ cap_value = series["prior_mean"] * max_ratio
 series["mu_corrected"] = series["mu_shrink"]
 over_cap = needs_cap & (series["mu_shrink"] > cap_value)
 series.loc[over_cap, "mu_corrected"] = cap_value[over_cap]
+
+# --- 5b) [팀장 추가] 절단보정 발산 방지: mu_naive 대비 상한 배수 캡 ---
+# v5 캡은 obs_months<12(관측부족) 에만 걸려, '관측월은 많지만 재고0비율이 높은'
+# CENSORED 품목의 발산을 놓친다(실측: mu_naive 5~9 인데 보정 100~177 인 344건).
+# 원인: shrinkage/보정이 재고보유일 축소로 튀는데 캡이 잘못된 축(관측월)을 봄.
+# → 어떤 경로로 계산됐든, mu_corrected 는 원본 대비 SELF_CAP_MULT 배를 넘지 않게 최종 클립.
+#   ai#24 가이드의 상한 배수(=10 근방)보다 보수적으로 8배. 단 하한은 mu_naive 자신
+#   (보정이 원본보다 작아지는 건 허용). 진짜 대량품목(삐콤·란셋 등, 배수 1.0)은 안 깎인다.
+SELF_CAP_MULT = 8.0
+self_cap = np.maximum(series["mu_naive"] * SELF_CAP_MULT, series["mu_naive"])
+n_diverged = int((series["mu_corrected"] > self_cap).sum())
+series["mu_corrected"] = np.minimum(series["mu_corrected"], self_cap)
+print(f"\n[발산 캡] mu_naive×{SELF_CAP_MULT} 초과로 클립된 series: {n_diverged}건")
 
 series.loc[series["demand_class"] == "DORMANT", "mu_corrected"] = 0.0
 
