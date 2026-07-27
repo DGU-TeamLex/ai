@@ -20,6 +20,7 @@ from ..config import (
     NEWS_RISK_SCORE_PATH,
     OUTPUT_DIR,
     STOCK_MATERIAL_MAPPING_PATH,
+    TRADE_RISK_SCORE_PATH,
 )
 from ..material_mapping import load_approved_stock_material_mapping
 from ..utils import ensure_dirs, setup_logging, write_json
@@ -46,10 +47,12 @@ def run_module_c_pipeline() -> None:
     approved_material_mapping = load_approved_stock_material_mapping(
         STOCK_MATERIAL_MAPPING_PATH
     )
+    trade_scores = _read_optional_csv(TRADE_RISK_SCORE_PATH)
     scores, audit, alerts = build_module_c_risk_outputs(
         _read_optional_csv(NEWS_RISK_SCORE_PATH),
         _read_optional_csv(COMMODITY_RISK_SCORE_PATH),
         config,
+        trade_scores=trade_scores,
     )
     scores.to_csv(MODULE_C_RISK_SCORE_PATH, index=False)
     audit.to_csv(MODULE_C_RISK_AUDIT_PATH, index=False)
@@ -74,6 +77,8 @@ def run_module_c_pipeline() -> None:
         "material_evidence_tier",
         "material_evidence_reference",
         "material_review_status",
+        "official_material_claim_approved",
+        "official_material_evidence_reference",
         "market_factor_ids",
         "baseline_supply_risk_level",
         "baseline_supply_risk_z",
@@ -156,6 +161,16 @@ def run_module_c_pipeline() -> None:
         ),
         "approved_material_mapping_versions": sorted(
             approved_material_mapping["mapping_version"].dropna().unique().tolist()
+        ),
+        "trade_signal_score_rows": int(len(trade_scores)),
+        "trade_signal_stock_item_count": int(
+            trade_scores.get("stock_item_key", pd.Series(dtype="string")).nunique()
+        ),
+        "trade_signal_enabled_count": int(
+            scores.get(
+                "module_c_has_approved_trade_mapping",
+                pd.Series(dtype=bool),
+            ).sum()
         ),
         "exposure": exposure_report,
         "supply_risk_quality": supply_quality_report,

@@ -37,7 +37,7 @@ class SupplyRiskAnomalyFilterTest(unittest.TestCase):
             "supply_risk_level": "WARNING",
             "supply_risk_policy_version": self.policy["version"],
             "z_value": 2.05,
-            "lead_time_multiplier": 1.30,
+            "lead_time_multiplier": 1.25,
             "mean_daily_usage": 2.0,
             "daily_demand_stddev": 3.0,
             "lead_time_days": 20.0,

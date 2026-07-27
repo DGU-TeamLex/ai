@@ -142,6 +142,7 @@ class ServingForecastTest(unittest.TestCase):
                         "mean_daily_usage": 2.0,
                         "daily_demand_stddev": 3.0,
                         "lead_time_days": 20.0,
+                        "current_stock": 8.0,
                     },
                     {
                         "year_month": "2026-07-01",
@@ -150,21 +151,65 @@ class ServingForecastTest(unittest.TestCase):
                         "item_code": "ITEM2",
                         "predicted_usage": 10.0,
                     },
+                    {
+                        "year_month": "2026-07-01",
+                        "institution_code": "INST001",
+                        "department": "진료실",
+                        "item_code": "ITEM3",
+                        "predicted_usage": 0.0,
+                        "mean_daily_usage": 0.0,
+                        "daily_demand_stddev": 0.0,
+                        "lead_time_days": 0.0,
+                        "current_stock": 0.0,
+                        "zero_stock_reason": "NOT_OPERATED",
+                        "inventory_action": "FILTERED_NOT_OPERATED",
+                    },
+                    {
+                        "year_month": "2026-07-01",
+                        "institution_code": "INST001",
+                        "department": "진료실",
+                        "item_code": "ITEM4",
+                        "predicted_usage": 2.0,
+                        "mean_daily_usage": 0.2,
+                        "daily_demand_stddev": 0.3,
+                        "lead_time_days": 0.0,
+                        "current_stock": 0.0,
+                        "zero_stock_reason": "DATA_MISSING",
+                        "inventory_action": "REVIEW_DATA_QUALITY",
+                    },
                 ]
             ).to_csv(path, index=False)
 
             with patch("src.serving.api.PREDICTION_PATH", path):
                 calculated = inventory_policy(standardCode="ITEM1")["content"][0]
                 insufficient = inventory_policy(standardCode="ITEM2")["content"][0]
+                not_operated = inventory_policy(standardCode="ITEM3")["content"][0]
+                data_missing = inventory_policy(standardCode="ITEM4")["content"][0]
 
         self.assertEqual(calculated["baselineSupplyRiskLevel"], "NORMAL")
         self.assertEqual(calculated["zUsed"], 1.28)
         self.assertAlmostEqual(calculated["SS"], round(1.28 * 3 * (20**0.5), 2))
+        self.assertEqual(calculated["onHand"], 8.0)
+        self.assertEqual(calculated["levelBasedInventoryStatus"], "BELOW_ROP")
+        self.assertIsNotNone(calculated["levelBasedTargetStock"])
+        self.assertIsNotNone(calculated["levelBasedOrderRecommendation"])
+        self.assertFalse(calculated["assumedLeadTime"])
         self.assertEqual(calculated["calculationStatus"], "CALCULATED")
         self.assertIsNone(insufficient["ROP"])
         self.assertEqual(
             insufficient["calculationStatus"],
             "INSUFFICIENT_DAILY_VARIANCE_OR_LEAD_TIME",
+        )
+        self.assertGreater(not_operated["rawLevelBasedOrderRecommendation"], 0)
+        self.assertEqual(not_operated["levelBasedOrderRecommendation"], 0)
+        self.assertEqual(
+            not_operated["operationalInventoryStatus"],
+            "NOT_OPERATED",
+        )
+        self.assertIsNone(data_missing["levelBasedOrderRecommendation"])
+        self.assertEqual(
+            data_missing["operationalInventoryStatus"],
+            "DATA_MISSING",
         )
 
     def test_future_prediction_serializes_null_actual_and_blocks_stale_order(self):

@@ -1,5 +1,5 @@
 {
-  "version": "module-c-v1.0",
+  "version": "module-c-v1.1",
   "calibration_status": "policy_seed_requires_backtest",
   "coefficient_basis": "initial_policy_bounds_not_empirical_causal_estimates",
   "market_signal": {
@@ -14,6 +14,17 @@
     "supply_news": 0.45,
     "material_news": 0.20,
     "market_price": 0.35
+  },
+  "trade_signal": {
+    "import_volume_decline": 0.35,
+    "import_unit_value_increase": 0.25,
+    "country_concentration": 0.25,
+    "net_import_exposure": 0.15,
+    "import_volume_decline_threshold": 0.30,
+    "import_unit_value_increase_threshold": 0.40,
+    "country_concentration_threshold": 0.50,
+    "country_coverage_min": 0.80,
+    "module_c_overlay_weight": 0.25
   },
   "inventory_adjustment": {
     "demand_usage_uplift_max": 0.35,

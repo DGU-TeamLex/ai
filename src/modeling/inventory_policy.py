@@ -157,6 +157,13 @@ def add_inventory_recommendations(
             lower=0.0,
             upper=1.0,
         )
+        result["trade_risk_score"] = _numeric_column(
+            result,
+            "module_c_trade_risk",
+            0.0,
+            lower=0.0,
+            upper=1.0,
+        )
         result["external_risk_score"] = total_risk
 
         demand_embedded = _boolean_column(

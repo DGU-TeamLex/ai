@@ -80,6 +80,7 @@ MODULE_C_COLUMNS = [
     "module_c_supply_news_risk",
     "module_c_material_news_risk",
     "module_c_market_price_risk",
+    "module_c_trade_risk",
     "module_c_supply_risk",
     "module_c_total_risk",
     "module_c_signal_confidence",

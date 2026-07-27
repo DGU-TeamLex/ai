@@ -3,6 +3,7 @@ import json
 import logging
 import pickle
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from ..config import (
     EVALUATION_REPORT_PATH,
     EVALUATION_SEGMENT_REPORT_PATH,
     FEATURE_TABLE_PATH,
+    INVENTORY_STATUS_PATH,
     MODEL_DIR,
     MODEL_MANIFEST_PATH,
     OUTPUT_DIR,
@@ -36,6 +38,19 @@ from .training import run_training, transform_features
 
 
 LOGGER = logging.getLogger(__name__)
+INVENTORY_STATUS_PREDICTION_COLUMNS = [
+    "stock_item_key",
+    "mean_daily_usage",
+    "daily_demand_stddev",
+    "raw_mean_daily_usage",
+    "raw_daily_demand_stddev",
+    "mu_forecast_3m_92d",
+    "observation_period_days",
+    "zero_stock_reason",
+    "inventory_action",
+    "urgent_shortage",
+    "exact_group_total_stock",
+]
 RISK_COLUMNS = [
     "disease_news_risk",
     "supply_news_risk",
@@ -46,10 +61,44 @@ RISK_COLUMNS = [
     "module_c_supply_news_risk",
     "module_c_material_news_risk",
     "module_c_market_price_risk",
+    "module_c_trade_risk",
     "module_c_supply_risk",
     "module_c_total_risk",
     "module_c_signal_confidence",
 ]
+
+
+def attach_current_inventory_status_parameters(
+    frame: pd.DataFrame,
+    path: Path = INVENTORY_STATUS_PATH,
+) -> pd.DataFrame:
+    if not path.exists():
+        LOGGER.warning(
+            "Inventory status output is unavailable; daily SS/ROP inputs are omitted: %s",
+            path,
+        )
+        return frame
+    header = pd.read_csv(path, nrows=0).columns
+    missing = sorted(set(INVENTORY_STATUS_PREDICTION_COLUMNS) - set(header))
+    if missing:
+        raise ValueError(f"Inventory status output is missing columns: {missing}")
+    status = pd.read_csv(
+        path,
+        usecols=INVENTORY_STATUS_PREDICTION_COLUMNS,
+        dtype={"stock_item_key": str},
+    )
+    if status["stock_item_key"].duplicated().any():
+        raise ValueError("Inventory status output is not unique by stock_item_key")
+    result = frame.merge(
+        status,
+        on="stock_item_key",
+        how="left",
+        validate="many_to_one",
+    )
+    result["inventory_status_parameters_available"] = result[
+        ["mean_daily_usage", "daily_demand_stddev"]
+    ].notna().all(axis=1)
+    return result
 
 
 def _load_feature_table(manifest: list[dict]) -> pd.DataFrame:
@@ -189,6 +238,8 @@ def _build_prediction_frame(
     output["current_stock"] = output["month_end_stock"].fillna(0.0)
     output["prediction_type"] = prediction_type
     output = attach_approved_material_mapping_metadata(output)
+    if prediction_type == "future":
+        output = attach_current_inventory_status_parameters(output)
 
     current_month = pd.Timestamp.now().to_period("M").to_timestamp()
     origin_month = pd.to_datetime(output["forecast_origin_month"])

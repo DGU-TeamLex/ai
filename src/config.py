@@ -11,6 +11,7 @@ SAMPLE_DATA_DIR = PROJECT_ROOT / "data" / "sample"
 MAPPING_DATA_DIR = PROJECT_ROOT / "data" / "mapping"
 EXTERNAL_MASTER_DIR = PROJECT_ROOT / "data" / "external" / "official"
 EXTERNAL_MARKET_DATA_DIR = PROJECT_ROOT / "data" / "external" / "market"
+EXTERNAL_TRADE_DATA_DIR = PROJECT_ROOT / "data" / "external" / "trade"
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 MODEL_DIR = PROJECT_ROOT / "models"
 EXTERNAL_FEATURE_PATH = PROJECT_ROOT / "data" / "external_features.csv"
@@ -22,6 +23,20 @@ NEWS_ARTICLE_SCORE_PATH = OUTPUT_DIR / "stock_news_article_scores.csv"
 COMMODITY_RISK_SCORE_PATH = OUTPUT_DIR / "stock_commodity_risk_scores.csv"
 COMMODITY_PRICE_CACHE_PATH = EXTERNAL_MARKET_DATA_DIR / "commodity_prices.csv"
 COMMODITY_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_commodity_risk_audit.csv"
+HSK_REFERENCE_SOURCE_PATH = (
+    EXTERNAL_TRADE_DATA_DIR / "reference" / "관세청_HS부호_20260101.xlsx"
+)
+HSK_REFERENCE_NORMALIZED_PATH = (
+    PROCESSED_DATA_DIR / "trade" / "hsk_reference_2026.parquet"
+)
+HSK_REFERENCE_REPORT_PATH = OUTPUT_DIR / "hsk_reference_2026_report.json"
+MATERIAL_HS_MAPPING_PATH = MAPPING_DATA_DIR / "material_hs_mapping.csv"
+TRADE_COUNTRY_SCOPE_PATH = MAPPING_DATA_DIR / "trade_country_scope.csv"
+TRADE_TOTAL_CACHE_PATH = EXTERNAL_TRADE_DATA_DIR / "kcs_trade_total_monthly.csv"
+TRADE_COUNTRY_CACHE_PATH = EXTERNAL_TRADE_DATA_DIR / "kcs_trade_country_monthly.csv"
+TRADE_RISK_SCORE_PATH = OUTPUT_DIR / "stock_trade_risk_scores.csv"
+TRADE_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_trade_risk_audit.csv"
+TRADE_RUN_REPORT_PATH = OUTPUT_DIR / "stock_trade_risk_report.json"
 MODULE_C_RISK_SCORE_PATH = OUTPUT_DIR / "stock_module_c_risk_scores.csv"
 MODULE_C_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_module_c_risk_audit.csv"
 MODULE_C_ALERT_PATH = OUTPUT_DIR / "stock_module_c_alerts.csv"
@@ -43,6 +58,9 @@ ITEM_ALIAS_CANDIDATE_PATH = PROCESSED_DATA_DIR / "item_alias_candidates_v0.3.par
 ITEM_ALIAS_TO_PRODUCT_PATH = PROCESSED_DATA_DIR / "item_alias_to_product_v1.parquet"
 ITEM_GROUPED_VERIFIED_PATH = PROCESSED_DATA_DIR / "item_grouped_verified_v1.parquet"
 ITEM_PRODUCT_WORKLIST_PATH = PROCESSED_DATA_DIR / "item_product_worklist_v1.parquet"
+OFFICIAL_DEVICE_MATERIAL_CLAIMS_PATH = (
+    PROCESSED_DATA_DIR / "official_device_material_claims_v1.csv"
+)
 ITEM_REPRESENTATIVE_ATTRIBUTES_PATH = (
     PROCESSED_DATA_DIR / "item_representative_attributes_v1.parquet"
 )
@@ -123,6 +141,10 @@ SUPPLY_RISK_LEVEL_POLICY_PATH = (
 SUPPLY_RISK_ANOMALY_RULES_PATH = (
     MAPPING_DATA_DIR / "supply_risk_anomaly_rules.json"
 )
+INVENTORY_STATUS_POLICY_PATH = MAPPING_DATA_DIR / "inventory_status_policy.json"
+INVENTORY_STATUS_PATH = OUTPUT_DIR / "stock_inventory_status.csv"
+INVENTORY_STATUS_REPORT_PATH = OUTPUT_DIR / "stock_inventory_status_report.json"
+INVENTORY_STATUS_SAMPLE_PATH = SAMPLE_DATA_DIR / "stock_inventory_status_sample_1000.csv"
 MODULE_C_SUPPLY_LEVEL_AUDIT_PATH = (
     OUTPUT_DIR / "module_c_supply_risk_level_audit.csv"
 )

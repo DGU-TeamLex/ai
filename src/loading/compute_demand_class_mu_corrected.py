@@ -34,7 +34,7 @@ ZERO_RATIO_THRESHOLD = 0.50
 CONTROL_ZERO_RATIO_MAX = 0.10
 MIN_INVENTORY_COVERAGE = 0.90
 MIN_HELD_DAYS_FOR_AUTOMATIC_LOAD = 30
-MAX_POSITIVE_NAIVE_CORRECTION_FACTOR = 10.0
+MAX_POSITIVE_NAIVE_CORRECTION_FACTOR = 8.0
 MIN_PRIOR_EXPOSURE_DAYS = 365
 MIN_INSTITUTIONS_FOR_ITEM_PRIOR = 5
 K_FALLBACK_CAP_PERCENTILE = 90
@@ -42,6 +42,7 @@ RATIO_CAP_PERCENTILE = 95
 EXPECTED_CENSORED_SHARE_MIN = 0.20
 EXPECTED_CENSORED_SHARE_MAX = 0.25
 DEFINITION_VERSION = "censored-demand-daily-v1.0"
+CORRECTION_POLICY_VERSION = "buhlmann-daily-exposure-v1.1"
 
 
 def _require_columns(frame: pd.DataFrame, columns: list[str], label: str) -> None:
@@ -541,7 +542,8 @@ def classify_and_correct_demand(
     )
     result["review_reason"] = review_reasons
     result["load_eligible"] = ~result["review_required"]
-    result["correction_method"] = "buhlmann_daily_exposure_with_ratio_cap_v1"
+    result["correction_method"] = CORRECTION_POLICY_VERSION
+    result["correction_policy_version"] = CORRECTION_POLICY_VERSION
     result["definition_version"] = DEFINITION_VERSION
 
     if not set(result["demand_class"]).issubset(VALID_DEMAND_CLASSES):
@@ -600,6 +602,10 @@ def build_quality_report(
     )
     return {
         "version": DEFINITION_VERSION,
+        "correction_policy_version": CORRECTION_POLICY_VERSION,
+        "max_positive_naive_correction_factor": (
+            MAX_POSITIVE_NAIVE_CORRECTION_FACTOR
+        ),
         "source": "raw_stock_daily_closing_stock_duration",
         "metric_grain": "institution_department_item",
         "handoff_grain": "institution_item",
@@ -731,6 +737,7 @@ def run_compute(
         "review_reason",
         "load_eligible",
         "correction_method",
+        "correction_policy_version",
         "definition_version",
     ]
     handoff_source = classified[handoff_columns].copy()

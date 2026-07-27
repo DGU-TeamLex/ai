@@ -58,6 +58,19 @@ SUM_COLUMNS = [
     "correction_out_qty",
 ]
 
+LEDGER_QUALITY_COLUMNS = [
+    "ledger_document_rule_violation_count",
+    "ledger_physical_violation_count",
+    "ledger_opening_stock_missing_count",
+]
+
+DEMAND_MOMENT_COLUMNS = [
+    "normal_outbound_nonnegative_sum",
+    "normal_outbound_squared_sum",
+]
+
+LEDGER_TOLERANCE = 1e-9
+
 
 def discover_raw_stock_files(
     raw_dir: Path = RAW_STOCK_DIR,
@@ -101,6 +114,30 @@ def normalize_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
         result[target] = pd.to_numeric(chunk[source], errors="coerce")
     result[SUM_COLUMNS] = result[SUM_COLUMNS].fillna(0.0)
 
+    opening_known = result["opening_stock"].notna()
+    opening_available = result["opening_stock"].clip(lower=0)
+    normal_outbound = result["consumption_qty"].clip(lower=0)
+    result["normal_outbound_nonnegative_sum"] = normal_outbound
+    result["normal_outbound_squared_sum"] = normal_outbound.pow(2)
+    purchase_available = result["purchase_in_qty"].clip(lower=0)
+    document_available = opening_available + purchase_available
+    physical_available = document_available + result[
+        ["transfer_in_qty", "return_in_qty"]
+    ].clip(lower=0).sum(axis=1)
+    result["ledger_document_rule_violation_count"] = (
+        opening_known
+        & result["consumption_qty"].gt(
+            result["opening_stock"]
+            + result["purchase_in_qty"]
+            + LEDGER_TOLERANCE
+        )
+    ).astype("int8")
+    result["ledger_physical_violation_count"] = (
+        opening_known
+        & normal_outbound.gt(physical_available + LEDGER_TOLERANCE)
+    ).astype("int8")
+    result["ledger_opening_stock_missing_count"] = (~opening_known).astype("int8")
+
     invalid = (
         result["closing_date"].isna()
         | result["institution_code"].eq("")
@@ -142,7 +179,16 @@ def aggregate_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
         "unit_price_sum": ("unit_price_sum", "sum"),
         "unit_price_count": ("unit_price_count", "sum"),
     }
-    aggregations.update({column: (column, "sum") for column in SUM_COLUMNS})
+    aggregations.update(
+        {
+            column: (column, "sum")
+            for column in [
+                *SUM_COLUMNS,
+                *DEMAND_MOMENT_COLUMNS,
+                *LEDGER_QUALITY_COLUMNS,
+            ]
+        }
+    )
     return normalized.groupby(GROUP_KEYS, as_index=False).agg(**aggregations)
 
 
@@ -165,7 +211,16 @@ def _combine_stock_partials(partials: list[pd.DataFrame]) -> pd.DataFrame:
         "unit_price_sum": ("unit_price_sum", "sum"),
         "unit_price_count": ("unit_price_count", "sum"),
     }
-    aggregations.update({column: (column, "sum") for column in SUM_COLUMNS})
+    aggregations.update(
+        {
+            column: (column, "sum")
+            for column in [
+                *SUM_COLUMNS,
+                *DEMAND_MOMENT_COLUMNS,
+                *LEDGER_QUALITY_COLUMNS,
+            ]
+        }
+    )
     monthly = combined.groupby(GROUP_KEYS, as_index=False).agg(**aggregations)
     monthly["average_stock"] = monthly["closing_stock_sum"] / monthly["stock_observation_count"].replace(0, pd.NA)
     monthly["average_unit_price"] = monthly["unit_price_sum"] / monthly["unit_price_count"].replace(0, pd.NA)

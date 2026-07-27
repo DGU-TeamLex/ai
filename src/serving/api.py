@@ -106,6 +106,19 @@ def _records_without_nan(df: pd.DataFrame) -> list[dict]:
     return df.astype(object).where(df.notna(), None).to_dict(orient="records")
 
 
+def _optional_bool(value: object) -> bool | None:
+    if value is None or pd.isna(value):
+        return None
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "t", "1", "yes", "y"}:
+        return True
+    if normalized in {"false", "f", "0", "no", "n"}:
+        return False
+    return None
+
+
 def _institution_id(row: pd.Series) -> str:
     return str(row.get("institution_code", row.get("institutionId", "unknown")))
 
@@ -122,6 +135,19 @@ def _risk_level(score: float) -> str:
     if score >= 30:
         return "CAUTION"
     return "NORMAL"
+
+
+def _level_order_reason(row: dict) -> str:
+    reason = row.get("zeroStockReason")
+    if reason == "NOT_OPERATED":
+        return "전 기간 정상출고가 없는 미운영 품목이므로 발주하지 않습니다."
+    if reason == "DATA_MISSING":
+        return "원장 정합성 위반이 있어 재고 데이터를 확인한 뒤 발주해야 합니다."
+    if reason == "STALE_OR_MISSING_OBSERVATION":
+        return "최신 재고 관측이 없어 원장을 갱신한 뒤 발주해야 합니다."
+    if row.get("levelBasedOrderRecommendation") is not None:
+        return "레벨 기반 일별 SS·ROP 정책 계산값입니다."
+    return "현재고가 없어 recommend-order 계약에서 계산해야 합니다."
 
 
 def _not_found(message: str):
@@ -317,13 +343,24 @@ def inventory_policy(
     rows = []
     for _, row in df.head(500).iterrows():
         risk_policy = derive_supply_risk_level(
-            row.get("supply_risk_meta_code", row.get("raw_material_risk_meta_code", "")),
+            row.get(
+                "supply_risk_meta_code",
+                row.get(
+                    "raw_material_risk_meta_code",
+                    row.get("approved_raw_material_risk_meta_codes", ""),
+                ),
+            ),
             context=row.to_dict(),
         )
         required = ["mean_daily_usage", "daily_demand_stddev", "lead_time_days"]
         exact_inputs = all(
             column in row.index and pd.notna(row.get(column)) for column in required
         )
+        on_hand = None
+        for stock_column in ["current_stock", "month_end_stock"]:
+            if stock_column in row.index and pd.notna(row.get(stock_column)):
+                on_hand = float(row[stock_column])
+                break
         calculated = None
         if exact_inputs:
             calculated = calculate_level_based_safety_stock(
@@ -331,7 +368,46 @@ def inventory_policy(
                 daily_demand_stddev=float(row["daily_demand_stddev"]),
                 lead_time_days=float(row["lead_time_days"]),
                 supply_risk_level=risk_policy["baseline_supply_risk_level"],
+                on_hand=on_hand,
             )
+        forecast_target_stock = (
+            float(row["target_stock"])
+            if "target_stock" in row.index and pd.notna(row.get("target_stock"))
+            else None
+        )
+        zero_stock_value = row.get("zero_stock_reason", "")
+        zero_stock_reason = (
+            ""
+            if zero_stock_value is None or pd.isna(zero_stock_value)
+            else str(zero_stock_value)
+        )
+        action_value = row.get("inventory_action", "")
+        inventory_action_value = (
+            ""
+            if action_value is None or pd.isna(action_value)
+            else str(action_value)
+        )
+        raw_level_status = calculated["inventory_status"] if calculated else None
+        operational_status = raw_level_status
+        if zero_stock_reason in {
+            "NOT_OPERATED",
+            "DATA_MISSING",
+            "STALE_OR_MISSING_OBSERVATION",
+        }:
+            operational_status = zero_stock_reason
+        raw_level_order = (
+            round(float(calculated["order_recommendation"]), 2)
+            if calculated and calculated["order_recommendation"] is not None
+            else None
+        )
+        operational_level_order = raw_level_order
+        if zero_stock_reason == "NOT_OPERATED":
+            operational_level_order = 0.0
+        elif zero_stock_reason in {
+            "DATA_MISSING",
+            "STALE_OR_MISSING_OBSERVATION",
+        }:
+            operational_level_order = None
         rows.append(
             {
                 "institutionId": _institution_id(row),
@@ -339,22 +415,60 @@ def inventory_policy(
                 "department": str(row.get("department", "")),
                 "SS": round(float(calculated["safety_stock"]), 2) if calculated else None,
                 "ROP": round(float(calculated["reorder_point"]), 2) if calculated else None,
-                "targetStock": (
-                    float(row["target_stock"])
-                    if "target_stock" in row.index and pd.notna(row.get("target_stock"))
+                "targetStock": forecast_target_stock,
+                "forecastTargetStock": forecast_target_stock,
+                "levelBasedTargetStock": (
+                    round(float(calculated["target_stock"]), 2)
+                    if calculated
                     else None
                 ),
+                "levelBasedOrderRecommendation": (
+                    operational_level_order
+                ),
+                "rawLevelBasedOrderRecommendation": raw_level_order,
+                "levelBasedInventoryStatus": (
+                    raw_level_status
+                ),
+                "operationalInventoryStatus": operational_status,
+                "zeroStockReason": zero_stock_reason or None,
+                "inventoryAction": inventory_action_value or None,
+                "urgentShortage": _optional_bool(row.get("urgent_shortage")),
+                "exactGroupTotalStock": (
+                    float(row["exact_group_total_stock"])
+                    if "exact_group_total_stock" in row.index
+                    and pd.notna(row.get("exact_group_total_stock"))
+                    else None
+                ),
+                "onHand": on_hand,
                 "meanDailyUsage": (
-                    float(calculated["lead_time_demand"])
-                    / float(calculated["effective_lead_time_days"])
-                    if calculated and float(calculated["effective_lead_time_days"]) > 0
+                    float(calculated["effective_mean_daily_usage"])
+                    if calculated
+                    else None
+                ),
+                "rawMeanDailyUsage": (
+                    float(calculated["raw_mean_daily_usage"])
+                    if calculated
                     else None
                 ),
                 "dailyDemandStddev": (
-                    float(row["daily_demand_stddev"]) if calculated else None
+                    float(calculated["effective_daily_demand_stddev"])
+                    if calculated
+                    else None
+                ),
+                "rawDailyDemandStddev": (
+                    float(calculated["raw_daily_demand_stddev"])
+                    if calculated
+                    else None
                 ),
                 "leadTimeDays": (
-                    float(row["lead_time_days"]) if calculated else None
+                    float(calculated["raw_lead_time_days"])
+                    if calculated
+                    else None
+                ),
+                "baseLeadTimeDays": (
+                    float(calculated["base_lead_time_days"])
+                    if calculated
+                    else None
                 ),
                 "effectiveLeadTimeDays": (
                     float(calculated["effective_lead_time_days"])
@@ -372,7 +486,21 @@ def inventory_policy(
                     "CALCULATED" if calculated else "INSUFFICIENT_DAILY_VARIANCE_OR_LEAD_TIME"
                 ),
                 "inventoryPolicyMethod": "level_based_daily_ss_rop",
-                "assumedLeadTime": False,
+                "assumedLeadTime": (
+                    bool(calculated["lead_time_floor_applied"])
+                    if calculated
+                    else None
+                ),
+                "leadTimeEstimationMethod": (
+                    calculated["lead_time_estimation_method"]
+                    if calculated
+                    else None
+                ),
+                "leadTimeEstimatorStatus": (
+                    calculated["lead_time_estimator_status"]
+                    if calculated
+                    else None
+                ),
                 "generatedAt": _now(),
             }
         )
@@ -418,10 +546,8 @@ def order_recommendations(
         {
             "institutionId": row["institutionId"],
             "standardCode": row["standardCode"],
-            "recommendedOrder": None,
-            "reason": (
-                "현재고·입고예정·미납수량이 포함된 recommend-order 계약에서 계산해야 합니다."
-            ),
+            "recommendedOrder": row["levelBasedOrderRecommendation"],
+            "reason": _level_order_reason(row),
             "generatedAt": row["generatedAt"],
         }
         for row in policies

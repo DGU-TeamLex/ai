@@ -207,6 +207,7 @@ class ModuleCRiskEngineTest(unittest.TestCase):
         self.assertEqual(row["module_c_demand_risk"], 0.0)
         self.assertAlmostEqual(row["module_c_supply_risk"], 0.685)
         self.assertEqual(row["module_c_event_supply_risk_level"], "warning")
+        self.assertEqual(row["module_c_trade_contribution"], 0.0)
         self.assertTrue(row["module_c_has_approved_material_mapping"])
         self.assertFalse(row["module_c_has_approved_demand_mapping"])
         self.assertIn(
@@ -217,8 +218,50 @@ class ModuleCRiskEngineTest(unittest.TestCase):
             "PETROCHEMICAL_NAPHTHA_PRICE_SHOCK",
             row["module_c_event_codes"],
         )
-        self.assertEqual(len(audit), 4)
+        self.assertEqual(len(audit), 5)
         self.assertEqual(alerts.iloc[0]["top_driver"], "supply")
+
+    def test_approved_trade_path_adds_bounded_supply_overlay(self):
+        market = pd.DataFrame(
+            [
+                {
+                    "STD_YYYYMM": "2025-03",
+                    "stock_item_key": "INST::DEPT::ITEM",
+                    "commodity_risk": 0.8,
+                    "market_signal_confidence": 0.8,
+                    "market_factor_count": 1,
+                    "market_event_codes": "PETROCHEMICAL_NAPHTHA_PRICE_SHOCK",
+                }
+            ]
+        )
+        trade = pd.DataFrame(
+            [
+                {
+                    "STD_YYYYMM": "2025-03",
+                    "stock_item_key": "INST::DEPT::ITEM",
+                    "trade_risk": 0.8,
+                    "trade_signal_confidence": 0.9,
+                    "trade_factor_count": 1,
+                    "trade_event_codes": "HS_IMPORT_VOLUME_DROP",
+                }
+            ]
+        )
+
+        scores, audit, _ = build_module_c_risk_outputs(
+            pd.DataFrame(),
+            market,
+            module_c_config(),
+            trade_scores=trade,
+        )
+        row = scores.iloc[0]
+
+        self.assertAlmostEqual(row["module_c_trade_contribution"], 0.144)
+        self.assertAlmostEqual(row["module_c_supply_risk"], 0.424)
+        self.assertTrue(row["module_c_has_approved_trade_mapping"])
+        self.assertIn("HS_IMPORT_VOLUME_DROP", row["module_c_event_codes"])
+        trade_audit = audit[audit["signal_type"].eq("import_export")].iloc[0]
+        self.assertTrue(trade_audit["mapping_approved"])
+        self.assertAlmostEqual(trade_audit["weighted_contribution"], 0.144)
 
     def test_approved_disease_mapping_enables_demand_signal(self):
         news = pd.DataFrame(
@@ -387,6 +430,7 @@ class ModuleCExposureCandidateTest(unittest.TestCase):
             alias_map=alias,
             integrated_items=integrated,
             market_mapping=market_mapping,
+            official_material_claims=pd.DataFrame(),
         )
 
         self.assertEqual(len(candidates), 1)
@@ -403,6 +447,82 @@ class ModuleCExposureCandidateTest(unittest.TestCase):
             report["blocked_reason"],
             "material_candidates_require_explicit_review_before_inventory_adjustment",
         )
+
+    def test_exact_official_product_material_claim_approves_matching_candidate(self):
+        classification = pd.DataFrame(
+            [
+                {
+                    "local_item_key": "INST::ITEM1",
+                    "institution_code": "INST",
+                    "item_code": "ITEM1",
+                    "item_family_id": "MEDICAL_GLOVE",
+                    "item_subtype_id": "MEDICAL_GLOVE",
+                    "normalized_specification": "",
+                    "unit_code": "EA",
+                    "review_status": "approved",
+                }
+            ]
+        )
+        alias = pd.DataFrame(
+            [{"local_item_key": "INST::ITEM1", "representative_item_id": "REP1"}]
+        )
+        integrated = pd.DataFrame(
+            [
+                {
+                    "representative_item_id": "REP1",
+                    "representative_name": "UDI 확인 라텍스 장갑",
+                    "classification_selected_item_family_id": "MEDICAL_GLOVE",
+                    "classification_selected_item_subtype_id": "MEDICAL_GLOVE",
+                    "raw_material_meta_code": "NATURAL_RUBBER_LATEX",
+                    "raw_material_risk_meta_code": "GENERAL_LOW_RISK",
+                    "demand_risk_meta_code": "BASELINE_DEMAND",
+                    "raw_material_suggested": "latex",
+                    "raw_material_evidence": "family candidate",
+                    "material_confidence": "identified",
+                    "material_evidence_tier": "family_candidate",
+                    "material_review_status": "needs_review",
+                    "usage_sum": 100.0,
+                    "occurrence_count": 5,
+                }
+            ]
+        )
+        market_mapping = pd.DataFrame(
+            [
+                {
+                    "raw_material_meta_code": "NATURAL_RUBBER_LATEX",
+                    "market_factor_id": "NATURAL_RUBBER",
+                }
+            ]
+        )
+        claims = pd.DataFrame(
+            [
+                {
+                    "representative_item_id": "REP1",
+                    "raw_material_meta_code": "NATURAL_RUBBER_LATEX",
+                    "evidence_source": "mfds_device_udi_attributes",
+                    "evidence_field": "LATEX_ICLS_YN",
+                    "evidence_url": "https://www.data.go.kr/data/15073863/openapi.do",
+                    "identity_review_status": "approved",
+                    "material_review_status": "approved",
+                }
+            ]
+        )
+
+        candidates, report = build_module_c_exposure_candidates(
+            classification=classification,
+            alias_map=alias,
+            integrated_items=integrated,
+            market_mapping=market_mapping,
+            official_material_claims=claims,
+        )
+
+        self.assertTrue(candidates.iloc[0]["official_material_claim_approved"])
+        self.assertEqual(candidates.iloc[0]["material_review_status"], "approved")
+        self.assertEqual(
+            candidates.iloc[0]["material_evidence_tier"], "official_product_material"
+        )
+        self.assertTrue(candidates.iloc[0]["operational_risk_eligible"])
+        self.assertEqual(report["official_material_claim_approved_count"], 1)
 
 
 class ModuleCConfigTest(unittest.TestCase):

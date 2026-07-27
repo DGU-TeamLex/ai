@@ -1,0 +1,2 @@
+raw_material_meta_code,hs_code,hs_item_name_ko,relation_type,mapping_weight,proxy_quality,review_status,evidence_reference,valid_from,valid_to,mapping_version
+POLYPROPYLENE_PP,3902100000,폴리프로필렌,direct_raw_material,1.0,1.0,approved,관세청_HS부호_20260101.xlsx#3902100000,2002-01-01,2026-12-31,material-hs-hsk2026-v1.0

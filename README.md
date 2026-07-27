@@ -11,6 +11,15 @@ WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** �
 최신 전체 재분류 결과, 외부 군집 비교, 분류·Module C 가중치 대안은
 `docs/2026-07-22_07_ITEM_RECLASSIFICATION_ACCURACY_AND_WEIGHT_ALTERNATIVES.md`를 참고합니다.
 
+현재 실제 적용 중인 뉴스·시장가격·수출입·Module C·재고정책 가중치와 실행 결과는
+`docs/2026-07-23_04_CURRENT_WEIGHT_ASSIGNMENT.md`에서 확인합니다.
+
+현재 사용량 예측 정확도, 세부유형 커버리지, Module C 비교와 운영 가능 범위는
+`docs/2026-07-23_05_CURRENT_FORECAST_MODEL_EVALUATION.md`에서 확인합니다.
+
+PDF 3종과 현재 코드의 차이, 이번 보완 내용, 실제 재실행 결과와 남은 제약은
+`docs/2026-07-24_01_PDF_REQUIREMENT_GAP_AND_IMPLEMENTATION.md`에서 확인합니다.
+
 2026-07-23 중간점검 발표 자료는 다음 순서로 확인합니다.
 
 1. `docs/2026-07-22_01_MIDTERM_SIMPLE_INVENTORY_MODEL.md`
@@ -78,6 +87,7 @@ src/modeling/classified_prediction.py 승인 분류별 예측 집계
 src/modeling/evaluation.py      평가 리포트 생성
 src/modeling/metrics.py         MAE/RMSE/MAPE/SMAPE/WAPE 평가 지표
 src/modeling/inventory_policy.py 기본재고 / 위험조정 목표재고 / 발주량 정책
+src/modeling/inventory_status.py 재고 0 원인·승인 대체품 재고·긴급부족 분류
 src/news/                       CSV/GDELT 뉴스 수집 및 세부 weight scoring
 src/commodity/                  CSV/API 가격 수집 및 원자재 위험 점수
 src/module_c/                   외부 위험 결합·승인 게이트·감사·알림
@@ -181,6 +191,8 @@ python -m src.preprocessing
 python -m src.item_integrated_pipeline --with-excel --sample-size 1000
 python -m src.news.news_risk_scorer
 python -m src.commodity.commodity_risk_scorer
+python -m src.trade.hsk_reference
+python -m src.trade.trade_risk_scorer
 python -m src.module_c.pipeline
 python -m src.feature_engineering
 python -m src.modeling.training
@@ -198,6 +210,9 @@ python -m src.modeling.evaluation
 
 ```bash
 python -m src.loading.compute_demand_class_mu_corrected
+
+# 전처리 후 재고 0 원인·긴급부족 분류
+python -m src.modeling.inventory_status
 
 # 기본은 dry-run이며, 명시적 기관 매핑과 DATABASE_URL이 필요하다.
 python -m src.loading.reflect_demand_class_mu_corrected
@@ -277,17 +292,22 @@ total_news_risk
 
 ## Module C Providers
 
-운영 기본값은 뉴스·가격 모두 `disabled`입니다. `.env`에서 실제 공급자를 명시해야 하며
+운영 기본값은 뉴스·가격·수출입 모두 `disabled`입니다. `.env`에서 실제 공급자를 명시해야 하며
 `sample`은 합성 smoke test에만 사용합니다.
 
 ```text
 NEWS_PROVIDER=csv | gdelt
 COMMODITY_PROVIDER=csv | alpha_vantage | fred | nasdaq_data_link
 COMMODITY_ALLOW_SAMPLE_FALLBACK=false
+TRADE_PROVIDER=csv | kcs
+TRADE_COUNTRY_CODES=
 ```
 
 직접 나프타/선물 시계열은 계약 CSV 또는 접근 권한이 있는 데이터셋을 우선 사용하고,
 Brent 같은 대리변수는 `proxy_quality`와 전파 가중치를 낮춰 별도 감사합니다.
+`TRADE_PROVIDER=kcs`는 공공데이터포털에서 관세청 품목별 및 품목별 국가별 수출입
+서비스 활용승인이 끝난 뒤에만 사용합니다. 국가코드를 비워두면 승인된
+`data/mapping/trade_country_scope.csv`를 사용합니다.
 
 ## Dashboard
 
@@ -307,6 +327,8 @@ outputs/stock_news_risk_scores.csv
 outputs/stock_news_article_scores.csv
 outputs/stock_commodity_risk_scores.csv
 outputs/stock_commodity_risk_audit.csv
+outputs/stock_trade_risk_scores.csv
+outputs/stock_trade_risk_audit.csv
 outputs/stock_module_c_risk_scores.csv
 outputs/stock_module_c_risk_audit.csv
 outputs/stock_module_c_alerts.csv

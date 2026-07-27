@@ -66,6 +66,27 @@ def validate_supply_risk_policy(policy: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Critical override requires explicit evidence fields")
     if not str(policy.get("version", "")).strip():
         raise ValueError("Supply risk policy version is required")
+
+    floors = policy.get("demand_parameter_floors", {})
+    for field in ["mean_daily_usage", "daily_demand_stddev"]:
+        value = float(floors.get(field, -1))
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(f"Supply risk policy has an invalid {field} floor")
+
+    lead_time = policy.get("lead_time_estimation", {})
+    minimum_lead_time = float(lead_time.get("minimum_days", 0))
+    if not math.isfinite(minimum_lead_time) or minimum_lead_time <= 0:
+        raise ValueError("Supply risk policy minimum lead time must be positive")
+
+    inventory_status = policy.get("inventory_status", {})
+    watch_multiplier = float(
+        inventory_status.get("watch_reorder_point_multiplier", 0)
+    )
+    target_cover_days = float(inventory_status.get("target_cover_days", -1))
+    if not math.isfinite(watch_multiplier) or watch_multiplier < 1:
+        raise ValueError("Inventory WATCH multiplier must be at least 1")
+    if not math.isfinite(target_cover_days) or target_cover_days < 0:
+        raise ValueError("Inventory target cover days must be non-negative")
     return policy
 
 
@@ -208,7 +229,8 @@ def calculate_level_based_safety_stock(
     lead_time_days: float,
     supply_risk_level: str,
     policy: dict[str, Any] | None = None,
-) -> dict[str, float | str]:
+    on_hand: float | None = None,
+) -> dict[str, object]:
     policy = policy or load_supply_risk_policy()
     level = str(supply_risk_level).strip().upper()
     if level not in policy["levels"]:
@@ -216,23 +238,79 @@ def calculate_level_based_safety_stock(
     values = [mean_daily_usage, daily_demand_stddev, lead_time_days]
     if any(not math.isfinite(float(value)) or float(value) < 0 for value in values):
         raise ValueError("Demand and lead-time inputs must be finite and non-negative")
+    if on_hand is not None and not math.isfinite(float(on_hand)):
+        raise ValueError("on_hand must be finite when provided")
 
     level_policy = policy["levels"][level]
-    effective_lead_time = float(lead_time_days) * float(
+    floors = policy["demand_parameter_floors"]
+    effective_mean_daily_usage = max(
+        float(mean_daily_usage),
+        float(floors["mean_daily_usage"]),
+    )
+    effective_daily_demand_stddev = max(
+        float(daily_demand_stddev),
+        float(floors["daily_demand_stddev"]),
+    )
+    minimum_lead_time = float(policy["lead_time_estimation"]["minimum_days"])
+    base_lead_time = max(float(lead_time_days), minimum_lead_time)
+    effective_lead_time = base_lead_time * float(
         level_policy["lead_time_multiplier"]
     )
     safety_stock = float(level_policy["z_value"]) * float(
-        daily_demand_stddev
+        effective_daily_demand_stddev
     ) * math.sqrt(effective_lead_time)
-    lead_time_demand = float(mean_daily_usage) * effective_lead_time
+    lead_time_demand = effective_mean_daily_usage * effective_lead_time
+    reorder_point = lead_time_demand + safety_stock
+    target_cover_days = float(policy["inventory_status"]["target_cover_days"])
+    target_stock = (
+        effective_mean_daily_usage * (effective_lead_time + target_cover_days)
+        + safety_stock
+    )
+
+    inventory_status = None
+    order_recommendation = None
+    normalized_on_hand = None
+    if on_hand is not None:
+        normalized_on_hand = max(float(on_hand), 0.0)
+        watch_multiplier = float(
+            policy["inventory_status"]["watch_reorder_point_multiplier"]
+        )
+        if normalized_on_hand <= 0:
+            inventory_status = "CRITICAL"
+        elif normalized_on_hand < reorder_point:
+            inventory_status = "BELOW_ROP"
+        elif normalized_on_hand < reorder_point * watch_multiplier:
+            inventory_status = "WATCH"
+        else:
+            inventory_status = "OK"
+        order_recommendation = max(target_stock - normalized_on_hand, 0.0)
+
     return {
         "supply_risk_level": level,
         "z_value": float(level_policy["z_value"]),
         "lead_time_multiplier": float(level_policy["lead_time_multiplier"]),
+        "raw_mean_daily_usage": float(mean_daily_usage),
+        "effective_mean_daily_usage": effective_mean_daily_usage,
+        "raw_daily_demand_stddev": float(daily_demand_stddev),
+        "effective_daily_demand_stddev": effective_daily_demand_stddev,
+        "raw_lead_time_days": float(lead_time_days),
+        "base_lead_time_days": base_lead_time,
+        "lead_time_floor_applied": base_lead_time > float(lead_time_days),
+        "lead_time_estimation_method": policy["lead_time_estimation"]["method"],
+        "lead_time_estimator_status": policy["lead_time_estimation"][
+            "estimator_status"
+        ],
         "effective_lead_time_days": effective_lead_time,
         "lead_time_demand": lead_time_demand,
         "safety_stock": safety_stock,
-        "reorder_point": lead_time_demand + safety_stock,
+        "reorder_point": reorder_point,
+        "target_stock": target_stock,
+        "on_hand": normalized_on_hand,
+        "order_recommendation": order_recommendation,
+        "inventory_status": inventory_status,
+        "watch_reorder_point_multiplier": float(
+            policy["inventory_status"]["watch_reorder_point_multiplier"]
+        ),
         "demand_rate_unit": "per_day",
         "demand_stddev_unit": "per_sqrt_day",
         "policy_version": policy["version"],

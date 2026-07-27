@@ -140,6 +140,43 @@ class SupplyRiskLevelPolicyTest(unittest.TestCase):
         self.assertAlmostEqual(result["safety_stock"], 1.28 * 3 * (20**0.5))
         self.assertEqual(result["demand_rate_unit"], "per_day")
 
+    def test_pdf_inventory_example_calculates_target_order_and_status(self):
+        result = calculate_level_based_safety_stock(
+            mean_daily_usage=1.47,
+            daily_demand_stddev=4.52,
+            lead_time_days=6.0,
+            supply_risk_level="NORMAL",
+            policy=self.policy,
+            on_hand=8.0,
+        )
+
+        self.assertAlmostEqual(result["safety_stock"], 14.17, places=2)
+        self.assertAlmostEqual(result["reorder_point"], 22.99, places=2)
+        self.assertAlmostEqual(result["target_stock"], 24.46, places=2)
+        self.assertAlmostEqual(result["order_recommendation"], 16.46, places=2)
+        self.assertEqual(result["inventory_status"], "BELOW_ROP")
+
+    def test_inventory_policy_applies_documented_parameter_floors(self):
+        result = calculate_level_based_safety_stock(
+            mean_daily_usage=0.0,
+            daily_demand_stddev=0.0,
+            lead_time_days=0.0,
+            supply_risk_level="NORMAL",
+            policy=self.policy,
+            on_hand=-2.0,
+        )
+
+        self.assertEqual(result["effective_mean_daily_usage"], 0.5)
+        self.assertEqual(result["effective_daily_demand_stddev"], 0.1)
+        self.assertEqual(result["base_lead_time_days"], 1.0)
+        self.assertTrue(result["lead_time_floor_applied"])
+        self.assertEqual(
+            result["lead_time_estimator_status"],
+            "pending_raw_event_estimator",
+        )
+        self.assertEqual(result["on_hand"], 0.0)
+        self.assertEqual(result["inventory_status"], "CRITICAL")
+
     def test_policy_validation_rejects_non_monotonic_z_values(self):
         invalid = {
             **self.policy,

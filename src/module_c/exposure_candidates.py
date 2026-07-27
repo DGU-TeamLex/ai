@@ -9,6 +9,7 @@ from ..config import (
     APPROVED_ITEM_CLASSIFICATION_PATH,
     ITEM_ALIAS_TO_PRODUCT_PATH,
     ITEM_INTEGRATED_CLASSIFICATION_PARQUET_PATH,
+    OFFICIAL_DEVICE_MATERIAL_CLAIMS_PATH,
 )
 from .supply_risk_policy import derive_supply_risk_frame
 
@@ -31,6 +32,8 @@ CANDIDATE_COLUMNS = [
     "material_evidence_tier",
     "material_evidence_reference",
     "material_review_status",
+    "official_material_claim_approved",
+    "official_material_evidence_reference",
     "classification_material_family_conflict",
     "market_factor_ids",
     "market_factor_count",
@@ -115,6 +118,34 @@ def _read_integrated_items(path: Path) -> pd.DataFrame:
     return pd.read_parquet(path, columns=columns)
 
 
+def _read_official_material_claims(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    claims = pd.read_csv(path, dtype=str, keep_default_na=False)
+    required = {
+        "representative_item_id",
+        "raw_material_meta_code",
+        "evidence_source",
+        "evidence_field",
+        "evidence_url",
+        "identity_review_status",
+        "material_review_status",
+    }
+    missing = required - set(claims.columns)
+    if missing:
+        raise ValueError(f"Official material claims are missing columns: {sorted(missing)}")
+    approved = claims[
+        claims["identity_review_status"].str.strip().str.lower().eq("approved")
+        & claims["material_review_status"].str.strip().str.lower().eq("approved")
+    ].copy()
+    duplicate = approved.duplicated(
+        ["representative_item_id", "raw_material_meta_code"], keep=False
+    )
+    if duplicate.any():
+        raise ValueError("Official material claims contain duplicate product-material rows")
+    return approved
+
+
 def _join_unique(values: pd.Series) -> str:
     return ";".join(sorted({str(value).strip() for value in values if str(value).strip()}))
 
@@ -124,9 +155,11 @@ def build_module_c_exposure_candidates(
     alias_map: pd.DataFrame | None = None,
     integrated_items: pd.DataFrame | None = None,
     market_mapping: pd.DataFrame | None = None,
+    official_material_claims: pd.DataFrame | None = None,
     classification_path: Path = APPROVED_ITEM_CLASSIFICATION_PATH,
     alias_path: Path = ITEM_ALIAS_TO_PRODUCT_PATH,
     integrated_path: Path = ITEM_INTEGRATED_CLASSIFICATION_PARQUET_PATH,
+    official_material_claims_path: Path = OFFICIAL_DEVICE_MATERIAL_CLAIMS_PATH,
 ) -> tuple[pd.DataFrame, dict]:
     classification = (
         _read_approved_classification(classification_path)
@@ -143,6 +176,11 @@ def build_module_c_exposure_candidates(
         load_material_market_factor_mapping()
         if market_mapping is None
         else market_mapping.copy()
+    )
+    official_material_claims = (
+        _read_official_material_claims(official_material_claims_path)
+        if official_material_claims is None
+        else official_material_claims.copy()
     )
     for column in ["raw_material_risk_meta_code", "demand_risk_meta_code"]:
         if column not in integrated_items.columns:
@@ -202,6 +240,82 @@ def build_module_c_exposure_candidates(
             "operational_risk_eligible_count": 0,
             "blocked_reason": "no_material_candidates_for_approved_classifications",
         }
+
+    if official_material_claims.empty:
+        merged["official_material_claim_approved"] = False
+        merged["official_material_evidence_reference"] = ""
+    else:
+        required_claim_columns = {
+            "representative_item_id",
+            "raw_material_meta_code",
+            "evidence_source",
+            "evidence_field",
+            "evidence_url",
+            "identity_review_status",
+            "material_review_status",
+        }
+        missing_claim_columns = required_claim_columns - set(official_material_claims.columns)
+        if missing_claim_columns:
+            raise ValueError(
+                "Official material claims are missing columns: "
+                f"{sorted(missing_claim_columns)}"
+            )
+        claims = official_material_claims.copy()
+        approved_claim = (
+            claims["identity_review_status"].astype(str).str.strip().str.lower().eq("approved")
+            & claims["material_review_status"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .eq("approved")
+        )
+        claims = claims[approved_claim].copy()
+        claims["official_material_evidence_reference"] = claims.apply(
+            lambda row: " | ".join(
+                value
+                for value in [
+                    str(row.get("evidence_source", "")).strip(),
+                    str(row.get("evidence_field", "")).strip(),
+                    str(row.get("evidence_url", "")).strip(),
+                ]
+                if value
+            ),
+            axis=1,
+        )
+        claims["official_material_claim_approved"] = True
+        claims = claims[
+            [
+                "representative_item_id",
+                "raw_material_meta_code",
+                "official_material_claim_approved",
+                "official_material_evidence_reference",
+            ]
+        ]
+        if claims.duplicated(
+            ["representative_item_id", "raw_material_meta_code"], keep=False
+        ).any():
+            raise ValueError("Official material claims contain duplicate product-material rows")
+        merged = merged.merge(
+            claims,
+            on=["representative_item_id", "raw_material_meta_code"],
+            how="left",
+            validate="many_to_one",
+        )
+        merged["official_material_claim_approved"] = merged[
+            "official_material_claim_approved"
+        ].fillna(False)
+        merged["official_material_evidence_reference"] = merged[
+            "official_material_evidence_reference"
+        ].fillna("")
+        official_approved = merged["official_material_claim_approved"]
+        merged.loc[official_approved, "material_review_status"] = "approved"
+        merged.loc[official_approved, "material_confidence"] = "verified"
+        merged.loc[official_approved, "material_evidence_tier"] = (
+            "official_product_material"
+        )
+        merged.loc[official_approved, "raw_material_evidence"] = merged.loc[
+            official_approved, "official_material_evidence_reference"
+        ]
 
     factor_summary = (
         market_mapping.groupby("raw_material_meta_code", as_index=False, observed=True)
@@ -268,6 +382,9 @@ def build_module_c_exposure_candidates(
             ].nunique()
         ),
         "candidate_count": int(len(candidates)),
+        "official_material_claim_approved_count": int(
+            candidates["official_material_claim_approved"].fillna(False).sum()
+        ),
         "candidate_local_item_count": int(candidates["local_item_key"].nunique()),
         "market_factor_covered_count": int(candidates["market_factor_count"].gt(0).sum()),
         "material_review_approved_count": int(material_approved.sum()),

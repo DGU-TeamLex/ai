@@ -16,6 +16,9 @@ def stock_row(
     closing: float,
     consumption: float,
     item_name: str = "혈당 검사지",
+    purchase_in: float = 0,
+    transfer_in: float = 0,
+    return_in: float = 0,
 ) -> list[str]:
     values = {
         "부서코드": "방문건강관리사업",
@@ -26,9 +29,9 @@ def stock_row(
         "마감재고량": str(closing),
         "구입처코드": "",
         "구입단가": "",
-        "입고량": "0",
-        "불출입고량": "0",
-        "반납입고량": "0",
+        "입고량": str(purchase_in),
+        "불출입고량": str(transfer_in),
+        "반납입고량": str(return_in),
         "불출출고량": "0",
         "정상출고량": str(consumption),
         "반품출고량": "0",
@@ -60,9 +63,55 @@ class StockPipelineTest(unittest.TestCase):
         self.assertEqual(january["month_opening_stock"], 10)
         self.assertEqual(january["month_end_stock"], 5)
         self.assertEqual(january["consumption_qty"], 5)
+        self.assertEqual(january["normal_outbound_nonnegative_sum"], 5)
+        self.assertEqual(january["normal_outbound_squared_sum"], 13)
         self.assertEqual(january["average_stock"], 6.5)
         self.assertEqual(january["stock_item_key"], "INST001::방문건강관리사업::USE0000067")
+        self.assertEqual(january["ledger_document_rule_violation_count"], 0)
+        self.assertEqual(january["ledger_physical_violation_count"], 0)
         self.assertNotIn("\n", january["item_name"])
+
+    def test_ledger_quality_separates_document_and_physical_inbound_rules(self):
+        import csv
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stock.DAT"
+            with path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file, delimiter="|", quotechar='"', lineterminator="\n")
+                writer.writerow(RAW_STOCK_COLUMNS)
+                writer.writerow(
+                    stock_row(
+                        "20240101",
+                        opening=1,
+                        closing=2,
+                        consumption=4,
+                        transfer_in=5,
+                    )
+                )
+                writer.writerow(
+                    stock_row(
+                        "20240131",
+                        opening=1,
+                        closing=0,
+                        consumption=4,
+                        purchase_in=1,
+                    )
+                )
+                writer.writerow(
+                    stock_row(
+                        "20240115",
+                        opening=-3,
+                        closing=0,
+                        consumption=0,
+                    )
+                )
+
+            monthly = load_stock_data(path.parent, path.name, chunk_size=1)
+
+        january = monthly.iloc[0]
+        self.assertEqual(january["ledger_document_rule_violation_count"], 3)
+        self.assertEqual(january["ledger_physical_violation_count"], 1)
+        self.assertEqual(january["ledger_opening_stock_missing_count"], 0)
 
     def test_features_predict_next_contiguous_month(self):
         monthly = pd.DataFrame(

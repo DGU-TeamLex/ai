@@ -16,19 +16,23 @@ MODULE_C_SCORE_COLUMNS = [
     "module_c_supply_news_risk",
     "module_c_material_news_risk",
     "module_c_market_price_risk",
+    "module_c_trade_risk",
     "module_c_supply_news_contribution",
     "module_c_material_news_contribution",
     "module_c_market_price_contribution",
+    "module_c_trade_contribution",
     "module_c_supply_risk",
     "module_c_total_risk",
     "module_c_signal_confidence",
     "module_c_has_approved_material_mapping",
+    "module_c_has_approved_trade_mapping",
     "module_c_has_approved_demand_mapping",
     "module_c_adjustment_enabled",
     "module_c_risk_level",
     "module_c_event_supply_risk_level",
     "module_c_news_event_codes",
     "module_c_market_event_codes",
+    "module_c_trade_event_codes",
     "module_c_event_codes",
     "module_c_config_version",
     "module_c_calibration_status",
@@ -53,6 +57,7 @@ ALERT_COLUMNS = [
     "top_driver",
     "event_codes",
     "market_event_codes",
+    "trade_event_codes",
     "recommended_action",
     "config_version",
     "calibration_status",
@@ -159,8 +164,28 @@ def _prepare_market(commodity_scores: pd.DataFrame) -> pd.DataFrame:
     return market[keep].drop_duplicates(KEY_COLUMNS, keep="last")
 
 
+def _prepare_trade(trade_scores: pd.DataFrame) -> pd.DataFrame:
+    if trade_scores.empty:
+        return pd.DataFrame(columns=KEY_COLUMNS)
+    trade = _normalize_month(trade_scores)
+    if not set(KEY_COLUMNS).issubset(trade.columns):
+        raise ValueError("Trade risk scores require STD_YYYYMM and stock_item_key")
+    keep = [
+        *KEY_COLUMNS,
+        "trade_risk",
+        "trade_signal_confidence",
+        "trade_factor_count",
+        "trade_event_codes",
+    ]
+    for column in keep[2:]:
+        if column not in trade.columns:
+            trade[column] = "" if column == "trade_event_codes" else 0.0
+    return trade[keep].drop_duplicates(KEY_COLUMNS, keep="last")
+
+
 def _build_audit(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
     supply_weights = config["supply_signal"]
+    trade_weight = float(config["trade_signal"]["module_c_overlay_weight"])
     rows = []
     signal_specs = [
         (
@@ -187,10 +212,21 @@ def _build_audit(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
             float(supply_weights["market_price"]),
             "module_c_has_approved_material_mapping",
         ),
+        (
+            "import_export",
+            "module_c_trade_risk",
+            trade_weight,
+            "module_c_has_approved_trade_mapping",
+        ),
     ]
     for _, row in scores.iterrows():
         for signal_type, score_column, weight, gate_column in signal_specs:
             raw_score = float(row[score_column])
+            weighted_contribution = (
+                float(row["module_c_trade_contribution"])
+                if signal_type == "import_export"
+                else raw_score * weight
+            )
             rows.append(
                 {
                     "STD_YYYYMM": row["STD_YYYYMM"],
@@ -198,13 +234,17 @@ def _build_audit(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
                     "signal_type": signal_type,
                     "raw_score": raw_score,
                     "signal_weight": weight,
-                    "weighted_contribution": raw_score * weight,
+                    "weighted_contribution": weighted_contribution,
                     "mapping_approved": bool(row[gate_column]),
                     "signal_confidence": float(row["module_c_signal_confidence"]),
                     "event_codes": (
                         row["module_c_market_event_codes"]
                         if signal_type == "market_price"
-                        else row["module_c_news_event_codes"]
+                        else (
+                            row["module_c_trade_event_codes"]
+                            if signal_type == "import_export"
+                            else row["module_c_news_event_codes"]
+                        )
                     ),
                     "config_version": config["version"],
                     "calibration_status": config["calibration_status"],
@@ -238,6 +278,7 @@ def _build_alerts(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
                 "top_driver": top_driver,
                 "event_codes": row["module_c_event_codes"],
                 "market_event_codes": row["module_c_market_event_codes"],
+                "trade_event_codes": row["module_c_trade_event_codes"],
                 "recommended_action": action,
                 "config_version": config["version"],
                 "calibration_status": config["calibration_status"],
@@ -250,40 +291,65 @@ def build_module_c_risk_outputs(
     news_scores: pd.DataFrame,
     commodity_scores: pd.DataFrame,
     config: dict | None = None,
+    trade_scores: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     config = config or load_module_c_config()
     news = _prepare_news(news_scores)
     market = _prepare_market(commodity_scores)
-    if news.empty and market.empty:
+    trade = _prepare_trade(
+        trade_scores if trade_scores is not None else pd.DataFrame()
+    )
+    if news.empty and market.empty and trade.empty:
         return _empty_scores(), _empty_audit(), _empty_alerts()
 
     merged = news.merge(market, on=KEY_COLUMNS, how="outer")
+    merged = merged.merge(trade, on=KEY_COLUMNS, how="outer")
     demand_gate = _boolean(merged, "has_approved_demand_mapping")
     material_gate = _boolean(merged, "has_approved_material_mapping")
     material_gate |= _numeric(merged, "market_factor_count").gt(0)
+    trade_gate = _numeric(merged, "trade_factor_count").gt(0)
+    material_gate |= trade_gate
 
     demand_risk = _numeric(merged, "disease_news_risk") * demand_gate.astype(float)
     supply_news = _numeric(merged, "supply_news_risk") * material_gate.astype(float)
     material_news = _numeric(merged, "material_news_risk") * material_gate.astype(float)
     market_price = _numeric(merged, "commodity_risk") * material_gate.astype(float)
+    trade_risk = _numeric(merged, "trade_risk") * trade_gate.astype(float)
 
     supply_weights = config["supply_signal"]
     supply_news_contribution = float(supply_weights["supply_news"]) * supply_news
     material_news_contribution = float(supply_weights["material_news"]) * material_news
     market_price_contribution = float(supply_weights["market_price"]) * market_price
-    supply_risk = (
+    base_supply_risk = (
         supply_news_contribution
         + material_news_contribution
         + market_price_contribution
     ).clip(0, 1)
+    trade_overlay_pressure = (
+        float(config["trade_signal"]["module_c_overlay_weight"]) * trade_risk
+    ).clip(0, 1)
+    combined_supply_risk = (
+        1.0 - (1.0 - base_supply_risk) * (1.0 - trade_overlay_pressure)
+    ).clip(0, 1)
+    trade_active = trade_overlay_pressure.gt(0)
+    supply_risk = combined_supply_risk.where(trade_active, base_supply_risk)
+    trade_contribution = (
+        (supply_risk - base_supply_risk).clip(0, 1).where(trade_active, 0.0)
+    )
 
     news_confidence = _numeric(merged, "news_signal_confidence", 0.60)
     market_confidence = _numeric(merged, "market_signal_confidence")
+    trade_confidence = _numeric(merged, "trade_signal_confidence")
     any_news = supply_news.gt(0) | material_news.gt(0) | demand_risk.gt(0)
-    confidence_denominator = any_news.astype(float) + market_price.gt(0).astype(float)
+    confidence_denominator = (
+        any_news.astype(float)
+        + market_price.gt(0).astype(float)
+        + trade_gate.astype(float)
+    )
     confidence = (
         news_confidence * any_news.astype(float)
         + market_confidence * market_price.gt(0).astype(float)
+        + trade_confidence * trade_gate.astype(float)
     ).div(confidence_denominator.replace(0, np.nan)).fillna(0.0).clip(0, 1)
 
     market_event_codes = (
@@ -296,20 +362,28 @@ def build_module_c_risk_outputs(
         if "news_event_codes" in merged.columns
         else pd.Series("", index=merged.index, dtype="string")
     )
+    trade_event_codes = (
+        merged["trade_event_codes"].fillna("")
+        if "trade_event_codes" in merged.columns
+        else pd.Series("", index=merged.index, dtype="string")
+    )
     combined_event_codes = pd.Series(
         [
             ";".join(
                 sorted(
                     {
                         code.strip()
-                        for value in [news_value, market_value]
+                        for value in [news_value, market_value, trade_value]
                         for code in str(value).split(";")
                         if code.strip()
                     }
                 )
             )
-            for news_value, market_value in zip(
-                news_event_codes, market_event_codes, strict=False
+            for news_value, market_value, trade_value in zip(
+                news_event_codes,
+                market_event_codes,
+                trade_event_codes,
+                strict=False,
             )
         ],
         index=merged.index,
@@ -323,17 +397,21 @@ def build_module_c_risk_outputs(
             "module_c_supply_news_risk": supply_news,
             "module_c_material_news_risk": material_news,
             "module_c_market_price_risk": market_price,
+            "module_c_trade_risk": trade_risk,
             "module_c_supply_news_contribution": supply_news_contribution,
             "module_c_material_news_contribution": material_news_contribution,
             "module_c_market_price_contribution": market_price_contribution,
+            "module_c_trade_contribution": trade_contribution,
             "module_c_supply_risk": supply_risk,
             "module_c_total_risk": pd.concat([demand_risk, supply_risk], axis=1).max(axis=1),
             "module_c_signal_confidence": confidence,
             "module_c_has_approved_material_mapping": material_gate,
+            "module_c_has_approved_trade_mapping": trade_gate,
             "module_c_has_approved_demand_mapping": demand_gate,
             "module_c_adjustment_enabled": material_gate | demand_gate,
             "module_c_news_event_codes": news_event_codes,
             "module_c_market_event_codes": market_event_codes,
+            "module_c_trade_event_codes": trade_event_codes,
             "module_c_event_codes": combined_event_codes,
             "module_c_config_version": config["version"],
             "module_c_calibration_status": config["calibration_status"],

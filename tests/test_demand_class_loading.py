@@ -250,7 +250,7 @@ class CensoredDemandMetricsTest(unittest.TestCase):
             result.loc[result["institution_code"].eq("B0004"), "review_required"].iloc[0]
         )
         positive_naive = result[result["mu_naive"].gt(0)]
-        self.assertTrue(positive_naive["correction_factor"].le(10.0).all())
+        self.assertTrue(positive_naive["correction_factor"].le(8.0).all())
 
         local_for_report = pd.DataFrame(
             {"negative_consumption_rows": [0]}

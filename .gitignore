@@ -27,6 +27,7 @@ data/processed/
 data/sample/
 outputs/
 models/
+/관세청_HS부호_20260101.xlsx
 pipelines/item_material/output_full/
 pipelines/item_material/research/
 
