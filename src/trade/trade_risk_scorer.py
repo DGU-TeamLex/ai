@@ -12,8 +12,11 @@ from ..config import (
     HSK_REFERENCE_NORMALIZED_PATH,
     HSK_REFERENCE_SOURCE_PATH,
     MATERIAL_HS_MAPPING_PATH,
+    MONTHLY_STOCK_PATH,
     OUTPUT_DIR,
     STOCK_MATERIAL_MAPPING_PATH,
+    TRADE_HS_FEATURE_PATH,
+    TRADE_HS_FEATURE_SAMPLE_PATH,
     TRADE_RISK_AUDIT_PATH,
     TRADE_RISK_SCORE_PATH,
     TRADE_RUN_REPORT_PATH,
@@ -30,6 +33,7 @@ from .trade_collector import (
 
 
 LOGGER = logging.getLogger(__name__)
+ITEM_MONTH_KEY_COLUMNS = ["STD_YYYYMM", "stock_item_key"]
 MATERIAL_HS_COLUMNS = [
     "raw_material_meta_code",
     "hs_code",
@@ -48,11 +52,26 @@ HS_FEATURE_COLUMNS = [
     "hs_code",
     "hs_trade_risk",
     "import_volume_yoy_change",
+    "import_value_yoy_change",
     "import_unit_value_yoy_change",
+    "net_import_volume_yoy_change",
+    "export_volume_yoy_change",
+    "import_volume_rolling_cv",
+    "import_unit_value_rolling_volatility",
+    "zero_import_streak_months",
+    "supplier_count",
+    "supplier_count_yoy_change",
+    "country_hhi_yoy_change",
     "import_volume_decline_risk",
+    "net_import_availability_decline_risk",
+    "import_interruption_risk",
     "import_unit_value_increase_risk",
+    "import_volume_volatility_risk",
+    "import_unit_value_volatility_risk",
     "country_concentration_risk",
+    "supplier_count_decline_risk",
     "net_import_exposure_risk",
+    "export_volume_surge_risk",
     "country_import_coverage",
     "country_top1_share",
     "country_hhi",
@@ -64,9 +83,15 @@ SCORE_COLUMNS = [
     "stock_item_key",
     "trade_risk",
     "trade_import_volume_risk",
+    "trade_net_import_availability_risk",
+    "trade_import_interruption_risk",
     "trade_import_unit_value_risk",
+    "trade_import_volume_volatility_risk",
+    "trade_import_unit_value_volatility_risk",
     "trade_country_concentration_risk",
+    "trade_supplier_count_risk",
     "trade_net_import_exposure_risk",
+    "trade_export_volume_surge_risk",
     "trade_signal_confidence",
     "trade_factor_count",
     "trade_hs_codes",
@@ -83,13 +108,31 @@ AUDIT_COLUMNS = [
     "path_weight",
     "risk_contribution",
     "import_volume_yoy_change",
+    "import_value_yoy_change",
     "import_unit_value_yoy_change",
+    "net_import_volume_yoy_change",
+    "export_volume_yoy_change",
+    "import_volume_rolling_cv",
+    "import_unit_value_rolling_volatility",
+    "zero_import_streak_months",
+    "supplier_count",
+    "supplier_count_yoy_change",
+    "country_hhi_yoy_change",
     "import_volume_decline_risk",
+    "net_import_availability_decline_risk",
+    "import_interruption_risk",
     "import_unit_value_increase_risk",
+    "import_volume_volatility_risk",
+    "import_unit_value_volatility_risk",
     "country_concentration_risk",
+    "supplier_count_decline_risk",
     "net_import_exposure_risk",
+    "export_volume_surge_risk",
     "country_import_coverage",
+    "country_top1_share",
+    "country_hhi",
     "trade_signal_confidence",
+    "trade_event_codes",
     "mapping_version",
     "evidence_reference",
 ]
@@ -176,15 +219,38 @@ def load_material_hs_mapping(
 
 def _previous_year_values(features: pd.DataFrame) -> pd.DataFrame:
     prior = features[
-        ["month", "hs_code", "import_weight_kg", "import_unit_value_usd_per_kg"]
+        [
+            "month",
+            "hs_code",
+            "import_weight_kg",
+            "import_value_usd",
+            "import_unit_value_usd_per_kg",
+            "export_weight_kg",
+            "net_import_weight_kg",
+        ]
     ].copy()
     prior["month"] = prior["month"] + pd.offsets.DateOffset(years=1)
     return prior.rename(
         columns={
             "import_weight_kg": "prior_import_weight_kg",
+            "import_value_usd": "prior_import_value_usd",
             "import_unit_value_usd_per_kg": "prior_import_unit_value_usd_per_kg",
+            "export_weight_kg": "prior_export_weight_kg",
+            "net_import_weight_kg": "prior_net_import_weight_kg",
         }
     )
+
+
+def _zero_streak(values: pd.Series) -> pd.Series:
+    streak = 0
+    result = []
+    for value in pd.to_numeric(values, errors="coerce").fillna(0.0):
+        if value <= 0:
+            streak += 1
+        else:
+            streak = 0
+        result.append(streak)
+    return pd.Series(result, index=values.index, dtype="int64")
 
 
 def _country_metrics(
@@ -198,6 +264,7 @@ def _country_metrics(
         "country_import_coverage",
         "country_top1_share",
         "country_hhi",
+        "supplier_count",
         "country_metric_available",
     ]
     if country_flows.empty:
@@ -240,6 +307,10 @@ def _country_metrics(
             total_import_value_usd=("total_import_value_usd", "first"),
             country_top1_share=("country_share", "max"),
             country_hhi=("country_share", lambda values: float(np.square(values).sum())),
+            supplier_count=(
+                "import_value_usd",
+                lambda values: int(pd.Series(values).gt(0).sum()),
+            ),
         )
     )
     grouped["country_import_coverage"] = (
@@ -258,12 +329,24 @@ def _event_codes(row: pd.Series, watch: float) -> str:
     events = []
     if row["import_volume_decline_risk"] >= watch:
         events.append("HS_IMPORT_VOLUME_DROP")
+    if row["net_import_availability_decline_risk"] >= watch:
+        events.append("HS_NET_IMPORT_AVAILABILITY_DROP")
+    if row["import_interruption_risk"] >= watch:
+        events.append("HS_IMPORT_INTERRUPTION")
     if row["import_unit_value_increase_risk"] >= watch:
         events.append("HS_IMPORT_UNIT_VALUE_SHOCK")
+    if row["import_volume_volatility_risk"] >= watch:
+        events.append("HS_IMPORT_VOLUME_VOLATILITY")
+    if row["import_unit_value_volatility_risk"] >= watch:
+        events.append("HS_IMPORT_UNIT_VALUE_VOLATILITY")
     if row["country_concentration_risk"] >= watch:
         events.append("HS_IMPORT_COUNTRY_CONCENTRATION")
+    if row["supplier_count_decline_risk"] >= watch:
+        events.append("HS_IMPORT_SUPPLIER_COUNT_DROP")
     if row["net_import_exposure_risk"] >= watch:
         events.append("HS_NET_IMPORT_EXPOSURE")
+    if row["export_volume_surge_risk"] >= watch:
+        events.append("HS_EXPORT_VOLUME_SURGE")
     return ";".join(events)
 
 
@@ -297,9 +380,54 @@ def build_hs_trade_features(
         return pd.DataFrame(columns=HS_FEATURE_COLUMNS)
 
     totals["month"] = pd.to_datetime(totals["STD_YYYYMM"], errors="coerce")
+    totals = totals.sort_values(["hs_code", "month"]).reset_index(drop=True)
     totals["import_unit_value_usd_per_kg"] = (
         totals["import_value_usd"]
         .div(totals["import_weight_kg"].replace(0, np.nan))
+    )
+    totals["net_import_weight_kg"] = (
+        totals["import_weight_kg"] - totals["export_weight_kg"]
+    ).clip(lower=0)
+    rolling_window = int(policy["rolling_window_months"])
+    rolling_min = int(policy["rolling_min_periods"])
+    hs_groups = totals.groupby("hs_code", sort=False, group_keys=False)
+    totals["import_volume_rolling_cv"] = hs_groups[
+        "import_weight_kg"
+    ].transform(
+        lambda values: values.rolling(
+            rolling_window,
+            min_periods=rolling_min,
+        )
+        .std(ddof=0)
+        .div(
+            values.rolling(
+                rolling_window,
+                min_periods=rolling_min,
+            ).mean().replace(0, np.nan)
+        )
+    )
+    unit_value_log_change = hs_groups[
+        "import_unit_value_usd_per_kg"
+    ].transform(lambda values: np.log(values.where(values.gt(0))).diff())
+    totals["import_unit_value_rolling_volatility"] = (
+        unit_value_log_change.groupby(totals["hs_code"], sort=False).transform(
+            lambda values: values.rolling(
+                rolling_window,
+                min_periods=rolling_min,
+            ).std(ddof=0)
+        )
+    )
+    totals["zero_import_streak_months"] = hs_groups[
+        "import_weight_kg"
+    ].transform(_zero_streak)
+    totals["prior_positive_import_available"] = hs_groups[
+        "import_weight_kg"
+    ].transform(
+        lambda values: values.shift(1)
+        .rolling(12, min_periods=1)
+        .max()
+        .fillna(0)
+        .gt(0)
     )
     features = totals.merge(
         _previous_year_values(totals),
@@ -312,19 +440,55 @@ def build_hs_trade_features(
         .div(features["prior_import_weight_kg"].replace(0, np.nan))
         .sub(1.0)
     )
+    features["import_value_yoy_change"] = (
+        features["import_value_usd"]
+        .div(features["prior_import_value_usd"].replace(0, np.nan))
+        .sub(1.0)
+    )
     features["import_unit_value_yoy_change"] = (
         features["import_unit_value_usd_per_kg"]
         .div(features["prior_import_unit_value_usd_per_kg"].replace(0, np.nan))
         .sub(1.0)
     )
+    features["net_import_volume_yoy_change"] = (
+        features["net_import_weight_kg"]
+        .div(features["prior_net_import_weight_kg"].replace(0, np.nan))
+        .sub(1.0)
+    )
+    features["export_volume_yoy_change"] = (
+        features["export_weight_kg"]
+        .div(features["prior_export_weight_kg"].replace(0, np.nan))
+        .sub(1.0)
+    )
     features["import_volume_decline_risk"] = (
         -features["import_volume_yoy_change"]
     ).clip(lower=0).div(float(policy["import_volume_decline_threshold"])).clip(0, 1)
+    features["net_import_availability_decline_risk"] = (
+        -features["net_import_volume_yoy_change"]
+    ).clip(lower=0).div(
+        float(policy["net_import_availability_decline_threshold"])
+    ).clip(0, 1)
+    interruption_available = (
+        features["import_weight_kg"].gt(0)
+        | features["prior_positive_import_available"].fillna(False)
+    )
+    features["import_interruption_risk"] = (
+        features["zero_import_streak_months"]
+        .div(float(policy["import_interruption_streak_months"]))
+        .clip(0, 1)
+        .where(interruption_available, 0.0)
+    )
     features["import_unit_value_increase_risk"] = features[
         "import_unit_value_yoy_change"
     ].clip(lower=0).div(
         float(policy["import_unit_value_increase_threshold"])
     ).clip(0, 1)
+    features["import_volume_volatility_risk"] = features[
+        "import_volume_rolling_cv"
+    ].div(float(policy["import_volume_volatility_threshold"])).clip(0, 1)
+    features["import_unit_value_volatility_risk"] = features[
+        "import_unit_value_rolling_volatility"
+    ].div(float(policy["import_unit_value_volatility_threshold"])).clip(0, 1)
     features["net_import_exposure_risk"] = (
         (features["import_value_usd"] - features["export_value_usd"])
         .clip(lower=0)
@@ -332,6 +496,11 @@ def build_hs_trade_features(
         .fillna(0.0)
         .clip(0, 1)
     )
+    features["export_volume_surge_risk"] = features[
+        "export_volume_yoy_change"
+    ].clip(lower=0).div(
+        float(policy["export_volume_surge_threshold"])
+    ).clip(0, 1)
 
     country = _country_metrics(
         totals,
@@ -344,14 +513,74 @@ def build_hs_trade_features(
         how="left",
         validate="one_to_one",
     )
+    country_prior = country.copy()
+    if not country_prior.empty:
+        prior_month = pd.to_datetime(
+            country_prior["STD_YYYYMM"],
+            errors="coerce",
+        ) + pd.offsets.DateOffset(years=1)
+        country_prior["STD_YYYYMM"] = prior_month.dt.strftime("%Y-%m")
+    country_prior = country_prior.rename(
+        columns={
+            "country_import_coverage": "prior_country_import_coverage",
+            "country_top1_share": "prior_country_top1_share",
+            "country_hhi": "prior_country_hhi",
+            "supplier_count": "prior_supplier_count",
+            "country_metric_available": "prior_country_metric_available",
+        }
+    )
+    features = features.merge(
+        country_prior[
+            [
+                "STD_YYYYMM",
+                "hs_code",
+                "prior_country_import_coverage",
+                "prior_country_top1_share",
+                "prior_country_hhi",
+                "prior_supplier_count",
+                "prior_country_metric_available",
+            ]
+        ],
+        on=["STD_YYYYMM", "hs_code"],
+        how="left",
+        validate="one_to_one",
+    )
     for column in [
         "country_import_coverage",
         "country_top1_share",
         "country_hhi",
+        "supplier_count",
+        "prior_country_import_coverage",
+        "prior_country_top1_share",
+        "prior_country_hhi",
+        "prior_supplier_count",
     ]:
         features[column] = pd.to_numeric(features[column], errors="coerce").fillna(0.0)
     features["country_metric_available"] = (
         features["country_metric_available"].astype("boolean").fillna(False).astype(bool)
+    )
+    features["prior_country_metric_available"] = (
+        features["prior_country_metric_available"]
+        .astype("boolean")
+        .fillna(False)
+        .astype(bool)
+    )
+    country_yoy_available = (
+        features["country_metric_available"]
+        & features["prior_country_metric_available"]
+        & features["prior_supplier_count"].gt(0)
+    )
+    features["supplier_count_yoy_change"] = (
+        features["supplier_count"]
+        .div(features["prior_supplier_count"].replace(0, np.nan))
+        .sub(1.0)
+        .where(country_yoy_available)
+    )
+    features["country_hhi_yoy_change"] = (
+        features["country_hhi"]
+        .div(features["prior_country_hhi"].replace(0, np.nan))
+        .sub(1.0)
+        .where(country_yoy_available & features["prior_country_hhi"].gt(0))
     )
     concentration_metric = features[
         ["country_top1_share", "country_hhi"]
@@ -360,14 +589,33 @@ def build_hs_trade_features(
     features["country_concentration_risk"] = (
         (concentration_metric - threshold) / (1.0 - threshold)
     ).clip(0, 1).where(features["country_metric_available"], 0.0)
+    features["supplier_count_decline_risk"] = (
+        -features["supplier_count_yoy_change"]
+    ).clip(lower=0).div(
+        float(policy["supplier_count_decline_threshold"])
+    ).clip(0, 1).fillna(0.0)
 
     component_weights = {
         "import_volume_decline_risk": float(policy["import_volume_decline"]),
+        "net_import_availability_decline_risk": float(
+            policy["net_import_availability_decline"]
+        ),
+        "import_interruption_risk": float(policy["import_interruption"]),
         "import_unit_value_increase_risk": float(
             policy["import_unit_value_increase"]
         ),
+        "import_volume_volatility_risk": float(
+            policy["import_volume_volatility"]
+        ),
+        "import_unit_value_volatility_risk": float(
+            policy["import_unit_value_volatility"]
+        ),
         "country_concentration_risk": float(policy["country_concentration"]),
+        "supplier_count_decline_risk": float(
+            policy["supplier_count_decline"]
+        ),
         "net_import_exposure_risk": float(policy["net_import_exposure"]),
+        "export_volume_surge_risk": float(policy["export_volume_surge"]),
     }
     features["hs_trade_risk"] = sum(
         weight * features[column].fillna(0.0)
@@ -375,11 +623,23 @@ def build_hs_trade_features(
     ).clip(0, 1)
     available = {
         "import_volume_decline_risk": features["import_volume_yoy_change"].notna(),
+        "net_import_availability_decline_risk": features[
+            "net_import_volume_yoy_change"
+        ].notna(),
+        "import_interruption_risk": interruption_available,
         "import_unit_value_increase_risk": features[
             "import_unit_value_yoy_change"
         ].notna(),
+        "import_volume_volatility_risk": features[
+            "import_volume_rolling_cv"
+        ].notna(),
+        "import_unit_value_volatility_risk": features[
+            "import_unit_value_rolling_volatility"
+        ].notna(),
         "country_concentration_risk": features["country_metric_available"],
+        "supplier_count_decline_risk": country_yoy_available,
         "net_import_exposure_risk": features["import_value_usd"].gt(0),
+        "export_volume_surge_risk": features["prior_export_weight_kg"].gt(0),
     }
     features["trade_signal_confidence"] = sum(
         component_weights[column] * mask.astype(float)
@@ -451,6 +711,42 @@ def _join_unique(values: pd.Series) -> str:
     return ";".join(sorted({str(value).strip() for value in values if str(value).strip()}))
 
 
+def _item_event_codes(scores: pd.DataFrame, watch: float) -> pd.Series:
+    result = pd.Series("", index=scores.index, dtype="string")
+    components = [
+        ("trade_import_volume_risk", "HS_IMPORT_VOLUME_DROP"),
+        (
+            "trade_net_import_availability_risk",
+            "HS_NET_IMPORT_AVAILABILITY_DROP",
+        ),
+        ("trade_import_interruption_risk", "HS_IMPORT_INTERRUPTION"),
+        ("trade_import_unit_value_risk", "HS_IMPORT_UNIT_VALUE_SHOCK"),
+        (
+            "trade_import_volume_volatility_risk",
+            "HS_IMPORT_VOLUME_VOLATILITY",
+        ),
+        (
+            "trade_import_unit_value_volatility_risk",
+            "HS_IMPORT_UNIT_VALUE_VOLATILITY",
+        ),
+        (
+            "trade_country_concentration_risk",
+            "HS_IMPORT_COUNTRY_CONCENTRATION",
+        ),
+        ("trade_supplier_count_risk", "HS_IMPORT_SUPPLIER_COUNT_DROP"),
+        ("trade_net_import_exposure_risk", "HS_NET_IMPORT_EXPOSURE"),
+        ("trade_export_volume_surge_risk", "HS_EXPORT_VOLUME_SURGE"),
+    ]
+    for column, event_code in components:
+        mask = pd.to_numeric(scores[column], errors="coerce").fillna(0).ge(watch)
+        existing = result.loc[mask]
+        result.loc[mask] = existing.where(
+            existing.eq(""),
+            existing + ";",
+        ) + event_code
+    return result
+
+
 def build_trade_risk_outputs(
     total_flows: pd.DataFrame,
     country_flows: pd.DataFrame | None = None,
@@ -458,11 +754,50 @@ def build_trade_risk_outputs(
     material_hs_mapping: pd.DataFrame | None = None,
     hsk_reference: pd.DataFrame | None = None,
     config: dict | None = None,
+    hs_features: pd.DataFrame | None = None,
+    score_months: set[str] | None = None,
+    score_stock_item_months: pd.DataFrame | None = None,
+    audit_scope: str = "all",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     config = config or load_module_c_config()
-    factors = build_hs_trade_features(total_flows, country_flows, config)
+    factors = (
+        hs_features.copy()
+        if hs_features is not None
+        else build_hs_trade_features(total_flows, country_flows, config)
+    )
     if factors.empty:
         return _empty_scores(), _empty_audit()
+    if score_months is not None:
+        factors = factors[
+            factors["STD_YYYYMM"].astype(str).isin(score_months)
+        ].copy()
+    if factors.empty:
+        return _empty_scores(), _empty_audit()
+    if audit_scope not in {"all", "latest"}:
+        raise ValueError("audit_scope must be 'all' or 'latest'")
+    observed_items_by_month: dict[str, set[str]] = {}
+    if score_stock_item_months is not None:
+        missing_keys = set(ITEM_MONTH_KEY_COLUMNS) - set(
+            score_stock_item_months.columns
+        )
+        if missing_keys:
+            raise ValueError(
+                "score_stock_item_months is missing columns: "
+                f"{sorted(missing_keys)}"
+            )
+        observed = score_stock_item_months[
+            ITEM_MONTH_KEY_COLUMNS
+        ].drop_duplicates().copy()
+        observed["STD_YYYYMM"] = observed["STD_YYYYMM"].astype(str)
+        observed["stock_item_key"] = observed["stock_item_key"].astype(str)
+        observed_items_by_month = {
+            str(month): set(rows["stock_item_key"])
+            for month, rows in observed.groupby(
+                "STD_YYYYMM",
+                sort=False,
+                observed=True,
+            )
+        }
 
     if hsk_reference is None:
         hsk_reference = load_hsk_reference()
@@ -491,7 +826,8 @@ def build_trade_risk_outputs(
             ).fillna(0.0).clip(0, 1)
     if stock_mapping is None:
         stock_mapping = load_approved_stock_material_mapping(
-            STOCK_MATERIAL_MAPPING_PATH
+            STOCK_MATERIAL_MAPPING_PATH,
+            eligibility_column="identity_approved",
         )
     stock_paths = _stock_material_paths(stock_mapping)
     if stock_paths.empty or material_hs_mapping.empty:
@@ -511,100 +847,193 @@ def build_trade_risk_outputs(
         how="inner",
         validate="many_to_many",
     )
-    merged = paths.merge(
-        factors,
-        on="hs_code",
-        how="inner",
-        validate="many_to_many",
-    )
-    if merged.empty:
+    if paths.empty:
         return _empty_scores(), _empty_audit()
-    month = pd.to_datetime(merged["STD_YYYYMM"], errors="coerce")
-    merged = merged[
-        month.ge(merged["valid_from"]) & month.le(merged["valid_to"])
-    ].copy()
-    if merged.empty:
-        return _empty_scores(), _empty_audit()
+    paths["stock_item_key"] = paths["stock_item_key"].astype(str)
 
-    merged["path_weight"] = (
-        merged["mapping_weight"]
-        * merged["exposure_score"]
-        * merged["mapping_confidence_score"]
-        * pd.to_numeric(merged["hs_mapping_weight"], errors="coerce").fillna(0.0)
-        * pd.to_numeric(merged["hs_proxy_quality"], errors="coerce").fillna(0.0)
-    ).clip(0, 1)
-    merged["risk_contribution"] = (
-        merged["hs_trade_risk"] * merged["path_weight"]
-    ).clip(0, 1)
-    for source, target in [
+    weighted_components = [
         ("import_volume_decline_risk", "weighted_volume_risk"),
+        (
+            "net_import_availability_decline_risk",
+            "weighted_net_import_availability_risk",
+        ),
+        ("import_interruption_risk", "weighted_import_interruption_risk"),
         ("import_unit_value_increase_risk", "weighted_unit_value_risk"),
+        (
+            "import_volume_volatility_risk",
+            "weighted_import_volume_volatility_risk",
+        ),
+        (
+            "import_unit_value_volatility_risk",
+            "weighted_import_unit_value_volatility_risk",
+        ),
         ("country_concentration_risk", "weighted_concentration_risk"),
+        ("supplier_count_decline_risk", "weighted_supplier_count_risk"),
         ("net_import_exposure_risk", "weighted_net_import_risk"),
+        ("export_volume_surge_risk", "weighted_export_volume_surge_risk"),
         ("trade_signal_confidence", "weighted_trade_confidence"),
-    ]:
-        merged[target] = merged[source] * merged["path_weight"]
-
-    keys = ["STD_YYYYMM", "stock_item_key"]
-    denominator = (
-        merged.groupby(keys, observed=True)["path_weight"]
-        .transform("sum")
-        .replace(0, np.nan)
+    ]
+    weighted_to_score = {
+        "weighted_volume_risk": "trade_import_volume_risk",
+        "weighted_net_import_availability_risk": (
+            "trade_net_import_availability_risk"
+        ),
+        "weighted_import_interruption_risk": "trade_import_interruption_risk",
+        "weighted_unit_value_risk": "trade_import_unit_value_risk",
+        "weighted_import_volume_volatility_risk": (
+            "trade_import_volume_volatility_risk"
+        ),
+        "weighted_import_unit_value_volatility_risk": (
+            "trade_import_unit_value_volatility_risk"
+        ),
+        "weighted_concentration_risk": "trade_country_concentration_risk",
+        "weighted_supplier_count_risk": "trade_supplier_count_risk",
+        "weighted_net_import_risk": "trade_net_import_exposure_risk",
+        "weighted_export_volume_surge_risk": "trade_export_volume_surge_risk",
+        "weighted_trade_confidence": "trade_signal_confidence",
+    }
+    normalized_score_columns = [
+        "trade_import_volume_risk",
+        "trade_net_import_availability_risk",
+        "trade_import_interruption_risk",
+        "trade_import_unit_value_risk",
+        "trade_import_volume_volatility_risk",
+        "trade_import_unit_value_volatility_risk",
+        "trade_country_concentration_risk",
+        "trade_supplier_count_risk",
+        "trade_net_import_exposure_risk",
+        "trade_export_volume_surge_risk",
+        "trade_signal_confidence",
+    ]
+    item_hs = (
+        paths[["stock_item_key", "hs_code"]]
+        .drop_duplicates()
+        .sort_values(["stock_item_key", "hs_code"])
     )
-    for column in [
-        "weighted_volume_risk",
-        "weighted_unit_value_risk",
-        "weighted_concentration_risk",
-        "weighted_net_import_risk",
-        "weighted_trade_confidence",
-    ]:
-        merged[f"normalized_{column}"] = (merged[column] / denominator).fillna(0.0)
-
-    scores = (
-        merged.groupby(keys, as_index=False, observed=True)
+    path_metadata = (
+        item_hs.groupby("stock_item_key", as_index=False, observed=True)
         .agg(
-            trade_risk=("risk_contribution", _compound_risk),
-            trade_import_volume_risk=("normalized_weighted_volume_risk", "sum"),
-            trade_import_unit_value_risk=(
-                "normalized_weighted_unit_value_risk",
-                "sum",
-            ),
-            trade_country_concentration_risk=(
-                "normalized_weighted_concentration_risk",
-                "sum",
-            ),
-            trade_net_import_exposure_risk=(
-                "normalized_weighted_net_import_risk",
-                "sum",
-            ),
-            trade_signal_confidence=(
-                "normalized_weighted_trade_confidence",
-                "sum",
-            ),
             trade_factor_count=("hs_code", "nunique"),
             trade_hs_codes=("hs_code", _join_unique),
-            trade_event_codes=("trade_event_codes", _join_unique),
         )
+    )
+    watch = float(config["alert_thresholds"]["watch"])
+    latest_month = factors["STD_YYYYMM"].max()
+    score_frames = []
+    audit_frames = []
+    for month_value, monthly_factors in factors.groupby(
+        "STD_YYYYMM",
+        sort=True,
+        observed=True,
+    ):
+        month_paths = paths
+        if observed_items_by_month:
+            observed_items = observed_items_by_month.get(str(month_value), set())
+            if not observed_items:
+                continue
+            month_paths = paths[
+                paths["stock_item_key"].isin(observed_items)
+            ]
+        merged = month_paths.merge(
+            monthly_factors,
+            on="hs_code",
+            how="inner",
+            validate="many_to_many",
+        )
+        if merged.empty:
+            continue
+        month_date = pd.Timestamp(f"{month_value}-01")
+        merged = merged[
+            merged["valid_from"].le(month_date)
+            & merged["valid_to"].ge(month_date)
+        ].copy()
+        if merged.empty:
+            continue
+        merged["path_weight"] = (
+            merged["mapping_weight"]
+            * merged["exposure_score"]
+            * merged["mapping_confidence_score"]
+            * pd.to_numeric(
+                merged["hs_mapping_weight"],
+                errors="coerce",
+            ).fillna(0.0)
+            * pd.to_numeric(
+                merged["hs_proxy_quality"],
+                errors="coerce",
+            ).fillna(0.0)
+        ).clip(0, 1)
+        merged["risk_contribution"] = (
+            merged["hs_trade_risk"] * merged["path_weight"]
+        ).clip(0, 1)
+        for source, target in weighted_components:
+            merged[target] = merged[source] * merged["path_weight"]
+
+        survival = (
+            1.0 - merged["risk_contribution"].clip(0, 1)
+        ).clip(lower=np.finfo(float).tiny)
+        merged["log_survival"] = np.log(survival)
+        sum_columns = [
+            "path_weight",
+            "log_survival",
+            *weighted_to_score.keys(),
+        ]
+        monthly_scores = merged.groupby(
+            "stock_item_key",
+            as_index=False,
+            observed=True,
+        )[sum_columns].sum()
+        monthly_scores = monthly_scores.rename(
+            columns={
+                "path_weight": "path_weight_sum",
+                **weighted_to_score,
+            }
+        )
+        monthly_scores.insert(0, "STD_YYYYMM", month_value)
+        monthly_scores["trade_risk"] = (
+            1.0 - np.exp(monthly_scores.pop("log_survival"))
+        ).clip(0, 1)
+        denominator = monthly_scores["path_weight_sum"].replace(0, np.nan)
+        for column in normalized_score_columns:
+            monthly_scores[column] = (
+                monthly_scores[column].div(denominator).fillna(0.0)
+            )
+        monthly_scores = monthly_scores.drop(columns=["path_weight_sum"]).merge(
+            path_metadata,
+            on="stock_item_key",
+            how="left",
+            validate="one_to_one",
+        )
+        monthly_scores["trade_event_codes"] = _item_event_codes(
+            monthly_scores,
+            watch,
+        )
+        score_frames.append(monthly_scores)
+
+        if audit_scope == "all" or month_value == latest_month:
+            monthly_audit = merged.rename(
+                columns={
+                    "hs_mapping_version": "mapping_version",
+                    "hs_evidence_reference": "evidence_reference",
+                }
+            )
+            for column in AUDIT_COLUMNS:
+                if column not in monthly_audit.columns:
+                    monthly_audit[column] = ""
+            audit_frames.append(monthly_audit[AUDIT_COLUMNS].copy())
+
+    if not score_frames:
+        return _empty_scores(), _empty_audit()
+    scores = pd.concat(score_frames, ignore_index=True)
+    audit = (
+        pd.concat(audit_frames, ignore_index=True)
+        if audit_frames
+        else _empty_audit()
     )
     for column in [
         "trade_risk",
-        "trade_import_volume_risk",
-        "trade_import_unit_value_risk",
-        "trade_country_concentration_risk",
-        "trade_net_import_exposure_risk",
-        "trade_signal_confidence",
+        *normalized_score_columns,
     ]:
         scores[column] = scores[column].clip(0, 1)
-
-    audit = merged.rename(
-        columns={
-            "hs_mapping_version": "mapping_version",
-            "hs_evidence_reference": "evidence_reference",
-        }
-    )
-    for column in AUDIT_COLUMNS:
-        if column not in audit.columns:
-            audit[column] = ""
     return scores[SCORE_COLUMNS], audit[AUDIT_COLUMNS]
 
 
@@ -612,7 +1041,11 @@ def run_trade_risk_scoring(
     provider: str | None = None,
 ) -> dict[str, object]:
     setup_logging()
-    ensure_dirs(OUTPUT_DIR, HSK_REFERENCE_NORMALIZED_PATH.parent)
+    ensure_dirs(
+        OUTPUT_DIR,
+        HSK_REFERENCE_NORMALIZED_PATH.parent,
+        TRADE_HS_FEATURE_SAMPLE_PATH.parent,
+    )
     selected_provider = (
         provider or os.getenv("TRADE_PROVIDER", "disabled")
     ).strip().lower()
@@ -624,6 +1057,9 @@ def run_trade_risk_scoring(
             )
         scores = _empty_scores()
         audit = _empty_audit()
+        features = pd.DataFrame(columns=HS_FEATURE_COLUMNS)
+        features.to_csv(TRADE_HS_FEATURE_PATH, index=False)
+        features.to_csv(TRADE_HS_FEATURE_SAMPLE_PATH, index=False)
         scores.to_csv(TRADE_RISK_SCORE_PATH, index=False)
         audit.to_csv(TRADE_RISK_AUDIT_PATH, index=False)
         report = {
@@ -638,6 +1074,8 @@ def run_trade_risk_scoring(
             "trade_score_rows": 0,
             "trade_scored_stock_items": 0,
             "operational_status": "blocked_missing_hsk_reference",
+            "hs_feature_path": str(TRADE_HS_FEATURE_PATH),
+            "hs_feature_sample_path": str(TRADE_HS_FEATURE_SAMPLE_PATH),
             "score_path": str(TRADE_RISK_SCORE_PATH),
             "audit_path": str(TRADE_RISK_AUDIT_PATH),
         }
@@ -648,20 +1086,65 @@ def run_trade_risk_scoring(
     material_hs = load_material_hs_mapping(hsk_reference=hsk_reference)
     hs_codes = material_hs["hs_code"].drop_duplicates().tolist()
     totals, countries = collect_trade_flows(hs_codes, provider=provider)
+    module_c_config = load_module_c_config()
+    features = build_hs_trade_features(totals, countries, module_c_config)
+    features.to_csv(TRADE_HS_FEATURE_PATH, index=False)
+    (
+        features.sort_values(
+            ["hs_trade_risk", "STD_YYYYMM", "hs_code"],
+            ascending=[False, False, True],
+        )
+        .head(1000)
+        .to_csv(TRADE_HS_FEATURE_SAMPLE_PATH, index=False)
+    )
+    score_months: set[str] | None = None
+    stock_item_months: pd.DataFrame | None = None
+    if MONTHLY_STOCK_PATH.exists():
+        stock_months = pd.read_parquet(
+            MONTHLY_STOCK_PATH,
+            columns=["year_month", "stock_item_key"],
+        )
+        stock_months["STD_YYYYMM"] = pd.to_datetime(
+            stock_months.pop("year_month"),
+            errors="coerce",
+        ).dt.strftime("%Y-%m")
+        stock_item_months = stock_months[
+            ["STD_YYYYMM", "stock_item_key"]
+        ].dropna()
+        score_months = set(
+            stock_item_months["STD_YYYYMM"].dropna().tolist()
+        )
     scores, audit = build_trade_risk_outputs(
         totals,
         countries,
         material_hs_mapping=material_hs,
         hsk_reference=hsk_reference,
+        config=module_c_config,
+        hs_features=features,
+        score_months=score_months,
+        score_stock_item_months=stock_item_months,
+        audit_scope="latest",
     )
     scores.to_csv(TRADE_RISK_SCORE_PATH, index=False)
     audit.to_csv(TRADE_RISK_AUDIT_PATH, index=False)
-    monthly_audit = (
-        audit.drop_duplicates(["STD_YYYYMM", "hs_code"])
-        if not audit.empty
-        else audit
+    coverage_min = float(module_c_config["trade_signal"]["country_coverage_min"])
+    risk_columns = [
+        column
+        for column in HS_FEATURE_COLUMNS
+        if column.endswith("_risk") and column != "hs_trade_risk"
+    ]
+    event_counts = (
+        features["trade_event_codes"]
+        .fillna("")
+        .str.split(";")
+        .explode()
+        .loc[lambda values: values.ne("")]
+        .value_counts()
+        .sort_index()
+        .to_dict()
+        if not features.empty
+        else {}
     )
-    coverage_min = float(load_module_c_config()["trade_signal"]["country_coverage_min"])
     report = {
         "module": "trade",
         "hsk_reference_version": hsk_report["reference_version"],
@@ -673,25 +1156,52 @@ def run_trade_risk_scoring(
         "approved_hs_codes": sorted(material_hs["hs_code"].unique().tolist()),
         "total_trade_observations": int(len(totals)),
         "country_trade_observations": int(len(countries)),
-        "country_scope_codes": load_trade_country_scope(),
+        "configured_country_scope_codes": load_trade_country_scope(),
+        "observed_country_codes": sorted(
+            countries["country_code"].dropna().unique().tolist()
+        ),
         "country_coverage_threshold": coverage_min,
-        "country_coverage_months_passing": int(
-            monthly_audit.get(
+        "country_coverage_hs_months_passing": int(
+            features.get(
                 "country_import_coverage",
                 pd.Series(dtype="float64"),
             ).ge(coverage_min).sum()
         ),
+        "country_coverage_hs_months_total": int(len(features)),
         "trade_feature_months": int(
-            monthly_audit.get(
+            features.get(
                 "STD_YYYYMM",
                 pd.Series(dtype="string"),
             ).nunique()
         ),
+        "trade_score_months": int(
+            scores.get(
+                "STD_YYYYMM",
+                pd.Series(dtype="string"),
+            ).nunique()
+        ),
+        "trade_score_month_min": (
+            str(scores["STD_YYYYMM"].min()) if not scores.empty else ""
+        ),
+        "trade_score_month_max": (
+            str(scores["STD_YYYYMM"].max()) if not scores.empty else ""
+        ),
+        "trade_audit_scope": "latest_scored_month_path_snapshot",
+        "trade_score_scope": "observed_stock_item_months_only",
         "trade_score_rows": int(len(scores)),
         "trade_scored_stock_items": int(scores["stock_item_key"].nunique()),
+        "trade_feature_variable_count": len(risk_columns),
+        "trade_feature_variables": risk_columns,
+        "trade_feature_maxima": {
+            column: float(features[column].max()) if not features.empty else 0.0
+            for column in risk_columns
+        },
+        "trade_event_counts": {
+            str(code): int(count) for code, count in event_counts.items()
+        },
         "max_hs_trade_risk": (
-            float(monthly_audit["hs_trade_risk"].max())
-            if not monthly_audit.empty
+            float(features["hs_trade_risk"].max())
+            if not features.empty
             else 0.0
         ),
         "max_item_trade_risk": (
@@ -700,6 +1210,8 @@ def run_trade_risk_scoring(
         "operational_status": (
             "ready" if not scores.empty else "blocked_no_trade_observations"
         ),
+        "hs_feature_path": str(TRADE_HS_FEATURE_PATH),
+        "hs_feature_sample_path": str(TRADE_HS_FEATURE_SAMPLE_PATH),
         "score_path": str(TRADE_RISK_SCORE_PATH),
         "audit_path": str(TRADE_RISK_AUDIT_PATH),
     }

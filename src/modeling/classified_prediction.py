@@ -285,6 +285,15 @@ def load_approved_classifications(
             )
         taxonomy["is_forecastable"] = _parse_forecastable(taxonomy["is_forecastable"])
 
+    # Taxonomy fields are authoritative. Bulk approval artifacts retain candidate
+    # labels for audit, so remove any overlapping copies before the validated join.
+    approved = approved.drop(
+        columns=[
+            column
+            for column in TAXONOMY_OUTPUT_COLUMNS
+            if column in approved.columns
+        ]
+    )
     approved = approved.rename(columns={"review_status": "classification_review_status"})
     taxonomy = taxonomy.rename(columns={"review_status": "taxonomy_review_status"})
     mappings = approved.merge(

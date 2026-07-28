@@ -183,74 +183,89 @@ def _prepare_trade(trade_scores: pd.DataFrame) -> pd.DataFrame:
     return trade[keep].drop_duplicates(KEY_COLUMNS, keep="last")
 
 
-def _build_audit(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
+def _build_audit(
+    scores: pd.DataFrame,
+    config: dict,
+    scope: str = "all",
+) -> pd.DataFrame:
+    if scores.empty:
+        return _empty_audit()
+    if scope not in {"all", "latest"}:
+        raise ValueError("Module C audit scope must be 'all' or 'latest'")
+    source = scores
+    if scope == "latest":
+        source = scores[scores["STD_YYYYMM"].eq(scores["STD_YYYYMM"].max())]
     supply_weights = config["supply_signal"]
     trade_weight = float(config["trade_signal"]["module_c_overlay_weight"])
-    rows = []
     signal_specs = [
         (
             "demand_news",
             "module_c_demand_risk",
             1.0,
             "module_c_has_approved_demand_mapping",
+            "module_c_news_event_codes",
         ),
         (
             "supply_news",
             "module_c_supply_news_risk",
             float(supply_weights["supply_news"]),
             "module_c_has_approved_material_mapping",
+            "module_c_news_event_codes",
         ),
         (
             "material_news",
             "module_c_material_news_risk",
             float(supply_weights["material_news"]),
             "module_c_has_approved_material_mapping",
+            "module_c_news_event_codes",
         ),
         (
             "market_price",
             "module_c_market_price_risk",
             float(supply_weights["market_price"]),
             "module_c_has_approved_material_mapping",
+            "module_c_market_event_codes",
         ),
         (
             "import_export",
             "module_c_trade_risk",
             trade_weight,
             "module_c_has_approved_trade_mapping",
+            "module_c_trade_event_codes",
         ),
     ]
-    for _, row in scores.iterrows():
-        for signal_type, score_column, weight, gate_column in signal_specs:
-            raw_score = float(row[score_column])
-            weighted_contribution = (
-                float(row["module_c_trade_contribution"])
-                if signal_type == "import_export"
-                else raw_score * weight
-            )
-            rows.append(
-                {
-                    "STD_YYYYMM": row["STD_YYYYMM"],
-                    "stock_item_key": row["stock_item_key"],
-                    "signal_type": signal_type,
-                    "raw_score": raw_score,
-                    "signal_weight": weight,
-                    "weighted_contribution": weighted_contribution,
-                    "mapping_approved": bool(row[gate_column]),
-                    "signal_confidence": float(row["module_c_signal_confidence"]),
-                    "event_codes": (
-                        row["module_c_market_event_codes"]
-                        if signal_type == "market_price"
-                        else (
-                            row["module_c_trade_event_codes"]
-                            if signal_type == "import_export"
-                            else row["module_c_news_event_codes"]
-                        )
-                    ),
-                    "config_version": config["version"],
-                    "calibration_status": config["calibration_status"],
-                }
-            )
-    return pd.DataFrame(rows, columns=AUDIT_COLUMNS)
+    frames = []
+    for signal_type, score_column, weight, gate_column, event_column in signal_specs:
+        frame = source[
+            [
+                *KEY_COLUMNS,
+                score_column,
+                gate_column,
+                "module_c_signal_confidence",
+                event_column,
+            ]
+        ].copy()
+        frame["signal_type"] = signal_type
+        frame["raw_score"] = pd.to_numeric(
+            frame.pop(score_column),
+            errors="coerce",
+        ).fillna(0.0)
+        frame["signal_weight"] = weight
+        frame["weighted_contribution"] = (
+            source.loc[frame.index, "module_c_trade_contribution"].to_numpy()
+            if signal_type == "import_export"
+            else frame["raw_score"] * weight
+        )
+        frame["mapping_approved"] = frame.pop(gate_column).astype(bool)
+        frame["signal_confidence"] = pd.to_numeric(
+            frame.pop("module_c_signal_confidence"),
+            errors="coerce",
+        ).fillna(0.0)
+        frame["event_codes"] = frame.pop(event_column).fillna("")
+        frame["config_version"] = config["version"]
+        frame["calibration_status"] = config["calibration_status"]
+        frames.append(frame[AUDIT_COLUMNS])
+    return pd.concat(frames, ignore_index=True)
 
 
 def _build_alerts(scores: pd.DataFrame, config: dict) -> pd.DataFrame:
@@ -292,6 +307,7 @@ def build_module_c_risk_outputs(
     commodity_scores: pd.DataFrame,
     config: dict | None = None,
     trade_scores: pd.DataFrame | None = None,
+    audit_scope: str = "all",
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     config = config or load_module_c_config()
     news = _prepare_news(news_scores)
@@ -367,27 +383,12 @@ def build_module_c_risk_outputs(
         if "trade_event_codes" in merged.columns
         else pd.Series("", index=merged.index, dtype="string")
     )
-    combined_event_codes = pd.Series(
-        [
-            ";".join(
-                sorted(
-                    {
-                        code.strip()
-                        for value in [news_value, market_value, trade_value]
-                        for code in str(value).split(";")
-                        if code.strip()
-                    }
-                )
-            )
-            for news_value, market_value, trade_value in zip(
-                news_event_codes,
-                market_event_codes,
-                trade_event_codes,
-                strict=False,
-            )
-        ],
-        index=merged.index,
-        dtype="string",
+    combined_event_codes = (
+        news_event_codes.astype("string")
+        .str.cat(market_event_codes.astype("string"), sep=";")
+        .str.cat(trade_event_codes.astype("string"), sep=";")
+        .str.replace(r";+", ";", regex=True)
+        .str.strip(";")
     )
     scores = pd.DataFrame(
         {
@@ -417,13 +418,22 @@ def build_module_c_risk_outputs(
             "module_c_calibration_status": config["calibration_status"],
         }
     )
-    scores["module_c_risk_level"] = scores["module_c_total_risk"].map(
-        lambda value: _risk_level(float(value), config["alert_thresholds"])
-    )
-    scores["module_c_event_supply_risk_level"] = scores[
-        "module_c_supply_risk"
-    ].map(lambda value: _risk_level(float(value), config["alert_thresholds"]))
+    thresholds = config["alert_thresholds"]
+    for risk_column, level_column in [
+        ("module_c_total_risk", "module_c_risk_level"),
+        ("module_c_supply_risk", "module_c_event_supply_risk_level"),
+    ]:
+        values = scores[risk_column]
+        scores[level_column] = np.select(
+            [
+                values.ge(float(thresholds["critical"])),
+                values.ge(float(thresholds["warning"])),
+                values.ge(float(thresholds["watch"])),
+            ],
+            ["critical", "warning", "watch"],
+            default="normal",
+        )
     scores = scores[MODULE_C_SCORE_COLUMNS].sort_values(KEY_COLUMNS).reset_index(drop=True)
-    audit = _build_audit(scores, config)
+    audit = _build_audit(scores, config, scope=audit_scope)
     alerts = _build_alerts(scores, config)
     return scores, audit, alerts

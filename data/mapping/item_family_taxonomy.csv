@@ -1,5 +1,5 @@
 source_item_name,source_subtype_name,source_specification,item_family_id,standard_family_name,item_subtype_id,standard_subtype_name,item_group_id,is_forecastable,normalized_specification,unit_code,unit_name,material_candidate,material_mapping_status,review_status,taxonomy_version
-이부프로펜,정제,400mg,IBUPROFEN,이부프로펜,DRUG_TABLET,정제,MED_ORAL,t,400mg,TABLET,정,,separate_approved_mapping_required,approved,v1.0
+ibuprofen,정제,400mg,IBUPROFEN,ibuprofen,DRUG_TABLET,정제,MED_ORAL,t,400mg,TABLET,정,,separate_approved_mapping_required,approved,v1.0
 카테터,카테터(angio needle),16G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,16G,EA,개수,,separate_approved_mapping_required,approved,v1.0
 카테터,카테터(angio needle),18G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,18G,EA,개수,,separate_approved_mapping_required,approved,v1.0
 카테터,카테터(angio needle),20G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,20G,EA,개수,,separate_approved_mapping_required,approved,v1.0

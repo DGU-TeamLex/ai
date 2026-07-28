@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import (
+    DRUG_INGREDIENT_ENRICHMENT_PATH,
     ITEM_MATERIAL_EVENT_CANDIDATE_PATH,
     ITEM_MATERIAL_GLOSSARY_PATH,
     ITEM_MATERIAL_OUTPUT_DIR,
@@ -20,13 +21,14 @@ from .config import (
     ITEM_PRODUCT_WORKLIST_PATH,
     ITEM_REPRESENTATIVE_ATTRIBUTES_PATH,
 )
+from .drug_ingredient import attach_approved_drug_ingredients
 from .utils import ensure_dirs, setup_logging, write_json
 
 
 LOGGER = logging.getLogger(__name__)
 RETIRED_UPSTREAM_COMMIT = "938fa3e6a0af82bdeb1fd9c3e4ecb96a9db41499"
 CANONICAL_UPSTREAM_COMMIT = "74d398204000d855e86da084afa5b671a63d50fe"
-PIPELINE_VERSION = "combined-material-v2.1"
+PIPELINE_VERSION = "combined-material-v2.2"
 SENTINEL_MATERIAL_CODES = {
     "NON_INGREDIENT_SPEC",
     "MANUFACTURER_NAME_NOISE",
@@ -87,6 +89,7 @@ def prepare_material_input(
     input_path: Path,
     output_dir: Path,
     attributes_path: Path | None = ITEM_REPRESENTATIVE_ATTRIBUTES_PATH,
+    drug_ingredient_path: Path | None = DRUG_INGREDIENT_ENRICHMENT_PATH,
 ) -> tuple[Path, dict[str, object]]:
     """Attach parsed attributes without allowing them to replace populated worklist values."""
     base = _read_table(input_path)
@@ -99,6 +102,8 @@ def prepare_material_input(
 
     matched_rows = 0
     attribute_columns_added = 0
+    drug_ingredient_rows = 0
+    approved_drug_ingredient_rows = 0
     prepared = base.copy()
     if attributes_path is not None and attributes_path.exists():
         attributes = _read_table(attributes_path)
@@ -130,6 +135,27 @@ def prepare_material_input(
                 prepared = prepared.rename(columns={attribute_column: column})
                 attribute_columns_added += 1
 
+    if drug_ingredient_path is not None and drug_ingredient_path.exists():
+        drug_ingredients = _read_table(drug_ingredient_path)
+        required_drug_columns = {
+            "representative_item_id",
+            "drug_ingredient_review_status",
+            "drug_raw_material_meta_code",
+        }
+        missing_drug_columns = required_drug_columns - set(drug_ingredients.columns)
+        if missing_drug_columns:
+            raise ValueError(
+                "Drug ingredient enrichment is missing columns: "
+                f"{sorted(missing_drug_columns)}"
+            )
+        if drug_ingredients["representative_item_id"].duplicated().any():
+            raise ValueError("Drug ingredient enrichment contains duplicate IDs")
+        drug_ingredient_rows = int(len(drug_ingredients))
+        approved_drug_ingredient_rows = int(
+            drug_ingredients["drug_ingredient_review_status"].eq("approved").sum()
+        )
+        prepared = attach_approved_drug_ingredients(prepared, drug_ingredients)
+
     if len(prepared) != len(base):
         raise ValueError(
             f"Attribute merge changed row count: before={len(base)}, after={len(prepared)}"
@@ -145,6 +171,11 @@ def prepare_material_input(
         "attribute_rows_matched": matched_rows,
         "attribute_columns_added": attribute_columns_added,
         "attributes_path": str(attributes_path) if attributes_path else "",
+        "drug_ingredient_rows": drug_ingredient_rows,
+        "approved_drug_ingredient_rows": approved_drug_ingredient_rows,
+        "drug_ingredient_path": (
+            str(drug_ingredient_path) if drug_ingredient_path else ""
+        ),
         "prepared_path": str(prepared_path),
     }
 
@@ -353,6 +384,7 @@ def run_material_pipeline(
     output_dir: Path = ITEM_MATERIAL_OUTPUT_DIR,
     with_excel: bool = False,
     attributes_path: Path | None = ITEM_REPRESENTATIVE_ATTRIBUTES_PATH,
+    drug_ingredient_path: Path | None = DRUG_INGREDIENT_ENRICHMENT_PATH,
 ) -> dict[str, object]:
     setup_logging()
     if not input_path.exists():
@@ -367,6 +399,7 @@ def run_material_pipeline(
         input_path=input_path,
         output_dir=output_dir,
         attributes_path=attributes_path,
+        drug_ingredient_path=drug_ingredient_path,
     )
     env = os.environ.copy()
     env["PYTHON"] = sys.executable

@@ -20,6 +20,9 @@ WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** �
 PDF 3종과 현재 코드의 차이, 이번 보완 내용, 실제 재실행 결과와 남은 제약은
 `docs/2026-07-24_01_PDF_REQUIREMENT_GAP_AND_IMPLEMENTATION.md`에서 확인합니다.
 
+전체 품목·원자재 후보의 사용자 일괄 승인 정책, 운영 게이트, 재실행 결과는
+`docs/2026-07-28_01_ALL_ITEM_BULK_APPROVAL_RESULT.md`에서 확인합니다.
+
 2026-07-23 중간점검 발표 자료는 다음 순서로 확인합니다.
 
 1. `docs/2026-07-22_01_MIDTERM_SIMPLE_INVENTORY_MODEL.md`
@@ -197,8 +200,12 @@ python -m src.module_c.pipeline
 python -m src.feature_engineering
 python -m src.modeling.training
 python -m src.modeling.prediction
+python -m src.trade.trade_inventory_impact
 python -m src.modeling.classified_prediction
 python -m src.modeling.evaluation
+
+# 8~9월 보정, 10~12월 홀드아웃으로 예측×재고정책 조합 비교
+python -m src.modeling.combination_experiment
 ```
 
 원자재 매핑 승인과 최종 재고 영향 실험은
@@ -234,6 +241,17 @@ python -m src.item_classification_evaluation --baseline-approvals /path/to/froze
 python -m src.item_review_export
 python -m src.modeling.classified_prediction
 ```
+
+전체 후보를 사용자 승인 상태로 전환하고 활성화:
+
+```bash
+python -m src.item_bulk_approval --apply --sample-size 1000
+```
+
+이 명령의 `approved`는 후보 수용을 뜻하며 외부 사실 검증 완료를 뜻하지 않습니다.
+필드가 불완전한 분류는 예측에서 제외되고, 원자재 후보는 근거·시장가격 경로·공급정책
+게이트를 통과한 행만 위험 계산에 사용됩니다. 기존 근거 승인 외 항목은 자동발주에
+사용하지 않습니다.
 
 분류 상태, 승인 수, 외부 근거와 검토 큐는
 `docs/2026-07-16_04_ITEM_CLASSIFICATION_V1_RESULT.md`를 참고합니다. 현재 작업 인수인계와 우선 검토용
@@ -296,7 +314,7 @@ total_news_risk
 `sample`은 합성 smoke test에만 사용합니다.
 
 ```text
-NEWS_PROVIDER=csv | gdelt
+NEWS_PROVIDER=csv | gdelt | gdelt_ngram
 COMMODITY_PROVIDER=csv | alpha_vantage | fred | nasdaq_data_link
 COMMODITY_ALLOW_SAMPLE_FALLBACK=false
 TRADE_PROVIDER=csv | kcs
@@ -327,8 +345,13 @@ outputs/stock_news_risk_scores.csv
 outputs/stock_news_article_scores.csv
 outputs/stock_commodity_risk_scores.csv
 outputs/stock_commodity_risk_audit.csv
+outputs/hs_trade_risk_features.csv
 outputs/stock_trade_risk_scores.csv
 outputs/stock_trade_risk_audit.csv
+outputs/stock_trade_risk_report.json
+outputs/trade_inventory_impact_report.json
+data/sample/hs_trade_risk_features_sample_1000.csv
+data/sample/trade_inventory_impact_sample_1000.csv
 outputs/stock_module_c_risk_scores.csv
 outputs/stock_module_c_risk_audit.csv
 outputs/stock_module_c_alerts.csv

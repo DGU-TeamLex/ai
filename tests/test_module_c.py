@@ -1,3 +1,5 @@
+from pathlib import Path
+import tempfile
 import unittest
 
 import pandas as pd
@@ -9,7 +11,10 @@ from src.commodity.commodity_collector import (
 from src.commodity.commodity_risk_scorer import build_commodity_risk_outputs
 from src.modeling.inventory_policy import add_inventory_recommendations
 from src.module_c.config import DEFAULT_MODULE_C_CONFIG, validate_module_c_config
-from src.module_c.exposure_candidates import build_module_c_exposure_candidates
+from src.module_c.exposure_candidates import (
+    _read_approved_classification,
+    build_module_c_exposure_candidates,
+)
 from src.module_c.risk_engine import build_module_c_risk_outputs
 
 
@@ -150,11 +155,12 @@ class CommodityPropagationTest(unittest.TestCase):
             material_market_mapping=self.material_market,
             config=module_c_config(),
         )
-        march = scores[scores["STD_YYYYMM"].eq("2025-03")].iloc[0]
+        april = scores[scores["STD_YYYYMM"].eq("2025-04")].iloc[0]
 
-        self.assertGreater(march["commodity_risk"], 0.5)
-        self.assertIn("PETROCHEMICAL_NAPHTHA", march["market_factor_ids"])
-        self.assertIn("PETROCHEMICAL_NAPHTHA_PRICE_SHOCK", march["market_event_codes"])
+        self.assertGreater(april["commodity_risk"], 0.5)
+        self.assertIn("PETROCHEMICAL_NAPHTHA", april["market_factor_ids"])
+        self.assertIn("PETROCHEMICAL_NAPHTHA_PRICE_SHOCK", april["market_event_codes"])
+        self.assertTrue(audit["market_observation_month"].eq("2025-03").any())
         self.assertTrue((audit["raw_material_meta_code"] == "POLYPROPYLENE_PP").all())
 
     def test_unapproved_item_material_mapping_never_propagates(self):
@@ -373,6 +379,29 @@ class ModuleCInventoryPolicyTest(unittest.TestCase):
 
 
 class ModuleCExposureCandidateTest(unittest.TestCase):
+    def test_approval_reader_accepts_parquet(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "local_item_key": "INST::ITEM",
+                    "institution_code": "INST",
+                    "item_code": "ITEM",
+                    "item_family_id": "FAMILY",
+                    "item_subtype_id": "SUBTYPE",
+                    "normalized_specification": "3mL",
+                    "unit_code": "EA",
+                    "review_status": "approved",
+                }
+            ]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "approval.parquet"
+            frame.to_parquet(path, index=False)
+            loaded = _read_approved_classification(path)
+
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded.iloc[0]["local_item_key"], "INST::ITEM")
+
     def test_current_classification_candidate_requires_material_review(self):
         classification = pd.DataFrame(
             [

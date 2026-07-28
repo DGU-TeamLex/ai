@@ -52,6 +52,7 @@ def _empty_audit() -> pd.DataFrame:
     return pd.DataFrame(
         columns=[
             "STD_YYYYMM",
+            "market_observation_month",
             "stock_item_key",
             "raw_material_meta_code",
             "market_factor_id",
@@ -146,7 +147,9 @@ def score_market_factor_risk(
 def _ensure_mapping() -> pd.DataFrame:
     if not STOCK_MATERIAL_MAPPING_PATH.exists():
         LOGGER.warning("Stock item material mapping not found: %s", STOCK_MATERIAL_MAPPING_PATH)
-    mapping = load_approved_stock_material_mapping()
+    mapping = load_approved_stock_material_mapping(
+        eligibility_column="market_signal_eligible"
+    )
     if mapping.empty:
         LOGGER.warning("No approved stock item material mappings are available")
     return mapping
@@ -268,6 +271,20 @@ def build_commodity_risk_outputs(
     if merged.empty:
         return _empty_scores(), _empty_audit()
 
+    merged["market_observation_month"] = merged["STD_YYYYMM"]
+    observation_month_end = (
+        pd.to_datetime(merged["STD_YYYYMM"], errors="coerce")
+        .dt.to_period("M")
+        .dt.to_timestamp(how="end")
+        .dt.normalize()
+    )
+    lag_days = pd.to_numeric(merged["lag_days"], errors="coerce").fillna(0)
+    merged["STD_YYYYMM"] = (
+        (observation_month_end + pd.to_timedelta(lag_days, unit="D"))
+        .dt.to_period("M")
+        .astype(str)
+    )
+
     for column in ["transmission_weight", "proxy_quality", "mapping_weight", "exposure_score"]:
         merged[column] = pd.to_numeric(merged[column], errors="coerce").fillna(0.0).clip(0, 1)
     merged["path_weight"] = merged[
@@ -285,16 +302,28 @@ def build_commodity_risk_outputs(
     merged["weighted_return"] = merged["return_30d"] * merged["path_weight"]
     merged["weighted_volatility"] = merged["volatility_30d"] * merged["path_weight"]
     merged["weighted_price_level"] = merged["price_vs_90d_mean"] * merged["path_weight"]
+    merged["confidence_weight"] = merged[
+        ["transmission_weight", "mapping_weight", "exposure_score"]
+    ].prod(axis=1)
     merged["weighted_confidence"] = (
-        merged["mapping_confidence_score"] * merged["proxy_quality"] * merged["path_weight"]
+        merged["mapping_confidence_score"]
+        * merged["proxy_quality"]
+        * merged["confidence_weight"]
     )
 
     key_columns = ["STD_YYYYMM", "stock_item_key"]
     denominator = merged.groupby(key_columns, observed=True)["path_weight"].transform("sum").replace(0, np.nan)
+    confidence_denominator = (
+        merged.groupby(key_columns, observed=True)["confidence_weight"]
+        .transform("sum")
+        .replace(0, np.nan)
+    )
     merged["normalized_return"] = (merged["weighted_return"] / denominator).fillna(0.0)
     merged["normalized_volatility"] = (merged["weighted_volatility"] / denominator).fillna(0.0)
     merged["normalized_price_level"] = (merged["weighted_price_level"] / denominator).fillna(0.0)
-    merged["normalized_confidence"] = (merged["weighted_confidence"] / denominator).fillna(0.0)
+    merged["normalized_confidence"] = (
+        merged["weighted_confidence"] / confidence_denominator
+    ).fillna(0.0)
 
     alert_threshold = float(config["alert_thresholds"]["watch"])
     merged["active_event_code"] = merged["event_code"].where(

@@ -408,6 +408,113 @@ class ItemNormalizationTest(unittest.TestCase):
         self.assertEqual(report["stock_metrics"]["missing_alias_joins"], 0)
         self.assertEqual(report["alias_metrics"]["quality_gate_error_counts"], {})
 
+    def test_full_generator_accepts_any_schema_with_normalization_keys(self):
+        import pyarrow.parquet as pq
+
+        columns = [
+            "추가설명",
+            "물품명",
+            "보건기관코드_en",
+            "정상출고량",
+            "물품코드",
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            raw_path = directory_path / "key_only_stock.DAT"
+            canonical_path = directory_path / "canonical_stock.DAT"
+            sample_path = directory_path / "sample.csv"
+            alias_path = directory_path / "aliases.parquet"
+            stock_path = directory_path / "normalized_stock.parquet"
+            report_path = directory_path / "report.json"
+            with raw_path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(
+                    file,
+                    delimiter="|",
+                    quotechar='"',
+                    lineterminator="\r\n",
+                )
+                writer.writerow(columns)
+                writer.writerow(
+                    [
+                        "과거 원천",
+                        "[방문]혈당검사스틱",
+                        "INST001",
+                        "2.5",
+                        "USE0000001",
+                    ]
+                )
+            with canonical_path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(
+                    file,
+                    delimiter="|",
+                    quotechar='"',
+                    lineterminator="\r\n",
+                )
+                writer.writerow(RAW_STOCK_COLUMNS)
+                writer.writerow(stock_row("주사기 3cc", "USE0000002", "1"))
+
+            report = generate_full_normalization(
+                raw_dir=directory_path,
+                pattern="*.DAT",
+                sample_output_path=sample_path,
+                alias_output_path=alias_path,
+                stock_output_path=stock_path,
+                report_output_path=report_path,
+                sample_size=2,
+            )
+            aliases = pq.read_table(alias_path).to_pandas()
+            stock = pq.read_table(stock_path).to_pandas()
+
+        self.assertEqual(len(aliases), 2)
+        historical_alias = aliases.loc[
+            aliases["local_item_code"].eq("USE0000001")
+        ].iloc[0]
+        historical_stock = stock.loc[stock["물품코드"].eq("USE0000001")].iloc[0]
+        canonical_stock = stock.loc[stock["물품코드"].eq("USE0000002")].iloc[0]
+        self.assertEqual(historical_alias["usage_sum"], 2.5)
+        self.assertEqual(historical_stock["추가설명"], "과거 원천")
+        self.assertEqual(canonical_stock["추가설명"], "")
+        self.assertEqual(historical_stock["구입처코드"], "")
+        self.assertEqual(historical_stock["구입단가"], "")
+        self.assertEqual(
+            report["normalization_key_columns"],
+            ["보건기관코드_en", "물품코드", "물품명"],
+        )
+        historical_schema = next(
+            schema
+            for schema in report["source_schemas"]
+            if schema["source_file"] == raw_path.name
+        )
+        self.assertIn(
+            "구입단가",
+            historical_schema["missing_canonical_columns"],
+        )
+        self.assertEqual(
+            historical_schema["additional_columns"],
+            ["추가설명"],
+        )
+
+    def test_generator_rejects_schema_without_a_normalization_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            raw_path = directory_path / "missing_key.DAT"
+            output_path = directory_path / "sample.csv"
+            with raw_path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file, delimiter="|", quotechar='"')
+                writer.writerow(["물품코드", "물품명"])
+                writer.writerow(["USE0000001", "혈당검사스틱"])
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Missing required raw_stock columns.*보건기관코드_en",
+            ):
+                generate_normalization_sample(
+                    directory_path,
+                    raw_path.name,
+                    output_path,
+                    sample_size=1,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

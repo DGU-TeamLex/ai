@@ -6,7 +6,7 @@ from ..config import MODULE_C_RISK_WEIGHT_PATH
 
 
 DEFAULT_MODULE_C_CONFIG: dict[str, Any] = {
-    "version": "module-c-default-v1",
+    "version": "module-c-default-v1.2",
     "calibration_status": "policy_seed_requires_backtest",
     "coefficient_basis": "initial_policy_bounds_not_empirical_causal_estimates",
     "market_signal": {
@@ -23,14 +23,28 @@ DEFAULT_MODULE_C_CONFIG: dict[str, Any] = {
         "market_price": 0.35,
     },
     "trade_signal": {
-        "import_volume_decline": 0.35,
-        "import_unit_value_increase": 0.25,
-        "country_concentration": 0.25,
-        "net_import_exposure": 0.15,
+        "import_volume_decline": 0.20,
+        "net_import_availability_decline": 0.10,
+        "import_interruption": 0.10,
+        "import_unit_value_increase": 0.15,
+        "import_volume_volatility": 0.10,
+        "import_unit_value_volatility": 0.10,
+        "country_concentration": 0.10,
+        "supplier_count_decline": 0.05,
+        "net_import_exposure": 0.05,
+        "export_volume_surge": 0.05,
         "import_volume_decline_threshold": 0.30,
+        "net_import_availability_decline_threshold": 0.30,
+        "import_interruption_streak_months": 2,
         "import_unit_value_increase_threshold": 0.40,
+        "import_volume_volatility_threshold": 0.50,
+        "import_unit_value_volatility_threshold": 0.20,
         "country_concentration_threshold": 0.50,
+        "supplier_count_decline_threshold": 0.30,
+        "export_volume_surge_threshold": 0.50,
         "country_coverage_min": 0.80,
+        "rolling_window_months": 6,
+        "rolling_min_periods": 3,
         "module_c_overlay_weight": 0.25,
     },
     "inventory_adjustment": {
@@ -84,9 +98,15 @@ def validate_module_c_config(config: dict[str, Any]) -> dict[str, Any]:
         "trade_signal",
         [
             "import_volume_decline",
+            "net_import_availability_decline",
+            "import_interruption",
             "import_unit_value_increase",
+            "import_volume_volatility",
+            "import_unit_value_volatility",
             "country_concentration",
+            "supplier_count_decline",
             "net_import_exposure",
+            "export_volume_surge",
         ],
     )
 
@@ -100,14 +120,34 @@ def validate_module_c_config(config: dict[str, Any]) -> dict[str, Any]:
 
     for key in [
         "import_volume_decline_threshold",
+        "net_import_availability_decline_threshold",
         "import_unit_value_increase_threshold",
+        "import_volume_volatility_threshold",
+        "import_unit_value_volatility_threshold",
         "country_concentration_threshold",
+        "supplier_count_decline_threshold",
+        "export_volume_surge_threshold",
         "country_coverage_min",
         "module_c_overlay_weight",
     ]:
         value = float(config["trade_signal"][key])
         if value <= 0 or value > 1:
             raise ValueError(f"trade_signal.{key} must be within (0, 1]")
+    rolling_window = int(config["trade_signal"]["rolling_window_months"])
+    rolling_min = int(config["trade_signal"]["rolling_min_periods"])
+    interruption_streak = int(
+        config["trade_signal"]["import_interruption_streak_months"]
+    )
+    if rolling_window < 2:
+        raise ValueError("trade_signal.rolling_window_months must be at least 2")
+    if rolling_min < 2 or rolling_min > rolling_window:
+        raise ValueError(
+            "trade_signal.rolling_min_periods must be within 2..rolling_window_months"
+        )
+    if interruption_streak < 1:
+        raise ValueError(
+            "trade_signal.import_interruption_streak_months must be at least 1"
+        )
 
     inventory = config["inventory_adjustment"]
     for key, value in inventory.items():

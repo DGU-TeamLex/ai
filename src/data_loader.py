@@ -31,6 +31,19 @@ RAW_STOCK_COLUMNS = [
     "보건기관코드_en",
 ]
 
+RAW_STOCK_NORMALIZATION_KEY_COLUMNS = [
+    "보건기관코드_en",
+    "물품코드",
+    "물품명",
+]
+RAW_STOCK_OPTIONAL_COLUMNS = [
+    "구입처코드",
+    "구입단가",
+]
+RAW_STOCK_REQUIRED_COLUMNS = [
+    column for column in RAW_STOCK_COLUMNS if column not in RAW_STOCK_OPTIONAL_COLUMNS
+]
+
 NUMERIC_COLUMN_MAP = {
     "이전최종재고량": "opening_stock",
     "마감재고량": "closing_stock",
@@ -83,16 +96,47 @@ def normalize_item_name(value: object) -> str:
     return " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
 
 
+def validate_raw_stock_columns(
+    columns: list[str] | None,
+    required_columns: list[str],
+    path: Path | str,
+) -> list[str]:
+    actual = list(columns or [])
+    duplicate_columns = sorted(
+        column for column in set(actual) if actual.count(column) > 1
+    )
+    if duplicate_columns:
+        raise ValueError(
+            f"Duplicate raw_stock columns in {path}: {duplicate_columns}"
+        )
+    missing_columns = [
+        column for column in required_columns if column not in actual
+    ]
+    if missing_columns:
+        raise ValueError(
+            f"Missing required raw_stock columns in {path}: {missing_columns}"
+        )
+    return actual
+
+
 def _read_stock_chunks(path: Path, chunk_size: int = CSV_CHUNK_SIZE):
     rows = []
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file, delimiter="|", quotechar='"')
-        if reader.fieldnames != RAW_STOCK_COLUMNS:
-            raise ValueError(f"Unexpected raw_stock header in {path}: {reader.fieldnames}")
+        validate_raw_stock_columns(
+            reader.fieldnames,
+            RAW_STOCK_REQUIRED_COLUMNS,
+            path,
+        )
         for row in reader:
             if None in row:
                 raise ValueError(f"Malformed raw_stock record in {path} near physical line {reader.line_num}")
-            rows.append(row)
+            rows.append(
+                {
+                    column: row.get(column, "")
+                    for column in RAW_STOCK_COLUMNS
+                }
+            )
             if len(rows) >= chunk_size:
                 yield pd.DataFrame.from_records(rows)
                 rows = []
@@ -233,6 +277,7 @@ def _combine_stock_partials(partials: list[pd.DataFrame]) -> pd.DataFrame:
     monthly["stock_item_key"] = (
         monthly["institution_code"] + "::" + monthly["department"] + "::" + monthly["item_code"]
     )
+    monthly["vendor_code"] = monthly["vendor_code"].fillna("").astype(str)
     return monthly.drop(columns=["closing_stock_sum", "unit_price_sum"]).sort_values(GROUP_KEYS).reset_index(drop=True)
 
 

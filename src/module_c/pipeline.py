@@ -36,8 +36,12 @@ from .supply_risk_anomaly_filter import (
 LOGGER = logging.getLogger(__name__)
 
 
-def _read_optional_csv(path) -> pd.DataFrame:
-    return pd.read_csv(path) if path.exists() else pd.DataFrame()
+def _read_optional_csv(path, usecols: list[str] | None = None) -> pd.DataFrame:
+    return (
+        pd.read_csv(path, low_memory=False, usecols=usecols)
+        if path.exists()
+        else pd.DataFrame()
+    )
 
 
 def run_module_c_pipeline() -> None:
@@ -47,12 +51,23 @@ def run_module_c_pipeline() -> None:
     approved_material_mapping = load_approved_stock_material_mapping(
         STOCK_MATERIAL_MAPPING_PATH
     )
-    trade_scores = _read_optional_csv(TRADE_RISK_SCORE_PATH)
+    trade_scores = _read_optional_csv(
+        TRADE_RISK_SCORE_PATH,
+        usecols=[
+            "STD_YYYYMM",
+            "stock_item_key",
+            "trade_risk",
+            "trade_signal_confidence",
+            "trade_factor_count",
+            "trade_event_codes",
+        ],
+    )
     scores, audit, alerts = build_module_c_risk_outputs(
         _read_optional_csv(NEWS_RISK_SCORE_PATH),
         _read_optional_csv(COMMODITY_RISK_SCORE_PATH),
         config,
         trade_scores=trade_scores,
+        audit_scope="latest",
     )
     scores.to_csv(MODULE_C_RISK_SCORE_PATH, index=False)
     audit.to_csv(MODULE_C_RISK_AUDIT_PATH, index=False)
@@ -172,6 +187,7 @@ def run_module_c_pipeline() -> None:
                 pd.Series(dtype=bool),
             ).sum()
         ),
+        "module_c_audit_scope": "latest_scored_month_signal_snapshot",
         "exposure": exposure_report,
         "supply_risk_quality": supply_quality_report,
     }

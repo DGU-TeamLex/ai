@@ -24,6 +24,7 @@ from ..config import (
 )
 from ..feature_engineering import run_feature_engineering
 from ..material_mapping import attach_approved_material_mapping_metadata
+from ..trade.trade_inventory_impact import write_trade_inventory_impact
 from ..utils import ensure_dirs, setup_logging
 from .baseline import BASELINE_PREDICTION_COLUMNS, add_baseline_predictions
 from .classified_prediction import write_classified_prediction_outputs
@@ -306,6 +307,7 @@ def run_prediction() -> None:
     backtest.to_csv(BACKTEST_PREDICTION_PATH, index=False)
     current_forecast.to_csv(PREDICTION_PATH, index=False)
     write_classified_prediction_outputs(current_forecast)
+    write_trade_inventory_impact(current_forecast)
 
     report = build_evaluation_report(backtest)
     report.to_csv(EVALUATION_REPORT_PATH, index=False)

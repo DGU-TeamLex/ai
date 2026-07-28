@@ -40,12 +40,12 @@ def _empty_mapping() -> pd.DataFrame:
 
 def load_approved_stock_material_mapping(
     path: Path = STOCK_MATERIAL_MAPPING_PATH,
+    operational_only: bool = True,
+    eligibility_column: str = "operational_eligible",
 ) -> pd.DataFrame:
     if not path.exists():
         return _empty_mapping()
-    mapping = pd.read_csv(
-        path,
-        dtype={
+    dtype = {
             "stock_item_key": str,
             "item_name": str,
             "item_type": str,
@@ -59,13 +59,25 @@ def load_approved_stock_material_mapping(
             "reviewed_at": str,
             "mapping_version": str,
             "source": str,
-        },
-        keep_default_na=False,
-    )
+        }
+    if path.suffix.lower() in {".parquet", ".pq"}:
+        mapping = pd.read_parquet(path)
+    else:
+        mapping = pd.read_csv(path, dtype=dtype, keep_default_na=False)
     missing = [column for column in REQUIRED_MAPPING_COLUMNS if column not in mapping.columns]
     if missing:
         raise ValueError(f"Stock item material mapping is missing columns: {missing}")
     approved = mapping[mapping["review_status"].str.strip().str.lower().eq("approved")].copy()
+    if operational_only and eligibility_column in approved.columns:
+        operational = (
+            approved[eligibility_column]
+            .astype("string")
+            .fillna("")
+            .str.strip()
+            .str.lower()
+            .isin({"true", "t", "1", "yes", "y"})
+        )
+        approved = approved.loc[operational].copy()
     if approved.empty:
         return mapping.iloc[0:0].copy()
 

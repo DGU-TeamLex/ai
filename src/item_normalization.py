@@ -13,11 +13,16 @@ import re
 import unicodedata
 
 from .config import RAW_STOCK_DIR, RAW_STOCK_FILE_PATTERN, SAMPLE_DATA_DIR
-from .data_loader import RAW_STOCK_COLUMNS, discover_raw_stock_files
+from .data_loader import (
+    RAW_STOCK_COLUMNS,
+    RAW_STOCK_NORMALIZATION_KEY_COLUMNS,
+    discover_raw_stock_files,
+    validate_raw_stock_columns,
+)
 
 
 LOGGER = logging.getLogger(__name__)
-NORMALIZATION_VERSION = "item-normalization-v0.5"
+NORMALIZATION_VERSION = "item-normalization-v0.6"
 DEFAULT_OUTPUT_PATH = SAMPLE_DATA_DIR / "raw_stock_item_normalization_sample_1000.csv"
 DEFAULT_ALIAS_OUTPUT_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "item_alias_candidates_v0.3.parquet"
 DEFAULT_STOCK_OUTPUT_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "stock_with_item_normalization_v0.3.parquet"
@@ -358,6 +363,43 @@ class AliasStats:
 def clean_item_name(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value or "")
     return " ".join(normalized.replace("\r", " ").replace("\n", " ").split())
+
+
+def _read_normalization_header(path: Path) -> list[str]:
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.reader(file, delimiter="|", quotechar='"')
+        header = next(reader, None)
+    return validate_raw_stock_columns(
+        header,
+        RAW_STOCK_NORMALIZATION_KEY_COLUMNS,
+        path,
+    )
+
+
+def inspect_normalization_source_schemas(
+    files: list[Path],
+) -> tuple[list[str], list[dict[str, object]]]:
+    output_columns = list(RAW_STOCK_COLUMNS)
+    source_schemas = []
+    for path in files:
+        columns = _read_normalization_header(path)
+        extra_columns = [
+            column for column in columns if column not in RAW_STOCK_COLUMNS
+        ]
+        for column in extra_columns:
+            if column not in output_columns:
+                output_columns.append(column)
+        source_schemas.append(
+            {
+                "source_file": path.name,
+                "column_count": len(columns),
+                "missing_canonical_columns": [
+                    column for column in RAW_STOCK_COLUMNS if column not in columns
+                ],
+                "additional_columns": extra_columns,
+            }
+        )
+    return output_columns, source_schemas
 
 
 def _remove_operational_wrappers(value: str) -> str:
@@ -708,27 +750,49 @@ def extract_alias_stats(files: list[Path]) -> dict[tuple[str, str, str], AliasSt
     for path in files:
         LOGGER.info("Reading aliases from %s", path)
         with path.open("r", encoding="utf-8-sig", newline="") as file:
-            reader = csv.reader(file, delimiter="|", quotechar='"')
-            header = next(reader, None)
-            if header != RAW_STOCK_COLUMNS:
-                raise ValueError(f"Unexpected raw_stock header in {path}: {header}")
+            reader = csv.DictReader(file, delimiter="|", quotechar='"')
+            validate_raw_stock_columns(
+                reader.fieldnames,
+                RAW_STOCK_NORMALIZATION_KEY_COLUMNS,
+                path,
+            )
             for row in reader:
-                if len(row) != len(RAW_STOCK_COLUMNS):
-                    raise ValueError(f"Malformed raw_stock record in {path} near logical row {reader.line_num}")
-                department, item_code, item_name, closing_date = row[0], row[1], row[2], row[3]
-                institution_id = row[17].strip()
-                key = (institution_id, item_code.strip(), clean_item_name(item_name))
+                if None in row or any(value is None for value in row.values()):
+                    raise ValueError(
+                        f"Malformed raw_stock record in {path} near logical row {reader.line_num}"
+                    )
+                institution_id = (row.get("보건기관코드_en") or "").strip()
+                item_code = (row.get("물품코드") or "").strip()
+                item_name = clean_item_name(row.get("물품명") or "")
+                missing_key_values = [
+                    column
+                    for column, value in [
+                        ("보건기관코드_en", institution_id),
+                        ("물품코드", item_code),
+                        ("물품명", item_name),
+                    ]
+                    if not value
+                ]
+                if missing_key_values:
+                    raise ValueError(
+                        f"Missing normalization key values in {path} near logical row "
+                        f"{reader.line_num}: {missing_key_values}"
+                    )
+                department = (row.get("부서코드") or "").strip()
+                closing_date = (row.get("재고마감일") or "").strip()
+                key = (institution_id, item_code, item_name)
                 try:
-                    usage = float(row[12]) if row[12] else 0.0
+                    usage_value = (row.get("정상출고량") or "").strip()
+                    usage = float(usage_value) if usage_value else 0.0
                 except ValueError:
                     usage = 0.0
                 current = aliases.get(key)
                 if current is None:
                     aliases[key] = AliasStats(
                         institution_id=institution_id,
-                        local_item_code=item_code.strip(),
-                        raw_item_name=clean_item_name(item_name),
-                        example_department=department.strip(),
+                        local_item_code=item_code,
+                        raw_item_name=item_name,
+                        example_department=department,
                         occurrence_count=1,
                         usage_sum=usage,
                         first_seen_date=closing_date,
@@ -737,8 +801,17 @@ def extract_alias_stats(files: list[Path]) -> dict[tuple[str, str, str], AliasSt
                 else:
                     current.occurrence_count += 1
                     current.usage_sum += usage
-                    current.first_seen_date = min(current.first_seen_date, closing_date)
-                    current.last_seen_date = max(current.last_seen_date, closing_date)
+                    if closing_date:
+                        if (
+                            not current.first_seen_date
+                            or closing_date < current.first_seen_date
+                        ):
+                            current.first_seen_date = closing_date
+                        if (
+                            not current.last_seen_date
+                            or closing_date > current.last_seen_date
+                        ):
+                            current.last_seen_date = closing_date
                 processed_rows += 1
                 if processed_rows % 1_000_000 == 0:
                     LOGGER.info("Processed %s raw rows (%s aliases)", f"{processed_rows:,}", f"{len(aliases):,}")
@@ -974,6 +1047,7 @@ def write_normalized_stock_fact(
     normalized_by_key: dict[tuple[str, str, str], tuple[object, ...]],
     output_path: Path,
     expected_rows: int,
+    output_raw_columns: list[str] | None = None,
     batch_size: int = 100_000,
 ) -> dict[str, object]:
     import pandas as pd
@@ -988,6 +1062,8 @@ def write_normalized_stock_fact(
     missing_joins = 0
     group_counts = Counter()
     status_counts = Counter()
+    if output_raw_columns is None:
+        output_raw_columns, _ = inspect_normalization_source_schemas(files)
     mapping_columns: dict[str, list[object]] = {
         "__institution_id": [],
         "__local_item_code": [],
@@ -1017,8 +1093,12 @@ def write_normalized_stock_fact(
                 on_bad_lines="error",
             )
             for chunk in chunks:
-                if chunk.columns.tolist() != RAW_STOCK_COLUMNS:
-                    raise ValueError(f"Unexpected raw_stock header in {path}: {chunk.columns.tolist()}")
+                validate_raw_stock_columns(
+                    chunk.columns.tolist(),
+                    RAW_STOCK_NORMALIZATION_KEY_COLUMNS,
+                    path,
+                )
+                chunk = chunk.reindex(columns=output_raw_columns, fill_value="")
                 chunk["__institution_id"] = chunk["보건기관코드_en"].str.strip()
                 chunk["__local_item_code"] = chunk["물품코드"].str.strip()
                 chunk["__alias_cleaned_name"] = chunk["물품명"].map(clean_item_name)
@@ -1090,17 +1170,26 @@ def generate_full_normalization(
     files = discover_raw_stock_files(raw_dir, pattern)
     if not files:
         raise FileNotFoundError(f"No raw_stock files found under {raw_dir} with pattern {pattern}")
+    output_raw_columns, source_schemas = inspect_normalization_source_schemas(files)
     aliases = extract_alias_stats(files)
     expected_rows = sum(stats.occurrence_count for stats in aliases.values())
     sample = select_stratified_sample(aliases, sample_size)
     write_sample(sample, sample_output_path)
     normalized_by_key, alias_metrics = write_all_alias_candidates(aliases, alias_output_path)
     del aliases
-    stock_metrics = write_normalized_stock_fact(files, normalized_by_key, stock_output_path, expected_rows)
+    stock_metrics = write_normalized_stock_fact(
+        files,
+        normalized_by_key,
+        stock_output_path,
+        expected_rows,
+        output_raw_columns=output_raw_columns,
+    )
     report = {
         "normalization_version": NORMALIZATION_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_files": [path.name for path in files],
+        "normalization_key_columns": RAW_STOCK_NORMALIZATION_KEY_COLUMNS,
+        "source_schemas": source_schemas,
         "sample_rows": len(sample),
         "sample_output": str(sample_output_path),
         "alias_output": str(alias_output_path),

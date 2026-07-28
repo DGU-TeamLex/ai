@@ -8,6 +8,11 @@ from pathlib import Path
 import pandas as pd
 
 from .config import (
+    DRUG_INGREDIENT_DICTIONARY_PATH,
+    DRUG_INGREDIENT_ENRICHMENT_PATH,
+    DRUG_INGREDIENT_REPORT_PATH,
+    DRUG_INGREDIENT_SOURCE_PATH,
+    ITEM_ALIAS_TO_PRODUCT_PATH,
     ITEM_INTEGRATED_CLASSIFICATION_CSV_PATH,
     ITEM_INTEGRATED_CLASSIFICATION_PARQUET_PATH,
     ITEM_INTEGRATED_CLASSIFICATION_REPORT_PATH,
@@ -18,13 +23,14 @@ from .config import (
     ITEM_PRODUCT_WORKLIST_PATH,
     ITEM_REPRESENTATIVE_ATTRIBUTES_PATH,
 )
+from .drug_ingredient import run_drug_ingredient_pipeline
 from .item_classification import REPRESENTATIVE_OUTPUT_PATH, run_item_classification
 from .material_pipeline import PIPELINE_VERSION, run_material_pipeline
 from .utils import setup_logging, write_json
 
 
 LOGGER = logging.getLogger(__name__)
-INTEGRATED_PIPELINE_VERSION = "item-integrated-v2.1"
+INTEGRATED_PIPELINE_VERSION = "item-integrated-v2.2"
 UNRESOLVED_FAMILIES = {"", "UNSPECIFIED_ITEM", "MATERIAL_UNSPECIFIED"}
 PHYSICAL_FAMILY_DEFAULTS = {
     "DISPOSABLE_SYRINGE": ("SYRINGE_USAGE_BASED", "주사기(사용량 기준)", "EA"),
@@ -488,6 +494,33 @@ def run_integrated_pipeline(
     with_excel: bool = False,
 ) -> dict[str, object]:
     setup_logging()
+    drug_ingredient_report: dict[str, object] = {
+        "status": "source_not_available"
+    }
+    if DRUG_INGREDIENT_SOURCE_PATH.exists():
+        required_outputs = [
+            DRUG_INGREDIENT_ENRICHMENT_PATH,
+            DRUG_INGREDIENT_DICTIONARY_PATH,
+            DRUG_INGREDIENT_REPORT_PATH,
+        ]
+        newest_input = max(
+            DRUG_INGREDIENT_SOURCE_PATH.stat().st_mtime,
+            ITEM_ALIAS_TO_PRODUCT_PATH.stat().st_mtime,
+        )
+        outputs_current = all(
+            path.exists() and path.stat().st_mtime >= newest_input
+            for path in required_outputs
+        )
+        if outputs_current:
+            drug_ingredient_report = json.loads(
+                DRUG_INGREDIENT_REPORT_PATH.read_text(encoding="utf-8")
+            )
+            drug_ingredient_report["status"] = "reused_current_outputs"
+        else:
+            drug_ingredient_report = run_drug_ingredient_pipeline(
+                source_path=DRUG_INGREDIENT_SOURCE_PATH,
+                sample_size=sample_size,
+            )
     previous_report = _read_previous_report(
         material_output_dir / ITEM_MATERIAL_PIPELINE_REPORT_PATH.name
     )
@@ -585,6 +618,7 @@ def run_integrated_pipeline(
         "operational_readiness": _counts(integrated, "operational_readiness"),
         "sample_attention_reason": _counts(sample, "primary_attention_reason"),
         "material_report": material_report,
+        "drug_ingredient_report": drug_ingredient_report,
         "classification_summary": classification_report,
         "comparison_with_previous_local_run": _comparison(
             previous_report,

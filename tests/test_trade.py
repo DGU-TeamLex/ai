@@ -6,7 +6,9 @@ from unittest.mock import patch
 import pandas as pd
 
 from src.module_c.config import DEFAULT_MODULE_C_CONFIG
+from src.modeling.inventory_policy import add_inventory_recommendations
 from src.trade.hsk_reference import SOURCE_TO_NORMALIZED, load_hsk_reference
+from src.trade.trade_inventory_impact import build_trade_inventory_impact
 from src.trade.trade_collector import (
     KCS_TOTAL_ENDPOINT,
     collect_trade_flows,
@@ -242,8 +244,93 @@ class TradeRiskScorerTest(unittest.TestCase):
         self.assertEqual(row["import_unit_value_increase_risk"], 1.0)
         self.assertGreater(row["country_concentration_risk"], 0.6)
         self.assertEqual(row["net_import_exposure_risk"], 1.0)
-        self.assertGreater(row["hs_trade_risk"], 0.9)
-        self.assertEqual(row["trade_signal_confidence"], 1.0)
+        self.assertAlmostEqual(row["hs_trade_risk"], 0.58)
+        self.assertAlmostEqual(row["trade_signal_confidence"], 0.70)
+
+    def test_trade_features_detect_net_inflow_supplier_and_export_risk(self):
+        totals = pd.DataFrame(
+            [
+                {
+                    "STD_YYYYMM": "2024-01",
+                    "hs_code": "3902100000",
+                    "country_code": "ALL",
+                    "export_weight_kg": 10,
+                    "export_value_usd": 10,
+                    "import_weight_kg": 100,
+                    "import_value_usd": 100,
+                },
+                {
+                    "STD_YYYYMM": "2025-01",
+                    "hs_code": "3902100000",
+                    "country_code": "ALL",
+                    "export_weight_kg": 30,
+                    "export_value_usd": 30,
+                    "import_weight_kg": 80,
+                    "import_value_usd": 100,
+                },
+            ]
+        )
+        countries = pd.DataFrame(
+            [
+                {
+                    "STD_YYYYMM": "2024-01",
+                    "hs_code": "3902100000",
+                    "country_code": country,
+                    "import_weight_kg": value,
+                    "import_value_usd": value,
+                    "export_weight_kg": 0,
+                    "export_value_usd": 0,
+                }
+                for country, value in [("CN", 40), ("US", 30), ("JP", 30)]
+            ]
+            + [
+                {
+                    "STD_YYYYMM": "2025-01",
+                    "hs_code": "3902100000",
+                    "country_code": "CN",
+                    "import_weight_kg": 80,
+                    "import_value_usd": 100,
+                    "export_weight_kg": 0,
+                    "export_value_usd": 0,
+                }
+            ]
+        )
+
+        result = build_hs_trade_features(totals, countries, module_c_config())
+        row = result[result["STD_YYYYMM"].eq("2025-01")].iloc[0]
+
+        self.assertEqual(row["net_import_availability_decline_risk"], 1.0)
+        self.assertEqual(row["supplier_count_decline_risk"], 1.0)
+        self.assertEqual(row["export_volume_surge_risk"], 1.0)
+        self.assertIn("HS_IMPORT_SUPPLIER_COUNT_DROP", row["trade_event_codes"])
+        self.assertIn("HS_EXPORT_VOLUME_SURGE", row["trade_event_codes"])
+
+    def test_trade_features_detect_import_interruption_and_volatility(self):
+        months = pd.period_range("2024-01", "2024-07", freq="M")
+        weights = [100, 20, 120, 15, 130, 10, 0]
+        totals = pd.DataFrame(
+            [
+                {
+                    "STD_YYYYMM": month.strftime("%Y-%m"),
+                    "hs_code": "3902100000",
+                    "country_code": "ALL",
+                    "export_weight_kg": 0,
+                    "export_value_usd": 0,
+                    "import_weight_kg": weight,
+                    "import_value_usd": weight * 2,
+                }
+                for month, weight in zip(months, weights)
+            ]
+        )
+
+        result = build_hs_trade_features(totals, pd.DataFrame(), module_c_config())
+        row = result[result["STD_YYYYMM"].eq("2024-07")].iloc[0]
+
+        self.assertEqual(row["zero_import_streak_months"], 1)
+        self.assertEqual(row["import_interruption_risk"], 0.5)
+        self.assertEqual(row["import_volume_volatility_risk"], 1.0)
+        self.assertIn("HS_IMPORT_INTERRUPTION", row["trade_event_codes"])
+        self.assertIn("HS_IMPORT_VOLUME_VOLATILITY", row["trade_event_codes"])
 
     def test_only_approved_stock_and_hs_paths_propagate(self):
         stock = pd.DataFrame(
@@ -286,7 +373,7 @@ class TradeRiskScorerTest(unittest.TestCase):
         )
         january = scores[scores["STD_YYYYMM"].eq("2025-01")].iloc[0]
 
-        self.assertGreater(january["trade_risk"], 0.9)
+        self.assertAlmostEqual(january["trade_risk"], 0.58)
         self.assertEqual(january["trade_hs_codes"], "3902100000")
         self.assertTrue((audit["raw_material_meta_code"] == "POLYPROPYLENE_PP").all())
 
@@ -300,6 +387,42 @@ class TradeRiskScorerTest(unittest.TestCase):
             config=module_c_config(),
         )
         self.assertTrue(blocked.empty)
+
+
+class TradeInventoryImpactTest(unittest.TestCase):
+    def test_trade_counterfactual_increases_target_stock(self):
+        source = pd.DataFrame(
+            [
+                {
+                    "stock_item_key": "INST::SYRINGE",
+                    "item_name": "주사기",
+                    "predicted_usage": 100.0,
+                    "current_stock": 0.0,
+                    "module_c_demand_risk": 0.0,
+                    "module_c_supply_news_risk": 0.0,
+                    "module_c_material_news_risk": 0.0,
+                    "module_c_market_price_risk": 0.0,
+                    "module_c_trade_risk": 0.8,
+                    "module_c_supply_risk": 0.2,
+                    "module_c_total_risk": 0.2,
+                }
+            ]
+        )
+        current = add_inventory_recommendations(
+            source,
+            prediction_col="predicted_usage",
+            current_stock_col="current_stock",
+            module_c_config=module_c_config(),
+        )
+
+        report, sample = build_trade_inventory_impact(current)
+
+        self.assertEqual(report["trade_exposed_forecast_rows"], 1)
+        self.assertEqual(report["target_stock_increased_rows"], 1)
+        self.assertGreater(
+            sample.iloc[0]["trade_attributable_target_stock"],
+            0,
+        )
 
 
 if __name__ == "__main__":

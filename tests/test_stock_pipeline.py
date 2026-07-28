@@ -1,10 +1,15 @@
+import csv
 from pathlib import Path
 import tempfile
 import unittest
 
 import pandas as pd
 
-from src.data_loader import RAW_STOCK_COLUMNS, load_stock_data
+from src.data_loader import (
+    RAW_STOCK_COLUMNS,
+    RAW_STOCK_OPTIONAL_COLUMNS,
+    load_stock_data,
+)
 from src.features import create_features
 from src.modeling.baseline import add_baseline_predictions
 from src.modeling.metrics import regression_metrics
@@ -44,6 +49,32 @@ def stock_row(
 
 
 class StockPipelineTest(unittest.TestCase):
+    def test_legacy_schema_without_optional_vendor_columns_is_loaded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "legacy.DAT"
+            columns = [
+                column
+                for column in RAW_STOCK_COLUMNS
+                if column not in RAW_STOCK_OPTIONAL_COLUMNS
+            ]
+            values = dict(
+                zip(
+                    RAW_STOCK_COLUMNS,
+                    stock_row("20190101", 10, 8, 2),
+                    strict=False,
+                )
+            )
+            with path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file, delimiter="|")
+                writer.writerow(columns)
+                writer.writerow([values[column] for column in columns])
+
+            loaded = load_stock_data(raw_dir=Path(directory))
+
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded.iloc[0]["vendor_code"], "")
+        self.assertTrue(pd.isna(loaded.iloc[0]["average_unit_price"]))
+
     def test_quote_aware_loader_builds_monthly_stock(self):
         import csv
 

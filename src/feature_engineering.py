@@ -60,7 +60,16 @@ def _merge_risk(
         feature_table[value_columns] = 0.0
         return feature_table
 
-    risk = _normalize_yyyymm(pd.read_csv(path))
+    header = pd.read_csv(path, nrows=0).columns
+    available = [column for column in value_columns if column in header]
+    read_columns = [
+        column
+        for column in ["STD_YYYYMM", "year_month", "stock_item_key", *available]
+        if column in header
+    ]
+    risk = _normalize_yyyymm(
+        pd.read_csv(path, low_memory=False, usecols=read_columns)
+    )
     if risk.empty:
         feature_table[value_columns] = 0.0
         return feature_table
@@ -69,7 +78,6 @@ def _merge_risk(
         feature_table[value_columns] = 0.0
         return feature_table
     risk["stock_item_key"] = risk["stock_item_key"].astype(str)
-    available = [column for column in value_columns if column in risk.columns]
     merged = feature_table.merge(risk[[*RISK_JOIN_KEYS, *available]], on=RISK_JOIN_KEYS, how="left")
     for column in value_columns:
         if column not in merged.columns:

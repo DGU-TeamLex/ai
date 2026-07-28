@@ -19,7 +19,7 @@ import sys
 IN_FILE = sys.argv[1] if len(sys.argv) > 1 else "/Users/jangjunhyeok/Downloads/분류/output/item_supply_clusters_final.csv"
 OUT_FILE = sys.argv[2] if len(sys.argv) > 2 else "/Users/jangjunhyeok/Downloads/분류/output/item_material_event_mapping_final.csv"
 TODAY = "2026-07-18"
-PIPELINE_VERSION = "combined-material-v2.1"
+PIPELINE_VERSION = "combined-material-v2.2"
 
 # cluster_id -> (원자재, 근거, 공급측 이벤트유형, 수요측 이벤트유형)
 CLUSTER_MATERIAL_EVENTS = {
@@ -894,6 +894,31 @@ def main():
             ev = "비성분 sentinel은 원재료 코드로 승격하지 않음"
             mat_conf = "unspecified"
             mapping_basis = "sentinel_blocked"
+
+        if (
+            r.get("ingredient_source")
+            == "government_drug_ingredient_dataset_approved"
+            and r.get("drug_raw_material_meta_code")
+        ):
+            mat_code = [r["drug_raw_material_meta_code"]]
+            mat = (
+                f"{r.get('drug_ingredient_name') or r['drug_raw_material_meta_code']}"
+                " — 정부 약성분 데이터셋 확인 유효성분"
+            )
+            ev = r.get("drug_ingredient_evidence_reference") or (
+                "한국사회보장정보원 약성분 데이터셋"
+            )
+            rm_meta = ["API_IMPORT_DEPENDENCY_CN_IN"]
+            mat_conf = "verified"
+            mapping_basis = "government_drug_ingredient_dataset"
+            for code in mat_code:
+                if code not in MATERIAL_CODE_GLOSSARY:
+                    dynamic_glossary[code] = (
+                        code,
+                        r.get("drug_ingredient_name") or code,
+                        STAGE_SYNTH,
+                        "정부 약성분 데이터셋에서 확인된 유효성분 정체",
+                    )
 
         # 활동성 scope — 발주흔적 기준. usage_sum 은 활성 품목도 결손이 많아
         # occurrence_count/institution_count 로 판정한다. one_off(1회·단일기관)는

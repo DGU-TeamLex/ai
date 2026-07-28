@@ -62,7 +62,10 @@ def _empty_candidates() -> pd.DataFrame:
 def _read_approved_classification(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
-    classification = pd.read_csv(path, dtype=str, keep_default_na=False)
+    if path.suffix.lower() in {".parquet", ".pq"}:
+        classification = pd.read_parquet(path)
+    else:
+        classification = pd.read_csv(path, dtype=str, keep_default_na=False)
     required = {
         "local_item_key",
         "institution_code",

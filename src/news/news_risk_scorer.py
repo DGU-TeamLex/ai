@@ -152,7 +152,9 @@ def _ensure_country_weight() -> pd.DataFrame:
 def _load_stock_mapping() -> pd.DataFrame:
     if not STOCK_MATERIAL_MAPPING_PATH.exists():
         LOGGER.warning("Stock item material mapping not found: %s", STOCK_MATERIAL_MAPPING_PATH)
-    mapping = load_approved_stock_material_mapping()
+    mapping = load_approved_stock_material_mapping(
+        eligibility_column="news_signal_eligible"
+    )
     if mapping.empty:
         LOGGER.warning("No approved stock item material mappings are available")
     return mapping
@@ -478,6 +480,21 @@ def _codes_in_mapping(mapping: pd.DataFrame, column: str, codes: set[str]) -> pd
     )
 
 
+def _one_mapping_per_stock_item(mapping: pd.DataFrame) -> pd.DataFrame:
+    if mapping.empty or "stock_item_key" not in mapping.columns:
+        return mapping
+    ranked = mapping.copy()
+    ranked["_mapping_rank"] = pd.to_numeric(
+        ranked.get("mapping_weight", 1.0),
+        errors="coerce",
+    ).fillna(0.0)
+    return (
+        ranked.sort_values("_mapping_rank", ascending=False, kind="stable")
+        .drop_duplicates("stock_item_key", keep="first")
+        .drop(columns="_mapping_rank")
+    )
+
+
 def _match_stock_mapping(
     mapping: pd.DataFrame,
     analysis: dict,
@@ -491,7 +508,7 @@ def _match_stock_mapping(
         }
         matched = mapping[_codes_in_mapping(mapping, "demand_risk_meta_code", demand_codes)]
         if not matched.empty:
-            return matched, "demand"
+            return _one_mapping_per_stock_item(matched), "demand"
 
     material_codes = {
         str(value).strip()
@@ -503,11 +520,11 @@ def _match_stock_mapping(
             _codes_in_mapping(mapping, "raw_material_meta_code", material_codes)
         ]
         if not matched.empty:
-            return matched, "material"
+            return _one_mapping_per_stock_item(matched), "material"
     material = analysis.get("disease_or_material")
     matched = mapping[mapping["related_material"].eq(material)]
     path = "demand" if event_type == "infectious_disease_outbreak" else "material"
-    return matched, path
+    return _one_mapping_per_stock_item(matched), path
 
 
 def build_news_risk_outputs(
@@ -532,7 +549,10 @@ def build_news_risk_outputs(
     for _, row in news.iterrows():
         analysis = analyze_news_row(row)
         event_type = _normalize_event_type(analysis.get("event_type"))
-        if event_type == "none":
+        if event_type == "none" or analysis.get("risk_direction") not in {
+            "demand_increase",
+            "supply_decrease",
+        }:
             continue
         news_date = pd.to_datetime(row["date"])
         cluster_id = _event_cluster_id(row, analysis, event_type, news_date)

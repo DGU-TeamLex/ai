@@ -34,26 +34,57 @@ def _result(
 
 
 def analyze_news_row(row: pd.Series) -> dict:
-    text = f"{row.get('title', '')} {row.get('summary', '')}".lower()
+    title = str(row.get("title", "") or "").lower()
+    text = f"{title} {row.get('summary', '')}".lower()
     country = row.get("country") or "Unknown"
 
-    if any(
-        keyword in text
-        for keyword in [
-            "독감",
-            "인플루엔자",
-            "코로나",
-            "covid",
-            "폐렴",
-            "감염병",
-            "호흡기",
-            "influenza",
-            "pandemic",
-            "epidemic",
-            "disease outbreak",
-            "respiratory disease",
+    infectious_keywords = [
+        "독감",
+        "인플루엔자",
+        "코로나",
+        "covid",
+        "coronavirus",
+        "폐렴",
+        "감염병",
+        "호흡기",
+        "influenza",
+        "pandemic",
+        "epidemic",
+        "disease outbreak",
+        "respiratory disease",
+        "mpox",
+        "hiv",
+        "measles",
+        "avian flu",
+        "bird flu",
+    ]
+    has_infectious_keyword = any(
+        keyword in text for keyword in infectious_keywords
+    )
+    if has_infectious_keyword and any(
+        phrase in title
+        for phrase in [
+            "no confirmed",
+            "not confirmed",
+            "no outbreak",
+            "outbreak ruled out",
+            "확진 없음",
+            "유행 아님",
         ]
     ):
+        return _result(
+            event_type="none",
+            country=country,
+            keyword="infectious disease negation",
+            material="respiratory disease",
+            related_items=[],
+            risk_direction="no_effect",
+            severity=0.0,
+            confidence=0.85,
+            reason="제목에서 감염병 발생 또는 확진을 부정함",
+        )
+
+    if has_infectious_keyword:
         return _result(
             event_type="infectious_disease_outbreak",
             country=country,
@@ -64,10 +95,10 @@ def analyze_news_row(row: pd.Series) -> dict:
             severity=0.70,
             confidence=0.75,
             reason="감염병 또는 호흡기 질환 확산 관련 키워드가 포함됨",
-            demand_risk_meta_codes=["RESPIRATORY_INFECTIOUS_DISEASE"],
+            demand_risk_meta_codes=["INFECTIOUS_DISEASE_OUTBREAK"],
         )
 
-    if any(
+    has_raw_material_keyword = any(
         keyword in text
         for keyword in [
             "원유",
@@ -82,6 +113,8 @@ def analyze_news_row(row: pd.Series) -> dict:
             "알루미늄",
             "니켈",
             "crude oil",
+            "brent",
+            "wti",
             "naphtha",
             "plastic",
             "polypropylene",
@@ -94,7 +127,8 @@ def analyze_news_row(row: pd.Series) -> dict:
             "aluminum",
             "nickel",
         ]
-    ):
+    )
+    if has_raw_material_keyword:
         if any(keyword in text for keyword in ["니트릴", "nitrile"]):
             material = "nitrile"
             material_meta_codes = ["SYNTHETIC_NITRILE_RUBBER"]
@@ -131,6 +165,43 @@ def analyze_news_row(row: pd.Series) -> dict:
             if middle_east and naphtha
             else []
         )
+        if any(
+            keyword in text
+            for keyword in [
+                "price fall",
+                "prices fall",
+                "price decline",
+                "prices decline",
+                "price drop",
+                "prices drop",
+                "prices tumble",
+                "price tumbles",
+                "crude slips",
+                "oil slips",
+                "easing oil",
+                "crude fell",
+                "oil fell",
+                "crude plunged",
+                "oil plunged",
+                "surplus",
+                "가격 하락",
+                "가격 안정",
+                "공급 완화",
+            ]
+        ):
+            return _result(
+                event_type="raw_material_price_relief",
+                country=country,
+                keyword="raw material price relief",
+                material=material,
+                related_items=["주사기", "카테터", "마스크", "의료용 장갑"],
+                risk_direction="supply_increase",
+                severity=0.0,
+                confidence=0.75,
+                reason="원자재 가격 하락 또는 공급 완화 표현이 포함됨",
+                material_meta_codes=material_meta_codes,
+                external_event_codes=external_event_codes,
+            )
         return _result(
             event_type="raw_material_shortage_or_price_spike",
             country=country,

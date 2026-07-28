@@ -14,7 +14,7 @@ from ..config import (
     MATERIAL_APPROVAL_SAMPLE_PATH,
     MODULE_C_EXPOSURE_CANDIDATE_PATH,
     MONTHLY_STOCK_PATH,
-    STOCK_MATERIAL_MAPPING_PATH,
+    STOCK_MATERIAL_MAPPING_SEED_PATH,
 )
 from ..material_mapping import load_approved_stock_material_mapping
 from ..utils import ensure_dirs, write_json
@@ -326,7 +326,7 @@ def run_material_approval(
     policy_path: Path = MATERIAL_APPROVAL_POLICY_PATH,
     candidate_path: Path = MODULE_C_EXPOSURE_CANDIDATE_PATH,
     monthly_stock_path: Path = MONTHLY_STOCK_PATH,
-    output_path: Path = STOCK_MATERIAL_MAPPING_PATH,
+    output_path: Path = STOCK_MATERIAL_MAPPING_SEED_PATH,
     reviewed_at: str | None = None,
 ) -> dict:
     policy = load_approval_policy(policy_path)
@@ -380,7 +380,7 @@ def main() -> None:
     parser.add_argument("--policy", type=Path, default=MATERIAL_APPROVAL_POLICY_PATH)
     parser.add_argument("--candidates", type=Path, default=MODULE_C_EXPOSURE_CANDIDATE_PATH)
     parser.add_argument("--monthly-stock", type=Path, default=MONTHLY_STOCK_PATH)
-    parser.add_argument("--output", type=Path, default=STOCK_MATERIAL_MAPPING_PATH)
+    parser.add_argument("--output", type=Path, default=STOCK_MATERIAL_MAPPING_SEED_PATH)
     parser.add_argument("--reviewed-at")
     args = parser.parse_args()
     report = run_material_approval(

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -31,12 +32,39 @@ HSK_REFERENCE_NORMALIZED_PATH = (
 )
 HSK_REFERENCE_REPORT_PATH = OUTPUT_DIR / "hsk_reference_2026_report.json"
 MATERIAL_HS_MAPPING_PATH = MAPPING_DATA_DIR / "material_hs_mapping.csv"
+MATERIAL_HS_MAPPING_REPORT_PATH = OUTPUT_DIR / "material_hs_mapping_update_report.json"
+MATERIAL_HS_MAPPING_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "material_hs_mapping_sample_1000.csv"
+)
+DRUG_INGREDIENT_SOURCE_PATH = (
+    PROJECT_ROOT
+    / "pdf"
+    / "(한국사회보장정보원)_의료재고예측모델 개발 관련 데이터셋(약성분)_수정.DAT"
+)
+DRUG_INGREDIENT_DICTIONARY_PATH = (
+    PROCESSED_DATA_DIR / "drug_ingredient_dictionary_v1.parquet"
+)
+DRUG_INGREDIENT_ENRICHMENT_PATH = (
+    PROCESSED_DATA_DIR / "item_drug_ingredient_enrichment_v1.parquet"
+)
+DRUG_INGREDIENT_REPORT_PATH = OUTPUT_DIR / "drug_ingredient_enrichment_report.json"
+DRUG_INGREDIENT_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "drug_ingredient_enrichment_sample_1000.csv"
+)
 TRADE_COUNTRY_SCOPE_PATH = MAPPING_DATA_DIR / "trade_country_scope.csv"
 TRADE_TOTAL_CACHE_PATH = EXTERNAL_TRADE_DATA_DIR / "kcs_trade_total_monthly.csv"
 TRADE_COUNTRY_CACHE_PATH = EXTERNAL_TRADE_DATA_DIR / "kcs_trade_country_monthly.csv"
+TRADE_HS_FEATURE_PATH = OUTPUT_DIR / "hs_trade_risk_features.csv"
+TRADE_HS_FEATURE_SAMPLE_PATH = SAMPLE_DATA_DIR / "hs_trade_risk_features_sample_1000.csv"
 TRADE_RISK_SCORE_PATH = OUTPUT_DIR / "stock_trade_risk_scores.csv"
 TRADE_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_trade_risk_audit.csv"
 TRADE_RUN_REPORT_PATH = OUTPUT_DIR / "stock_trade_risk_report.json"
+TRADE_INVENTORY_IMPACT_REPORT_PATH = (
+    OUTPUT_DIR / "trade_inventory_impact_report.json"
+)
+TRADE_INVENTORY_IMPACT_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "trade_inventory_impact_sample_1000.csv"
+)
 MODULE_C_RISK_SCORE_PATH = OUTPUT_DIR / "stock_module_c_risk_scores.csv"
 MODULE_C_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_module_c_risk_audit.csv"
 MODULE_C_ALERT_PATH = OUTPUT_DIR / "stock_module_c_alerts.csv"
@@ -50,6 +78,19 @@ CLASSIFIED_PREDICTION_PATH = OUTPUT_DIR / "stock_predictions_by_subtype.csv"
 CLASSIFIED_PREDICTION_QUALITY_PATH = OUTPUT_DIR / "stock_predictions_by_subtype_quality.json"
 EVALUATION_REPORT_PATH = OUTPUT_DIR / "stock_evaluation_report.csv"
 EVALUATION_SEGMENT_REPORT_PATH = OUTPUT_DIR / "stock_evaluation_by_segment.csv"
+MODEL_COMBINATION_POINT_EVALUATION_PATH = (
+    OUTPUT_DIR / "stock_combination_point_evaluation.csv"
+)
+MODEL_COMBINATION_INVENTORY_EVALUATION_PATH = (
+    OUTPUT_DIR / "stock_combination_inventory_evaluation.csv"
+)
+MODEL_COMBINATION_SEGMENT_EVALUATION_PATH = (
+    OUTPUT_DIR / "stock_combination_segment_evaluation.csv"
+)
+MODEL_COMBINATION_POLICY_PATH = OUTPUT_DIR / "stock_combination_policy.json"
+MODEL_COMBINATION_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "stock_combination_experiment_sample_1000.csv"
+)
 MODEL_VALIDATION_REPORT_PATH = OUTPUT_DIR / "stock_model_validation_report.csv"
 MODEL_CV_REPORT_PATH = OUTPUT_DIR / "stock_model_cv_report.csv"
 FORECAST_DATA_QUALITY_REPORT_PATH = OUTPUT_DIR / "stock_forecast_data_quality.json"
@@ -126,10 +167,60 @@ MATERIAL_INVENTORY_IMPACT_BY_SPEC_PATH = (
 MATERIAL_INVENTORY_IMPACT_SAMPLE_PATH = (
     SAMPLE_DATA_DIR / "material_mapping_inventory_impact_sample_1000.csv"
 )
-ITEM_FAMILY_TAXONOMY_PATH = MAPPING_DATA_DIR / "item_family_taxonomy.csv"
-APPROVED_ITEM_CLASSIFICATION_PATH = MAPPING_DATA_DIR / "item_forecast_classification_approved.csv"
+ITEM_FAMILY_TAXONOMY_SEED_PATH = MAPPING_DATA_DIR / "item_family_taxonomy.csv"
+APPROVED_ITEM_CLASSIFICATION_SEED_PATH = (
+    MAPPING_DATA_DIR / "item_forecast_classification_approved.csv"
+)
+STOCK_MATERIAL_MAPPING_SEED_PATH = (
+    MAPPING_DATA_DIR / "stock_item_material_mapping.csv"
+)
+ITEM_BULK_APPROVAL_POLICY_PATH = MAPPING_DATA_DIR / "item_bulk_approval_policy.json"
+ITEM_BULK_APPROVAL_MARKER_PATH = (
+    PROCESSED_DATA_DIR / "item_bulk_approval_active.json"
+)
+ITEM_BULK_CLASSIFICATION_PATH = (
+    PROCESSED_DATA_DIR / "item_forecast_classification_bulk_approved.parquet"
+)
+ITEM_BULK_TAXONOMY_PATH = (
+    PROCESSED_DATA_DIR / "item_family_taxonomy_bulk_approved.parquet"
+)
+ITEM_BULK_MATERIAL_MAPPING_PATH = (
+    PROCESSED_DATA_DIR / "stock_item_material_mapping_bulk_approved.parquet"
+)
+ITEM_BULK_APPROVAL_REPORT_PATH = OUTPUT_DIR / "item_bulk_approval_report.json"
+ITEM_BULK_CLASSIFICATION_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "item_bulk_classification_approval_sample_1000.csv"
+)
+ITEM_BULK_MATERIAL_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "item_bulk_material_approval_sample_1000.csv"
+)
 
-STOCK_MATERIAL_MAPPING_PATH = MAPPING_DATA_DIR / "stock_item_material_mapping.csv"
+
+def _bulk_approval_is_active() -> bool:
+    if not ITEM_BULK_APPROVAL_MARKER_PATH.exists():
+        return False
+    try:
+        marker = json.loads(
+            ITEM_BULK_APPROVAL_MARKER_PATH.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        marker.get("status") == "active"
+        and ITEM_BULK_CLASSIFICATION_PATH.exists()
+        and ITEM_BULK_TAXONOMY_PATH.exists()
+        and ITEM_BULK_MATERIAL_MAPPING_PATH.exists()
+    )
+
+
+if _bulk_approval_is_active():
+    ITEM_FAMILY_TAXONOMY_PATH = ITEM_BULK_TAXONOMY_PATH
+    APPROVED_ITEM_CLASSIFICATION_PATH = ITEM_BULK_CLASSIFICATION_PATH
+    STOCK_MATERIAL_MAPPING_PATH = ITEM_BULK_MATERIAL_MAPPING_PATH
+else:
+    ITEM_FAMILY_TAXONOMY_PATH = ITEM_FAMILY_TAXONOMY_SEED_PATH
+    APPROVED_ITEM_CLASSIFICATION_PATH = APPROVED_ITEM_CLASSIFICATION_SEED_PATH
+    STOCK_MATERIAL_MAPPING_PATH = STOCK_MATERIAL_MAPPING_SEED_PATH
 MARKET_SERIES_REGISTRY_PATH = MAPPING_DATA_DIR / "market_series_registry.csv"
 MATERIAL_MARKET_FACTOR_MAPPING_PATH = (
     MAPPING_DATA_DIR / "material_market_factor_mapping.csv"

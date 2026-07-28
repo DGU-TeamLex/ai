@@ -72,7 +72,12 @@ GDELT는 글로벌 기사 검색과 전체 기사 대비 보도량 정규화에 
 
 ## GDELT 수집
 
-GDELT DOC API는 API 키 없이 사용할 수 있습니다. 수집기는 긴 기간을 월 단위로 나누고 감염병, 의료물품 공급, 원자재 카테고리를 각각 조회합니다. 결과는 `NEWS_DATA_PATH`에 캐시되며 `NEWS_REFRESH=true`일 때만 다시 수집합니다. 호출 제한이 발생하면 자동으로 대기 후 재시도하고, 월·카테고리별 체크포인트에서 이어서 수집합니다.
+GDELT DOC API는 API 키 없이 사용할 수 있습니다. 수집기는 긴 기간을 월 단위로
+나누며, 운영 기본인 `combined` 모드는 감염병·의료물품·원자재 위험 후보를 월 1회
+조회한 뒤 로컬 분석기가 사건 유형을 분류합니다. `split` 모드는 세 카테고리를
+각각 조회해 후보 다양성은 높지만 요청량이 3배입니다. 결과는 `NEWS_DATA_PATH`에
+캐시되며 `NEWS_REFRESH=true`일 때만 다시 수집합니다. 호출 제한이 발생하면 자동으로
+대기 후 재시도하고, 월·쿼리별 체크포인트에서 이어서 수집합니다.
 
 ```text
 NEWS_PROVIDER=gdelt
@@ -81,6 +86,32 @@ NEWS_START_DATE=2018-01-01
 NEWS_END_DATE=2025-12-31
 NEWS_REFRESH=false
 GDELT_MAX_RECORDS=250
+GDELT_QUERY_MODE=combined
+GDELT_REQUEST_DELAY_SECONDS=5.0
+GDELT_MAX_RETRIES=8
+GDELT_RATE_LIMIT_BACKOFF_SECONDS=30.0
+GDELT_MAX_BACKOFF_SECONDS=300.0
 ```
 
-기사 목록은 한 요청에 최대 250건이므로 캐시는 전체 뉴스 모집단이 아니라 위험 기사 후보군입니다. 전체 기사 대비 보도량 정규화 데이터는 별도 단계에서 GDELT timeline volume으로 수집합니다.
+기사 목록은 한 요청에 최대 250건이므로 캐시는 전체 뉴스 모집단이 아니라 위험 기사
+후보군입니다. `combined` 모드는 호출 안정성을 우선하며, 카테고리별 상한 250건이
+필요한 연구 수집에서는 `split`을 사용합니다. 전체 기사 대비 보도량 정규화 데이터는
+별도 단계에서 GDELT timeline volume으로 수집합니다.
+
+기존 DOC API가 지속적으로 `429`를 반환하면 `gdelt_ngram` 공급자를 사용합니다. 이
+공급자는 GDELT가 공개한 최신 Web NGrams 파일과 기사 TOC를 내려받고, 주제어와 위험
+문맥어가 모두 확인된 문서만 제목·URL 기반 뉴스 후보로 저장합니다. 이 방식은 최신
+위험 감시용이며 과거 기간 기사 검색을 대체하지는 않습니다.
+
+```text
+NEWS_PROVIDER=gdelt_ngram
+NEWS_DATA_PATH=data/raw/news/gdelt_ngram_latest.csv
+NEWS_REFRESH=true
+GDELT_NGRAM_BATCH_COUNT=4
+GDELT_NGRAM_LOOKBACK_MINUTES=45
+GDELT_NGRAM_LANGUAGES=en,ko
+GDELT_NGRAM_APPEND_CACHE=true
+```
+
+`GDELT_NGRAM_APPEND_CACHE=true`는 새 배치를 기존 캐시에 누적합니다. 필터 규칙 변경 후
+원본 배치를 재처리할 때는 일시적으로 `false`로 설정해 이전 판정 결과를 교체합니다.
