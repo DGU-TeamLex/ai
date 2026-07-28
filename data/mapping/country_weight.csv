@@ -1,0 +1,5 @@
+country,region_weight
+Korea,1.0
+Malaysia,0.7
+Global,0.6
+Unknown,0.5
