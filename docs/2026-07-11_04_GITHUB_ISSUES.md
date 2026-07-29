@@ -14,17 +14,17 @@ Acceptance criteria:
 - Missing API key falls back to sample news.
 - Batch pipeline still runs with `python -m src.main`.
 
-## Issue 2: Improve Device-Material Mapping
+## Issue 2: Build Stock Item-Material Mapping
 
 Labels: `data`, `mapping`
 
-Replace the temporary `device_material_mapping.csv` with reviewed mappings between `MED_DEVICE_5`, item names, materials, supplier groups, and mapping weights.
+Build reviewed mappings between raw stock item keys, normalized item names, MFDS product identifiers, materials, supplier groups, and mapping weights.
 
 Acceptance criteria:
 
 - Mapping file is human-editable CSV.
 - Commodity risk output covers known item codes.
-- Unknown item codes get safe default risk handling.
+- Unknown stock items get zero risk until reviewed instead of random material assignment.
 
 ## Issue 3: Connect Commodity Price API
 
@@ -38,11 +38,11 @@ Acceptance criteria:
 - Price-only fallback remains supported.
 - Risk score stays clipped to `0..1`.
 
-## Issue 4: Add AI Serving API Integration Test
+## Issue 4: Add API Integration Test
 
 Labels: `test`, `serving`
 
-Add a lightweight test for `/health`, `/api/v1/ai/forecasts`, `/api/v1/ai/inventory-policy`, and `/api/v1/ai/recommend-order`.
+Add a lightweight test for `/health`, `/predictions`, and `/recommend-order`.
 
 Acceptance criteria:
 
@@ -50,15 +50,15 @@ Acceptance criteria:
 - Test does not call external APIs.
 - Test can run in CI.
 
-## Issue 5: AI Result Dashboard Usability Pass
+## Issue 5: Dashboard Usability Pass
 
 Labels: `dashboard`, `ux`
 
-Improve the Streamlit MVP for AI result review.
+Improve the Streamlit MVP for operational review.
 
 Acceptance criteria:
 
-- Filters for month, SIDO, and item code.
+- Filters for month, institution, department, and item code.
 - Shows predicted usage, recommended stock, and recommended order.
 - Displays risk score breakdown.
 - Handles missing predictions gracefully.

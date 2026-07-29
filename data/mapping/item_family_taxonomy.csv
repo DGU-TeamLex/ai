@@ -1,0 +1,78 @@
+source_item_name,source_subtype_name,source_specification,item_family_id,standard_family_name,item_subtype_id,standard_subtype_name,item_group_id,is_forecastable,normalized_specification,unit_code,unit_name,material_candidate,material_mapping_status,review_status,taxonomy_version
+ibuprofen,정제,400mg,IBUPROFEN,ibuprofen,DRUG_TABLET,정제,MED_ORAL,t,400mg,TABLET,정,,separate_approved_mapping_required,approved,v1.0
+카테터,카테터(angio needle),16G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,16G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+카테터,카테터(angio needle),18G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,18G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+카테터,카테터(angio needle),20G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,20G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+카테터,카테터(angio needle),22G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,22G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+카테터,카테터(angio needle),24G,ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,24G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+카테터,나비 바늘,나비 바늘,ANGIO_CATHETER,카테터,BUTTERFLY_NEEDLE,나비 바늘,MED_SUPPLY,t,나비 바늘,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,18G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,18G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,21G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,21G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,23G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,23G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,25G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,25G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,26G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,26G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,28G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,28G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,29G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,29G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+채혈침,채혈침,30G,BLOOD_LANCET,채혈침,BLOOD_LANCET,채혈침,MED_SUPPLY,t,30G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),0.05mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,0.05mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),0.3mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,0.3mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),0.5mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,0.5mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),05mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,05mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),10mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,10mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),1mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,1mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),200mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,200mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),20mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,20mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),2mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,2mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),30mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,30mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),3mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,3mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),50mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,50mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),5mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,5mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사기,주사기(사용량 기준),60mL,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,60mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+수액세트,수액세트,수액세트,INFUSION_SET,수액세트,INFUSION_SET,수액세트,MED_SUPPLY,t,수액세트,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,17G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,17G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,18G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,18G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,20G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,20G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,21G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,21G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,22G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,22G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,23G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,23G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,24G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,24G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,25G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,25G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,26G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,26G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,27G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,27G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,28G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,28G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,30G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,30G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+주사침,주사침,32G,INJECTION_NEEDLE,주사침,INJECTION_NEEDLE,주사침,MED_SUPPLY,t,32G,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,1000mL,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,1000mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,2000mL,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,2000mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,2L,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,2L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,500mL,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,500mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,600mL,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,600mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,750mL,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,750mL,EA,개수,,separate_approved_mapping_required,approved,v1.0
+Urine bag,Urine bag,Urine bag,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,Urine bag,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,골판지류 상자형 용기,10L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,MEDICAL_WASTE_CARDBOARD_BOX,골판지류 상자형 용기,WASTE,f,10L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,봉투형 용기(합성수지류),4L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,MEDICAL_WASTE_SYNTHETIC_BAG,봉투형 용기(합성수지류),WASTE,f,4L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),10L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,10L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),1L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,1L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),20L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,20L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),2L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,2L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),30L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,30L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),32L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,32L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+의료폐기물 전용용기,합성수지형 용기(needle box),5L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,5L,EA,개수,,separate_approved_mapping_required,approved,v1.0
+멸균포장재(EO가스 소독용 포장재),멸균포장재(EO가스 소독용 포장재),15cm*200M,EO_STERILIZATION_PACKAGING,멸균포장재,EO_STERILIZATION_ROLL,EO가스 소독용 포장재,DISINFECT,t,15cm x 200m,ROLL,Roll,,needs_evidence,candidate,v0.2
+멸균포장재(EO가스 소독용 포장재),멸균포장재(EO가스 소독용 포장재),20cm*200M,EO_STERILIZATION_PACKAGING,멸균포장재,EO_STERILIZATION_ROLL,EO가스 소독용 포장재,DISINFECT,t,20cm x 200m,ROLL,Roll,,needs_evidence,candidate,v0.2
+카테터(angio needle),카테터(angio needle),22G (성인용),ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,22G (성인용),EA,개수,,needs_evidence,candidate,v0.2
+카테터(angio needle),카테터(angio needle),24G (소아용),ANGIO_CATHETER,카테터,ANGIO_NEEDLE,카테터(angio needle),MED_SUPPLY,t,24G (소아용),EA,개수,,needs_evidence,candidate,v0.2
+카테터(angio needle),나비 바늘,나비 바늘,ANGIO_CATHETER,카테터,BUTTERFLY_NEEDLE,나비 바늘,MED_SUPPLY,t,나비 바늘,EA,개수,,needs_evidence,candidate,v0.2
+혈액투석제통,혈액투석제통,5L 이하,DIALYSATE_CONTAINER,혈액투석제통,DIALYSATE_CONTAINER,혈액투석제통,MED_SUPPLY,t,<=5L,EA,개수,,needs_evidence,candidate,v0.2
+혈액투석제통,혈액투석제통,5L 초과,DIALYSATE_CONTAINER,혈액투석제통,DIALYSATE_CONTAINER,혈액투석제통,MED_SUPPLY,t,>5L,EA,개수,,needs_evidence,candidate,v0.2
+주사기(사용량기준),주사기(사용량기준),10cc,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,10mL,EA,개수,,needs_evidence,candidate,v0.2
+주사기(사용량기준),주사기(사용량기준),3cc,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,3mL,EA,개수,,needs_evidence,candidate,v0.2
+주사기(사용량기준),주사기(사용량기준),5cc,DISPOSABLE_SYRINGE,주사기,SYRINGE_USAGE_BASED,주사기(사용량 기준),MED_SUPPLY,t,5mL,EA,개수,,needs_evidence,candidate,v0.2
+수액세트,수액세트,수액세트,INFUSION_SET,수액세트,INFUSION_SET,수액세트,MED_SUPPLY,t,수액세트,EA,개수,,needs_evidence,candidate,v0.2
+주사액·생리식염수 등 수액제통,주사액·생리식염수 등 수액제통,1000cc,IV_FLUID_CONTAINER,수액제통,IV_FLUID_CONTAINER,주사액·생리식염수 등 수액제통,MED_SUPPLY,t,1000mL,EA,개수,,needs_evidence,candidate,v0.2
+주사액·생리식염수 등 수액제통,주사액·생리식염수 등 수액제통,500cc 이하,IV_FLUID_CONTAINER,수액제통,IV_FLUID_CONTAINER,주사액·생리식염수 등 수액제통,MED_SUPPLY,t,<=500mL,EA,개수,,needs_evidence,candidate,v0.2
+Urine bag,Urine bag,Urine bag,URINE_BAG,Urine bag,URINE_BAG,Urine bag,MED_SUPPLY,t,Urine bag,EA,개수,,needs_evidence,candidate,v0.2
+의료폐기물 전용용기,봉투형 용기(PE),4L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,MEDICAL_WASTE_PE_BAG,봉투형 용기(PE),WASTE,f,4L,EA,개수,PE,source_example_candidate,candidate,v0.2
+의료폐기물 전용용기,봉투형 용기(PE),5L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,MEDICAL_WASTE_PE_BAG,봉투형 용기(PE),WASTE,f,5L,EA,개수,PE,source_example_candidate,candidate,v0.2
+의료폐기물 전용용기,합성수지형 용기(needle box),1L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,1L,EA,개수,SYNTHETIC_RESIN,source_example_candidate,candidate,v0.2
+의료폐기물 전용용기,합성수지형 용기(needle box),2L,MEDICAL_WASTE_CONTAINER,의료폐기물 전용용기,RIGID_NEEDLE_BOX,합성수지형 용기(needle box),WASTE,f,2L,EA,개수,SYNTHETIC_RESIN,source_example_candidate,candidate,v0.2

@@ -1,0 +1,43 @@
+{
+  "version": "inventory-status-v1.1",
+  "policy_status": "implemented_zero_preserving_demand_and_ledger_identity",
+  "source_documents": [
+    "pdf/개발 진행 문서 (추가 진행분).pdf",
+    "pdf/재고 판정 기준 및 변수 정의 명세.pdf"
+  ],
+  "nonpositive_stock_threshold": 0.0,
+  "recent_activity_months": 3,
+  "maximum_observation_lag_months": 0,
+  "demand_parameters": {
+    "mean_daily_usage_floor": 0.0,
+    "daily_demand_stddev_floor": 0.0,
+    "forecast_window_days": 92,
+    "negative_normal_outbound_handling": "exclude_from_demand_moments"
+  },
+  "ledger_rule": {
+    "balance_formula": "closing = opening + purchase_in + transfer_in + return_in - transfer_out - normal_outbound - return_out - disposal - correction_out",
+    "automatic_disposal_handling": "excluded_from_demand_and_ledger_balance",
+    "document_audit_formula": "normal_outbound > previous_final_stock + purchase_in",
+    "automatic_data_missing_formula": "normal_outbound > max(previous_final_stock, 0) + max(purchase_in, 0) + max(transfer_in, 0) + max(return_in, 0)",
+    "automatic_data_missing_basis": "ledger_physical_violation_count",
+    "rationale": "이관·반납 입고를 제외하면 정상 가용재고까지 누락으로 오판할 수 있으므로 PDF 식은 감사열로 보존하고 전체 물리 입고 기준을 자동 분류에 사용한다."
+  },
+  "substitution_group": {
+    "scope": "institution",
+    "exact_fields": [
+      "item_family_id",
+      "item_subtype_id",
+      "normalized_specification",
+      "unit_code"
+    ],
+    "broad_family_stock_display_only": true,
+    "requires_approved_classification": true,
+    "rationale": "규격·단위가 다른 품목은 대체 가능하다고 자동 추정하지 않는다."
+  },
+  "urgent_shortage_rule": {
+    "zero_stock_reason": "TRUE_STOCKOUT",
+    "requires_recent_positive_demand": true,
+    "requires_forecastable_item": true,
+    "requires_exact_group_total_stock_nonpositive": true
+  }
+}

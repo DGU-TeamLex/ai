@@ -19,11 +19,18 @@ env/
 
 # Raw and generated data
 device/
+raw_stock/
+regulazation/
+pdf/
 data/raw/
+data/external/
 data/processed/
 data/sample/
 outputs/
 models/
+/관세청_HS부호_20260101.xlsx
+pipelines/item_material/output_full/
+pipelines/item_material/research/
 
 # Keep editable mapping seed files
 !data/mapping/
@@ -37,3 +44,4 @@ models/
 # Local notebooks and system files
 .ipynb_checkpoints/
 .DS_Store
+*.pdf

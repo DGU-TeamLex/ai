@@ -1,0 +1,192 @@
+{
+  "version": "forecast-ensemble-temporal-v1.0",
+  "status": "validation_selected_test_evaluated_applied",
+  "source": "outputs/stock_backtest_predictions.csv",
+  "model_train_end": "2025-06",
+  "validation_months": [
+    "2025-08",
+    "2025-09"
+  ],
+  "test_months": [
+    "2025-10",
+    "2025-11",
+    "2025-12"
+  ],
+  "selection_metric": "minimum validation WAPE",
+  "selection_did_not_use_test": true,
+  "weight_step": 0.05,
+  "candidate_count": 231,
+  "model_columns": [
+    "stock_model_a_usage_only_pred",
+    "stock_model_a_usage_tweedie_pred",
+    "stock_model_d_module_c_pred"
+  ],
+  "current_prediction_column": "stock_model_a_usage_only_pred",
+  "current_weights": {
+    "stock_model_a_usage_only_pred": 1.0,
+    "stock_model_a_usage_tweedie_pred": 0.0,
+    "stock_model_d_module_c_pred": 0.0
+  },
+  "selected_strategy": "pattern_weight_router",
+  "selected_weights": {
+    "stock_model_a_usage_only_pred": 0.25,
+    "stock_model_a_usage_tweedie_pred": 0.15,
+    "stock_model_d_module_c_pred": 0.6
+  },
+  "pattern_weights": {
+    "all_zero": {
+      "stock_model_a_usage_only_pred": 1.0,
+      "stock_model_a_usage_tweedie_pred": 0.0,
+      "stock_model_d_module_c_pred": 0.0
+    },
+    "erratic": {
+      "stock_model_a_usage_only_pred": 0.55,
+      "stock_model_a_usage_tweedie_pred": 0.0,
+      "stock_model_d_module_c_pred": 0.45
+    },
+    "insufficient_history": {
+      "stock_model_a_usage_only_pred": 0.25,
+      "stock_model_a_usage_tweedie_pred": 0.75,
+      "stock_model_d_module_c_pred": 0.0
+    },
+    "intermittent": {
+      "stock_model_a_usage_only_pred": 0.45,
+      "stock_model_a_usage_tweedie_pred": 0.35,
+      "stock_model_d_module_c_pred": 0.2
+    },
+    "lumpy": {
+      "stock_model_a_usage_only_pred": 0.1,
+      "stock_model_a_usage_tweedie_pred": 0.4,
+      "stock_model_d_module_c_pred": 0.5
+    },
+    "new_series": {
+      "stock_model_a_usage_only_pred": 0.45,
+      "stock_model_a_usage_tweedie_pred": 0.2,
+      "stock_model_d_module_c_pred": 0.35
+    },
+    "smooth": {
+      "stock_model_a_usage_only_pred": 0.2,
+      "stock_model_a_usage_tweedie_pred": 0.2,
+      "stock_model_d_module_c_pred": 0.6
+    }
+  },
+  "current_validation_metrics": {
+    "N": 246102,
+    "ACTUAL_SUM": 31858978.248999994,
+    "PREDICTION_SUM": 27288056.626659058,
+    "MAE": 48.7606676146887,
+    "RMSE": 258.69892979291564,
+    "RMSLE": 0.7454176279623388,
+    "MAPE": 70.78349592614373,
+    "SMAPE": 84.75128921446286,
+    "WAPE": 37.66629842150315,
+    "BIAS": -18.573281088089285,
+    "BIAS_PCT": -14.347357867587643,
+    "ZERO_ACTUAL_RATE": 24.28870955945096
+  },
+  "global_validation_metrics": {
+    "N": 246102,
+    "ACTUAL_SUM": 31858978.248999994,
+    "PREDICTION_SUM": 29632821.847998675,
+    "MAE": 47.33162749176795,
+    "RMSE": 192.46567375317883,
+    "RMSLE": 0.7794331467082708,
+    "MAPE": 88.17497705448139,
+    "SMAPE": 85.31131697427222,
+    "WAPE": 36.56240353327935,
+    "BIAS": -9.045665622389617,
+    "BIAS_PCT": -6.9875323169574495,
+    "ZERO_ACTUAL_RATE": 24.28870955945096
+  },
+  "pattern_router_validation_metrics": {
+    "N": 246102,
+    "ACTUAL_SUM": 31858978.248999994,
+    "PREDICTION_SUM": 29462486.303457,
+    "MAE": 47.25134978036715,
+    "RMSE": 191.31742237994948,
+    "RMSLE": 0.7703327033183796,
+    "MAPE": 85.55975885366142,
+    "SMAPE": 84.91447983393253,
+    "WAPE": 36.50039116999279,
+    "BIAS": -9.737799552799265,
+    "BIAS_PCT": -7.522187079613005,
+    "ZERO_ACTUAL_RATE": 24.28870955945096
+  },
+  "selected_validation_metrics": {
+    "N": 246102,
+    "ACTUAL_SUM": 31858978.248999994,
+    "PREDICTION_SUM": 29462486.303457,
+    "MAE": 47.25134978036715,
+    "RMSE": 191.31742237994948,
+    "RMSLE": 0.7703327033183796,
+    "MAPE": 85.55975885366142,
+    "SMAPE": 84.91447983393253,
+    "WAPE": 36.50039116999279,
+    "BIAS": -9.737799552799265,
+    "BIAS_PCT": -7.522187079613005,
+    "ZERO_ACTUAL_RATE": 24.28870955945096
+  },
+  "current_test_metrics": {
+    "N": 359335,
+    "ACTUAL_SUM": 50562693.667500004,
+    "PREDICTION_SUM": 44727111.580475956,
+    "MAE": 53.81672964439594,
+    "RMSE": 273.6244314974323,
+    "RMSLE": 0.7769897862056127,
+    "MAPE": 81.26355337437805,
+    "SMAPE": 85.04392018627902,
+    "WAPE": 38.24605285853072,
+    "BIAS": -16.23994903648142,
+    "BIAS_PCT": -11.541280069845177,
+    "ZERO_ACTUAL_RATE": 24.420387660539607
+  },
+  "selected_test_metrics": {
+    "N": 359335,
+    "ACTUAL_SUM": 50562693.667500004,
+    "PREDICTION_SUM": 48809620.00535898,
+    "MAE": 52.32233071304872,
+    "RMSE": 200.6529881848462,
+    "RMSLE": 0.8069442457775732,
+    "MAPE": 96.54079316583004,
+    "SMAPE": 85.57690554686224,
+    "WAPE": 37.18402510437882,
+    "BIAS": -4.878661032576915,
+    "BIAS_PCT": -3.46712869703744,
+    "ZERO_ACTUAL_RATE": 24.420387660539607
+  },
+  "test_metric_changes": {
+    "WAPE": {
+      "before": 38.24605285853072,
+      "after": 37.18402510437882,
+      "absolute_change": -1.0620277541518988,
+      "relative_change_percent": -2.776829698165873
+    },
+    "MAE": {
+      "before": 53.81672964439594,
+      "after": 52.32233071304872,
+      "absolute_change": -1.4943989313472201,
+      "relative_change_percent": -2.7768296981658662
+    },
+    "RMSE": {
+      "before": 273.6244314974323,
+      "after": 200.6529881848462,
+      "absolute_change": -72.97144331258608,
+      "relative_change_percent": -26.668467765558734
+    },
+    "BIAS_PCT": {
+      "before": -11.541280069845177,
+      "after": -3.46712869703744,
+      "absolute_change": 8.074151372807737,
+      "relative_change_percent": -69.95888951610937
+    }
+  },
+  "apply_to_prediction": true,
+  "limitations": [
+    "Only five out-of-training forecast months are available.",
+    "The three-month test estimates may change as new months arrive.",
+    "Weights optimize usage WAPE and do not optimize holding or shortage cost."
+  ],
+  "validation_candidates_path": "outputs/forecast_ensemble_validation_candidates.csv",
+  "segment_test_path": "outputs/forecast_ensemble_test_by_segment.csv",
+  "sample_path": "data/sample/forecast_ensemble_test_sample_1000.csv"
+}

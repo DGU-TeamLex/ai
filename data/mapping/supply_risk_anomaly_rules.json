@@ -1,0 +1,139 @@
+{
+  "version": "supply-risk-anomaly-rules-v1.0",
+  "numeric_tolerance": {
+    "absolute": 0.01,
+    "relative": 0.01
+  },
+  "dataset_thresholds": {
+    "critical_row_share_review": 0.10,
+    "critical_safety_stock_share_review": 0.50
+  },
+  "rules": {
+    "SR001_LEVEL_POLICY_MISMATCH": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "저장된 공급레벨이 현재 메타코드 정책의 기준레벨과 다름",
+      "recommended_action": "현재 메타코드와 정책 버전으로 기준레벨을 재도출"
+    },
+    "SR002_DEMAND_AXIS_IN_SUPPLY_LEVEL": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "수요축 코드가 공급 기준레벨을 상향함",
+      "recommended_action": "수요 코드를 demand trigger로 이동하고 공급 기준레벨 재계산"
+    },
+    "SR003_UNMAPPED_META_CODE": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "현재 정책에 없는 공급위험 메타코드",
+      "recommended_action": "정본 코드로 재분류하거나 검수된 정책 규칙 추가"
+    },
+    "SR004_UNAPPROVED_CRITICAL": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "필수 근거와 승인 없이 CRITICAL이 부여됨",
+      "recommended_action": "국가필수·단일수입원·대체불가 근거와 검수 승인 확인"
+    },
+    "SR005_POLICY_VERSION_STALE_OR_MISSING": {
+      "severity": "ERROR",
+      "action": "REVIEW",
+      "description": "공급위험 정책 버전이 없거나 현재 정본과 다름",
+      "recommended_action": "현재 정책 버전으로 재산정 후 버전 저장"
+    },
+    "SR006_Z_VALUE_MISMATCH": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "레벨과 z 값이 정책표와 일치하지 않음",
+      "recommended_action": "기준레벨에서 z 값을 다시 조회"
+    },
+    "SR007_LEAD_TIME_MULTIPLIER_MISMATCH": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "레벨과 리드타임 배수가 정책표와 일치하지 않음",
+      "recommended_action": "기준레벨에서 리드타임 배수를 다시 조회"
+    },
+    "SR008_SAFETY_STOCK_RECALC_MISMATCH": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "저장 안전재고가 동일 입력 재계산값과 다름",
+      "recommended_action": "일 단위 입력과 현재 정책으로 SS 재계산"
+    },
+    "SR009_ROP_RECALC_MISMATCH": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "저장 ROP가 동일 입력 재계산값과 다름",
+      "recommended_action": "일 단위 입력과 현재 정책으로 ROP 재계산"
+    },
+    "SR010_INVALID_NUMERIC_INPUT": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "음수·무한대·비수치 계산 입력이 존재함",
+      "recommended_action": "원천 수량과 단위 변환 오류 수정"
+    },
+    "SR011_INSUFFICIENT_RECALC_INPUT": {
+      "severity": "ERROR",
+      "action": "REVIEW",
+      "description": "SS/ROP 검증에 필요한 일별 평균·표준편차·리드타임이 부족함",
+      "recommended_action": "필수 일 단위 입력을 적재한 뒤 재검증"
+    },
+    "SR012_EVENT_LEVEL_OVERWROTE_BASELINE": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "월별 사건레벨이 고정 기준 공급레벨 컬럼을 덮어씀",
+      "recommended_action": "baseline과 event 레벨을 별도 컬럼으로 복원"
+    },
+    "SR013_CODE_HAS_MULTIPLE_BASELINE_LEVELS": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "동일 메타코드가 데이터셋에서 여러 기준레벨로 저장됨",
+      "recommended_action": "잔존 레벨을 폐기하고 코드에서 전량 재도출"
+    },
+    "SR014_EXCESSIVE_CRITICAL_SHARE": {
+      "severity": "WARNING",
+      "action": "REVIEW",
+      "description": "CRITICAL 행 비중이 검토 임계값을 초과함",
+      "recommended_action": "CRITICAL 근거와 적재 버전을 표본 및 전수 감사"
+    },
+    "SR015_CRITICAL_SS_CONCENTRATION": {
+      "severity": "WARNING",
+      "action": "REVIEW",
+      "description": "전체 안전재고가 CRITICAL에 과도하게 집중됨",
+      "recommended_action": "레벨 재도출 전후 SS 집중도와 과적재 영향 재계산"
+    },
+    "SR016_DOUBLE_INVENTORY_POLICY": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "레벨 기반 SS/ROP와 연속형 Module C 버퍼가 동시에 합산될 가능성",
+      "recommended_action": "승인된 단일 재고정책만 적용"
+    },
+    "SR017_UNIT_CONTRACT_MISSING_OR_INVALID": {
+      "severity": "ERROR",
+      "action": "REVIEW",
+      "description": "SS/ROP 계산의 수요율 또는 표준편차 단위가 없거나 잘못됨",
+      "recommended_action": "per_day와 per_sqrt_day 단위를 명시"
+    },
+    "SR018_LEGACY_CODE_ALIAS_USED": {
+      "severity": "WARNING",
+      "action": "REVIEW",
+      "description": "구 네이밍 alias를 통해서만 현재 코드로 해석됨",
+      "recommended_action": "원천 메타코드를 현재 정본 코드로 재적재"
+    },
+    "SR019_NON_SUPPLY_CODE_IN_BASELINE": {
+      "severity": "WARNING",
+      "action": "REVIEW",
+      "description": "동적 사건 또는 수요 코드가 기준 공급코드 필드에 포함됨",
+      "recommended_action": "event/demand 축으로 이동하고 기준 공급코드를 재생성"
+    },
+    "SR020_INVALID_LEVEL_VALUE": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "허용되지 않은 공급위험 레벨 값",
+      "recommended_action": "NORMAL/CAUTION/WARNING/CRITICAL 중 정책값으로 재도출"
+    },
+    "SR021_REQUIRED_OPERATIONAL_FIELD_MISSING": {
+      "severity": "BLOCKER",
+      "action": "BLOCK",
+      "description": "운영 모드 필수 컬럼이 누락됨",
+      "recommended_action": "운영 입력 계약의 코드·레벨·정책버전·z·리드타임 배수 보완"
+    }
+  }
+}
