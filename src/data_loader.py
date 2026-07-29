@@ -75,6 +75,7 @@ LEDGER_QUALITY_COLUMNS = [
     "ledger_document_rule_violation_count",
     "ledger_physical_violation_count",
     "ledger_opening_stock_missing_count",
+    "ledger_balance_violation_count",
 ]
 
 DEMAND_MOMENT_COLUMNS = [
@@ -181,6 +182,26 @@ def normalize_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
         & normal_outbound.gt(physical_available + LEDGER_TOLERANCE)
     ).astype("int8")
     result["ledger_opening_stock_missing_count"] = (~opening_known).astype("int8")
+    ledger_expected_closing = (
+        result["opening_stock"]
+        + result["purchase_in_qty"]
+        + result["transfer_in_qty"]
+        + result["return_in_qty"]
+        - result["transfer_out_qty"]
+        - result["consumption_qty"]
+        - result["return_out_qty"]
+        - result["disposal_qty"]
+        - result["correction_out_qty"]
+    )
+    closing_known = result["closing_stock"].notna()
+    result["ledger_balance_residual"] = (
+        result["closing_stock"] - ledger_expected_closing
+    ).where(opening_known & closing_known)
+    result["ledger_balance_violation_count"] = (
+        opening_known
+        & closing_known
+        & result["ledger_balance_residual"].abs().gt(LEDGER_TOLERANCE)
+    ).astype("int8")
 
     invalid = (
         result["closing_date"].isna()
@@ -222,6 +243,7 @@ def aggregate_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
         "negative_stock_observation_count": ("negative_stock_observation_count", "sum"),
         "unit_price_sum": ("unit_price_sum", "sum"),
         "unit_price_count": ("unit_price_count", "sum"),
+        "ledger_balance_residual_sum": ("ledger_balance_residual", "sum"),
     }
     aggregations.update(
         {
@@ -254,6 +276,7 @@ def _combine_stock_partials(partials: list[pd.DataFrame]) -> pd.DataFrame:
         "negative_stock_observation_count": ("negative_stock_observation_count", "sum"),
         "unit_price_sum": ("unit_price_sum", "sum"),
         "unit_price_count": ("unit_price_count", "sum"),
+        "ledger_balance_residual_sum": ("ledger_balance_residual_sum", "sum"),
     }
     aggregations.update(
         {
@@ -270,8 +293,14 @@ def _combine_stock_partials(partials: list[pd.DataFrame]) -> pd.DataFrame:
     monthly["average_unit_price"] = monthly["unit_price_sum"] / monthly["unit_price_count"].replace(0, pd.NA)
     monthly["inbound_qty"] = monthly[["purchase_in_qty", "transfer_in_qty", "return_in_qty"]].sum(axis=1)
     monthly["other_outbound_qty"] = monthly[
-        ["transfer_out_qty", "return_out_qty", "disposal_qty", "auto_disposal_adjustment_qty", "correction_out_qty"]
+        [
+            "transfer_out_qty",
+            "return_out_qty",
+            "disposal_qty",
+            "correction_out_qty",
+        ]
     ].sum(axis=1)
+    monthly["auto_disposal_excluded_from_demand_and_ledger"] = True
     monthly["net_stock_change"] = monthly["month_end_stock"] - monthly["month_opening_stock"]
     monthly["stockout_rate"] = monthly["stockout_observation_count"] / monthly["stock_observation_count"].replace(0, pd.NA)
     monthly["stock_item_key"] = (

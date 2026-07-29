@@ -12,11 +12,11 @@ import pandas as pd
 from ..config import (
     CENSORED_DEMAND_METRICS_PATH,
     CSV_CHUNK_SIZE,
+    CURRENT_RAW_STOCK_FILE_PATTERN,
     DEMAND_CLASS_HANDOFF_PATH,
     DEMAND_CLASS_REPORT_PATH,
     DEMAND_CLASS_SAMPLE_PATH,
     RAW_STOCK_DIR,
-    RAW_STOCK_FILE_PATTERN,
 )
 from ..data_loader import (
     _read_stock_chunks,
@@ -225,7 +225,7 @@ def _write_raw_partitions(
 
 def build_censored_metrics_from_raw(
     raw_dir: Path = RAW_STOCK_DIR,
-    pattern: str = RAW_STOCK_FILE_PATTERN,
+    pattern: str = CURRENT_RAW_STOCK_FILE_PATTERN,
     chunk_size: int = CSV_CHUNK_SIZE,
     bucket_count: int = 64,
     temp_dir: Path | None = None,
@@ -672,7 +672,7 @@ def _presentation_sample(classified: pd.DataFrame, sample_size: int) -> pd.DataF
 
 def run_compute(
     raw_dir: Path = RAW_STOCK_DIR,
-    pattern: str = RAW_STOCK_FILE_PATTERN,
+    pattern: str = CURRENT_RAW_STOCK_FILE_PATTERN,
     metrics_path: Path = CENSORED_DEMAND_METRICS_PATH,
     handoff_path: Path = DEMAND_CLASS_HANDOFF_PATH,
     report_path: Path = DEMAND_CLASS_REPORT_PATH,
@@ -777,7 +777,7 @@ def parse_args() -> argparse.Namespace:
         description="Compute stock-availability demand classes and corrected daily mu"
     )
     parser.add_argument("--raw-dir", type=Path, default=RAW_STOCK_DIR)
-    parser.add_argument("--pattern", default=RAW_STOCK_FILE_PATTERN)
+    parser.add_argument("--pattern", default=CURRENT_RAW_STOCK_FILE_PATTERN)
     parser.add_argument("--metrics-path", type=Path, default=CENSORED_DEMAND_METRICS_PATH)
     parser.add_argument("--handoff-path", type=Path, default=DEMAND_CLASS_HANDOFF_PATH)
     parser.add_argument("--report-path", type=Path, default=DEMAND_CLASS_REPORT_PATH)

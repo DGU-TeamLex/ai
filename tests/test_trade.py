@@ -10,6 +10,7 @@ from src.modeling.inventory_policy import add_inventory_recommendations
 from src.trade.hsk_reference import SOURCE_TO_NORMALIZED, load_hsk_reference
 from src.trade.trade_inventory_impact import build_trade_inventory_impact
 from src.trade.trade_collector import (
+    KCS_COUNTRY_ENDPOINT,
     KCS_TOTAL_ENDPOINT,
     collect_trade_flows,
     collect_kcs_trade_totals,
@@ -181,6 +182,55 @@ class KcsTradeCollectorTest(unittest.TestCase):
                         refresh=True,
                         request_xml=lambda *_: b"",
                     )
+
+    def test_incremental_collection_requests_only_missing_country(self):
+        total = pd.DataFrame(
+            [
+                {
+                    "STD_YYYYMM": "2025-01",
+                    "hs_code": "3902100000",
+                    "country_code": "ALL",
+                    "export_weight_kg": 0,
+                    "export_value_usd": 0,
+                    "import_weight_kg": 100,
+                    "import_value_usd": 100,
+                }
+            ]
+        )
+        country = total.assign(country_code="CN")
+        requests = []
+
+        def request_xml(url, params, timeout):
+            requests.append((url, params, timeout))
+            return b"<response><header><resultCode>00</resultCode></header><body/></response>"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            total_path = root / "total.csv"
+            country_path = root / "country.csv"
+            total.to_csv(total_path, index=False)
+            country.to_csv(country_path, index=False)
+            env = {
+                "TRADE_START_MONTH": "2025-01",
+                "TRADE_END_MONTH": "2025-01",
+                "TRADE_COUNTRY_CODES": "CN,IN",
+                "TRADE_MAX_REQUESTS": "10",
+                "DATA_GO_KR_SERVICE_KEY": "test-key",
+            }
+            with patch.dict("os.environ", env, clear=False):
+                collect_trade_flows(
+                    ["3902100000"],
+                    provider="kcs",
+                    total_cache_path=total_path,
+                    country_cache_path=country_path,
+                    state_path=root / "state.json",
+                    refresh=True,
+                    request_xml=request_xml,
+                )
+
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0][0], KCS_COUNTRY_ENDPOINT)
+        self.assertEqual(requests[0][1]["cntyCd"], "IN")
 
 
 class TradeRiskScorerTest(unittest.TestCase):

@@ -6,6 +6,7 @@ from .config import (
     COMMODITY_RISK_SCORE_PATH,
     FEATURE_TABLE_PATH,
     GROUP_KEYS,
+    HISTORICAL_MONTHLY_STOCK_PATH,
     MODULE_C_RISK_SCORE_PATH,
     MONTHLY_STOCK_PATH,
     NEWS_RISK_SCORE_PATH,
@@ -15,6 +16,7 @@ from .config import (
 from .data_loader import load_stock_data
 from .features import create_features
 from .modeling.data_quality import write_forecast_data_quality_report
+from .modeling.standardized_history import attach_standard_item_features
 from .utils import ensure_dirs
 
 
@@ -38,11 +40,32 @@ MONTHLY_FEATURE_COLUMNS = [
 
 def _load_monthly_stock() -> pd.DataFrame:
     if MONTHLY_STOCK_PATH.exists():
-        return pd.read_parquet(MONTHLY_STOCK_PATH, columns=MONTHLY_FEATURE_COLUMNS)
-    monthly_stock = load_stock_data()
-    ensure_dirs(PROCESSED_DATA_DIR)
-    monthly_stock.to_parquet(MONTHLY_STOCK_PATH, index=False, compression="zstd")
-    return monthly_stock[MONTHLY_FEATURE_COLUMNS]
+        current = pd.read_parquet(
+            MONTHLY_STOCK_PATH,
+            columns=MONTHLY_FEATURE_COLUMNS,
+        )
+    else:
+        monthly_stock = load_stock_data()
+        ensure_dirs(PROCESSED_DATA_DIR)
+        monthly_stock.to_parquet(
+            MONTHLY_STOCK_PATH,
+            index=False,
+            compression="zstd",
+        )
+        current = monthly_stock[MONTHLY_FEATURE_COLUMNS]
+    current["data_period"] = "current"
+    frames = [current]
+    if HISTORICAL_MONTHLY_STOCK_PATH.exists():
+        historical = pd.read_parquet(
+            HISTORICAL_MONTHLY_STOCK_PATH,
+            columns=MONTHLY_FEATURE_COLUMNS,
+        )
+        historical["data_period"] = "historical"
+        frames.insert(0, historical)
+    combined = pd.concat(frames, ignore_index=True)
+    return attach_standard_item_features(combined).drop(
+        columns="local_item_key",
+    )
 
 
 def _normalize_yyyymm(df: pd.DataFrame, column: str = "STD_YYYYMM") -> pd.DataFrame:

@@ -25,6 +25,7 @@ LEDGER_COLUMNS = [
     "ledger_document_rule_violation_count",
     "ledger_physical_violation_count",
     "ledger_opening_stock_missing_count",
+    "ledger_balance_violation_count",
 ]
 DEMAND_MOMENT_COLUMNS = [
     "normal_outbound_nonnegative_sum",
@@ -210,6 +211,10 @@ def _prepare_series_status(
                 "ledger_opening_stock_missing_count",
                 "sum",
             ),
+            ledger_balance_violation_count=(
+                "ledger_balance_violation_count",
+                "sum",
+            ),
         )
         .reset_index()
     )
@@ -251,12 +256,18 @@ def _prepare_series_status(
     ).clip(lower=0)
     result["raw_daily_demand_stddev"] = variance.pow(0.5)
     demand_parameters = policy["demand_parameters"]
+    mean_floor = float(demand_parameters["mean_daily_usage_floor"])
+    stddev_floor = float(demand_parameters["daily_demand_stddev_floor"])
+    result["mu_is_floored"] = result["raw_mean_daily_usage"].lt(mean_floor)
+    result["sigma_is_floored"] = result["raw_daily_demand_stddev"].lt(
+        stddev_floor
+    )
     result["mean_daily_usage"] = result["raw_mean_daily_usage"].clip(
-        lower=float(demand_parameters["mean_daily_usage_floor"])
+        lower=mean_floor
     )
     result["daily_demand_stddev"] = result[
         "raw_daily_demand_stddev"
-    ].clip(lower=float(demand_parameters["daily_demand_stddev_floor"]))
+    ].clip(lower=stddev_floor)
     forecast_window_days = int(demand_parameters["forecast_window_days"])
     result["mu_forecast_3m_92d"] = result["recent_normal_outbound"].div(
         forecast_window_days
@@ -390,6 +401,14 @@ def _classify_zero_stock_reason(
     )
     result["zero_stock_reason"] = reason
     result["recent_demand_positive"] = result["recent_normal_outbound"].gt(0)
+    result["demand_class"] = pd.Series(
+        "",
+        index=result.index,
+        dtype="string",
+    ).mask(
+        result["all_time_normal_outbound"].eq(0),
+        "DORMANT",
+    )
     result["alert_suppressed_by_exact_group_stock"] = (
         result["zero_stock_reason"].eq("TRUE_STOCKOUT")
         & result["classification_approved"]
@@ -426,6 +445,10 @@ def _assign_action_status(
     action = action.mask(
         result["zero_stock_reason"].eq("NOT_OPERATED"),
         "FILTERED_NOT_OPERATED",
+    )
+    action = action.mask(
+        result["demand_class"].eq("DORMANT"),
+        "FILTERED_DORMANT",
     )
     action = action.mask(
         result["zero_stock_reason"].eq("DATA_MISSING"),
@@ -509,6 +532,7 @@ def build_inventory_status(
             for key, value in result["inventory_action"].value_counts().items()
         },
         "urgent_shortage_count": urgent_count,
+        "dormant_demand_count": int(result["demand_class"].eq("DORMANT").sum()),
         "recent_data_quality_alert_count": int(
             result["data_quality_alert"].sum()
         ),
@@ -526,6 +550,9 @@ def build_inventory_status(
         ),
         "opening_stock_missing_rows": int(
             result["ledger_opening_stock_missing_count"].sum()
+        ),
+        "ledger_balance_violation_rows": int(
+            result["ledger_balance_violation_count"].sum()
         ),
         "urgent_candidate_reduction_vs_raw_nonpositive": (
             float(1 - urgent_count / raw_nonpositive_count)
@@ -573,6 +600,10 @@ def build_inventory_status(
             "daily_demand_stddev": float(
                 policy["demand_parameters"]["daily_demand_stddev_floor"]
             ),
+        },
+        "demand_floor_application_counts": {
+            "mean_daily_usage": int(result["mu_is_floored"].sum()),
+            "daily_demand_stddev": int(result["sigma_is_floored"].sum()),
         },
         "negative_normal_outbound_handling": policy["demand_parameters"][
             "negative_normal_outbound_handling"

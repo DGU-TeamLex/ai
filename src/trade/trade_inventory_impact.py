@@ -170,7 +170,10 @@ def build_trade_inventory_impact(
         "report_version": REPORT_VERSION,
         "module_c_config_version": config["version"],
         "calibration_status": config["calibration_status"],
-        "comparison": "current_module_c_v1_2_vs_same_policy_with_trade_signal_zero",
+        "comparison": (
+            f"current_{config['version']}_vs_same_policy_"
+            "with_trade_signal_zero"
+        ),
         "forecast_rows": int(len(impact)),
         "trade_exposed_forecast_rows": int(len(affected)),
         "trade_exposed_stock_items": int(

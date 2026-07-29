@@ -33,6 +33,7 @@ def monthly_row(
         "ledger_document_rule_violation_count": document_violations,
         "ledger_physical_violation_count": physical_violations,
         "ledger_opening_stock_missing_count": 0,
+        "ledger_balance_violation_count": 0,
     }
 
 
@@ -102,6 +103,11 @@ class InventoryStatusTest(unittest.TestCase):
         indexed = result.set_index("item_code")
 
         self.assertEqual(indexed.loc["NOT_USED", "zero_stock_reason"], "NOT_OPERATED")
+        self.assertEqual(indexed.loc["NOT_USED", "demand_class"], "DORMANT")
+        self.assertEqual(
+            indexed.loc["NOT_USED", "inventory_action"],
+            "FILTERED_DORMANT",
+        )
         self.assertEqual(indexed.loc["MISSING", "zero_stock_reason"], "DATA_MISSING")
         self.assertTrue(indexed.loc["MISSING", "data_quality_alert"])
         self.assertEqual(
@@ -128,6 +134,7 @@ class InventoryStatusTest(unittest.TestCase):
         self.assertEqual(different_gauge["inventory_action"], "URGENT_SHORTAGE")
 
         self.assertEqual(report["urgent_shortage_count"], 1)
+        self.assertEqual(report["dormant_demand_count"], 1)
         self.assertEqual(report["exact_group_stock_suppression_count"], 1)
         self.assertFalse(report["pdf_reference_counts_reused_as_measured_results"])
         self.assertEqual(
@@ -138,10 +145,16 @@ class InventoryStatusTest(unittest.TestCase):
             indexed.loc["STRIP_ZERO", "raw_mean_daily_usage"],
             3 / 31,
         )
-        self.assertEqual(indexed.loc["STRIP_ZERO", "mean_daily_usage"], 0.5)
-        self.assertGreaterEqual(
-            indexed.loc["STRIP_ZERO", "daily_demand_stddev"],
-            0.1,
+        self.assertAlmostEqual(
+            indexed.loc["STRIP_ZERO", "mean_daily_usage"],
+            3 / 31,
+        )
+        self.assertFalse(indexed.loc["STRIP_ZERO", "mu_is_floored"])
+        self.assertFalse(indexed.loc["STRIP_ZERO", "sigma_is_floored"])
+        self.assertEqual(report["demand_floor_application_counts"]["mean_daily_usage"], 0)
+        self.assertEqual(
+            report["demand_floor_application_counts"]["daily_demand_stddev"],
+            0,
         )
 
     def test_sample_is_bounded_and_keeps_multiple_actions(self):

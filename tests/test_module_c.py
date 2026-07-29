@@ -333,8 +333,8 @@ class ModuleCInventoryPolicyTest(unittest.TestCase):
         result = add_inventory_recommendations(
             source, module_c_config=module_c_config()
         ).iloc[0]
-        self.assertEqual(result["base_stock"], 120.0)
-        self.assertEqual(result["target_stock"], 120.0)
+        self.assertEqual(result["base_stock"], 180.0)
+        self.assertEqual(result["target_stock"], 180.0)
         self.assertFalse(result["module_c_policy_applied"])
 
     def test_zero_module_c_signal_has_no_floating_point_residual_buffer(self):

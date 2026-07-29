@@ -1,6 +1,6 @@
 {
-  "version": "inventory-status-v1.0",
-  "policy_status": "implemented_pdf_alignment_with_safety_guard",
+  "version": "inventory-status-v1.1",
+  "policy_status": "implemented_zero_preserving_demand_and_ledger_identity",
   "source_documents": [
     "pdf/개발 진행 문서 (추가 진행분).pdf",
     "pdf/재고 판정 기준 및 변수 정의 명세.pdf"
@@ -9,12 +9,14 @@
   "recent_activity_months": 3,
   "maximum_observation_lag_months": 0,
   "demand_parameters": {
-    "mean_daily_usage_floor": 0.5,
-    "daily_demand_stddev_floor": 0.1,
+    "mean_daily_usage_floor": 0.0,
+    "daily_demand_stddev_floor": 0.0,
     "forecast_window_days": 92,
     "negative_normal_outbound_handling": "exclude_from_demand_moments"
   },
   "ledger_rule": {
+    "balance_formula": "closing = opening + purchase_in + transfer_in + return_in - transfer_out - normal_outbound - return_out - disposal - correction_out",
+    "automatic_disposal_handling": "excluded_from_demand_and_ledger_balance",
     "document_audit_formula": "normal_outbound > previous_final_stock + purchase_in",
     "automatic_data_missing_formula": "normal_outbound > max(previous_final_stock, 0) + max(purchase_in, 0) + max(transfer_in, 0) + max(return_in, 0)",
     "automatic_data_missing_basis": "ledger_physical_violation_count",

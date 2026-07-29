@@ -5,9 +5,12 @@ import pandas as pd
 
 from ..config import (
     FORECAST_DATA_QUALITY_REPORT_PATH,
+    HISTORICAL_TRAIN_END,
+    HISTORICAL_TRAIN_START,
     ITEM_ALIAS_CANDIDATE_PATH,
     TEST_START,
     TRAIN_END,
+    TRAIN_START,
     VALID_END,
     VALID_START,
 )
@@ -40,8 +43,25 @@ def attach_standardization_metadata(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _split_counts(labeled: pd.DataFrame) -> dict[str, int]:
+    historical_eligible = labeled.get(
+        "historical_training_eligible",
+        pd.Series(False, index=labeled.index),
+    ).fillna(False)
+    historical = (
+        labeled["year_month"].between(
+            pd.Timestamp(HISTORICAL_TRAIN_START),
+            pd.Timestamp(HISTORICAL_TRAIN_END),
+        )
+        & historical_eligible
+    )
+    current_train = labeled["year_month"].between(
+        pd.Timestamp(TRAIN_START),
+        pd.Timestamp(TRAIN_END),
+    )
     return {
-        "train_rows": int((labeled["year_month"] <= pd.Timestamp(TRAIN_END)).sum()),
+        "train_rows": int((historical | current_train).sum()),
+        "historical_train_rows": int(historical.sum()),
+        "current_train_rows": int(current_train.sum()),
         "validation_rows": int(
             labeled["year_month"].between(pd.Timestamp(VALID_START), pd.Timestamp(VALID_END)).sum()
         ),
@@ -67,17 +87,49 @@ def build_forecast_data_quality_report(
     current_month = pd.Timestamp.now().to_period("M").to_timestamp()
     data_age_months = (current_month.year - latest_month.year) * 12 + current_month.month - latest_month.month
 
-    status_input = (
-        monthly_stock.groupby(["institution_code", "item_code"], observed=True)["consumption_qty"]
-        .agg(rows="size", usage_sum="sum")
-        .reset_index()
-    )
-    status_input = attach_standardization_metadata(status_input)
+    if "standardization_match_method" in monthly_stock.columns:
+        status_input = (
+            monthly_stock.groupby(
+                [
+                    "data_period",
+                    "standardization_match_method",
+                    "historical_training_eligible",
+                ],
+                observed=True,
+                dropna=False,
+            )["consumption_qty"]
+            .agg(rows="size", usage_sum="sum")
+            .reset_index()
+            .rename(
+                columns={
+                    "standardization_match_method": "normalization_status",
+                }
+            )
+        )
+    else:
+        status_input = (
+            monthly_stock.groupby(
+                ["institution_code", "item_code"],
+                observed=True,
+            )["consumption_qty"]
+            .agg(rows="size", usage_sum="sum")
+            .reset_index()
+        )
+        status_input = attach_standardization_metadata(status_input)
+    status_group_columns = ["normalization_status"]
+    for column in ["data_period", "historical_training_eligible"]:
+        if column in status_input.columns:
+            status_group_columns.append(column)
     status_summary = (
-        status_input.groupby("normalization_status", dropna=False)
+        status_input.groupby(
+            status_group_columns,
+            dropna=False,
+            observed=True,
+        )
         .agg(rows=("rows", "sum"), usage_sum=("usage_sum", "sum"))
         .reset_index()
     )
+    status_summary = status_summary[status_summary["rows"].gt(0)]
     total_rows = int(status_input["rows"].sum())
     total_usage = float(status_input["usage_sum"].sum())
     standardization = []
@@ -86,6 +138,16 @@ def build_forecast_data_quality_report(
         standardization.append(
             {
                 "normalization_status": status,
+                "data_period": (
+                    str(row.data_period)
+                    if hasattr(row, "data_period")
+                    else "current"
+                ),
+                "historical_training_eligible": (
+                    bool(row.historical_training_eligible)
+                    if hasattr(row, "historical_training_eligible")
+                    else None
+                ),
                 "rows": int(row.rows),
                 "row_pct": float(row.rows / total_rows * 100),
                 "usage_sum": float(row.usage_sum),
@@ -132,12 +194,14 @@ def build_forecast_data_quality_report(
             "local_series_forecast": "ready_with_quality_controls",
             "standardization_required_for_local_series_forecast": False,
             "standardization_required_for_cross_institution_pooling": True,
+            "standardization_used_for_model_hierarchy": True,
             "standardization_required_for_news_material_risk": True,
             "limitations": [
                 "Series with fewer than six observed months have weak item-specific history.",
                 "A missing month is treated as an observation gap, not as zero demand.",
                 "Negative consumption is excluded from labels instead of being silently corrected.",
                 "The latest available raw_stock month may be stale for current operations.",
+                "Historical-only standardized names are excluded from model fitting.",
             ],
         },
     }

@@ -13,6 +13,7 @@ from ..config import (
     EVALUATION_REPORT_PATH,
     EVALUATION_SEGMENT_REPORT_PATH,
     FEATURE_TABLE_PATH,
+    FORECAST_ENSEMBLE_POLICY_PATH,
     INVENTORY_STATUS_PATH,
     MODEL_DIR,
     MODEL_MANIFEST_PATH,
@@ -21,6 +22,8 @@ from ..config import (
     SERIES_KEYS,
     TARGET_COLUMN,
     TEST_START,
+    TRAIN_START,
+    VALID_END,
 )
 from ..feature_engineering import run_feature_engineering
 from ..material_mapping import attach_approved_material_mapping_metadata
@@ -45,9 +48,12 @@ INVENTORY_STATUS_PREDICTION_COLUMNS = [
     "daily_demand_stddev",
     "raw_mean_daily_usage",
     "raw_daily_demand_stddev",
+    "mu_is_floored",
+    "sigma_is_floored",
     "mu_forecast_3m_92d",
     "observation_period_days",
     "zero_stock_reason",
+    "demand_class",
     "inventory_action",
     "urgent_shortage",
     "exact_group_total_stock",
@@ -66,6 +72,17 @@ RISK_COLUMNS = [
     "module_c_supply_risk",
     "module_c_total_risk",
     "module_c_signal_confidence",
+]
+STANDARD_ITEM_OUTPUT_COLUMNS = [
+    "standard_item_key",
+    "standard_item_definition_key",
+    "standard_item_group_id",
+    "standard_item_family_id",
+    "standard_item_subtype_id",
+    "standard_item_specification",
+    "standard_item_unit_code",
+    "standardization_match_method",
+    "data_period",
 ]
 
 
@@ -87,6 +104,7 @@ def attach_current_inventory_status_parameters(
         path,
         usecols=INVENTORY_STATUS_PREDICTION_COLUMNS,
         dtype={"stock_item_key": str},
+        low_memory=False,
     )
     if status["stock_item_key"].duplicated().any():
         raise ValueError("Inventory status output is not unique by stock_item_key")
@@ -111,6 +129,15 @@ def _load_feature_table(manifest: list[dict]) -> pd.DataFrame:
         *SERIES_KEYS,
         "item_name",
         "stock_item_key",
+        "standard_item_key",
+        "standard_item_definition_key",
+        "standard_item_group_id",
+        "standard_item_family_id",
+        "standard_item_subtype_id",
+        "standard_item_specification",
+        "standard_item_unit_code",
+        "standardization_match_method",
+        "data_period",
         "month_end_stock",
         "history_months",
         "demand_qty",
@@ -126,7 +153,28 @@ def _load_feature_table(manifest: list[dict]) -> pd.DataFrame:
     for row in manifest:
         if row.get("method_type") == "machine_learning" and row.get("status") == "ready":
             columns.update(_load_bundle(row["model"])["feature_cols"])
-    return pd.read_parquet(FEATURE_TABLE_PATH, columns=sorted(columns))
+    return pd.read_parquet(
+        FEATURE_TABLE_PATH,
+        columns=sorted(columns),
+        filters=[
+            ("year_month", ">=", pd.Timestamp(TEST_START)),
+        ],
+    )
+
+
+def _load_demand_pattern_history() -> pd.DataFrame:
+    return pd.read_parquet(
+        FEATURE_TABLE_PATH,
+        columns=[
+            "year_month",
+            *SERIES_KEYS,
+            "demand_qty",
+        ],
+        filters=[
+            ("year_month", ">=", pd.Timestamp(TRAIN_START)),
+            ("year_month", "<=", pd.Timestamp(VALID_END)),
+        ],
+    )
 
 
 def _load_manifest() -> list[dict]:
@@ -180,6 +228,104 @@ def _add_trained_model_predictions(
     return result
 
 
+def _apply_temporal_ensemble(
+    frame: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict | None]:
+    if not FORECAST_ENSEMBLE_POLICY_PATH.exists():
+        return frame, None
+    with FORECAST_ENSEMBLE_POLICY_PATH.open(
+        "r",
+        encoding="utf-8",
+    ) as file:
+        policy = json.load(file)
+    if not policy.get("apply_to_prediction", False):
+        return frame, None
+    weights = {
+        str(column): float(weight)
+        for column, weight in policy.get(
+            "selected_weights",
+            {},
+        ).items()
+    }
+    if not weights:
+        raise ValueError("Forecast ensemble policy has no selected weights")
+    if any(weight < 0 for weight in weights.values()):
+        raise ValueError("Forecast ensemble weights must be non-negative")
+    if abs(sum(weights.values()) - 1.0) > 1e-9:
+        raise ValueError("Forecast ensemble weights must sum to 1.0")
+    missing = sorted(set(weights) - set(frame.columns))
+    if missing:
+        raise ValueError(
+            f"Forecast ensemble model columns are missing: {missing}"
+        )
+    prediction = np.zeros(len(frame), dtype="float64")
+    for column, weight in weights.items():
+        prediction += (
+            pd.to_numeric(frame[column], errors="coerce")
+            .fillna(0.0)
+            .to_numpy(dtype="float64")
+            * weight
+        )
+    result = frame.copy()
+    result["temporal_ensemble_pred"] = np.clip(
+        prediction,
+        0,
+        None,
+    )
+    return result, policy
+
+
+def _apply_pattern_ensemble(
+    frame: pd.DataFrame,
+    policy: dict,
+) -> pd.DataFrame:
+    if policy.get("selected_strategy") != "pattern_weight_router":
+        return frame
+    result = frame.copy()
+    pattern = result["demand_pattern"].fillna("new_series").astype(str)
+    for pattern_name, raw_weights in policy.get(
+        "pattern_weights",
+        {},
+    ).items():
+        weights = {
+            str(column): float(weight)
+            for column, weight in raw_weights.items()
+        }
+        if any(weight < 0 for weight in weights.values()):
+            raise ValueError(
+                "Pattern ensemble weights must be non-negative"
+            )
+        if abs(sum(weights.values()) - 1.0) > 1e-9:
+            raise ValueError(
+                "Pattern ensemble weights must sum to 1.0"
+            )
+        missing = sorted(set(weights) - set(result.columns))
+        if missing:
+            raise ValueError(
+                f"Pattern ensemble model columns are missing: {missing}"
+            )
+        mask = pattern.eq(str(pattern_name))
+        if not mask.any():
+            continue
+        prediction = np.zeros(int(mask.sum()), dtype="float64")
+        for column, weight in weights.items():
+            prediction += (
+                pd.to_numeric(
+                    result.loc[mask, column],
+                    errors="coerce",
+                )
+                .fillna(0.0)
+                .to_numpy(dtype="float64")
+                * weight
+            )
+        result.loc[mask, "temporal_ensemble_pred"] = np.clip(
+            prediction,
+            0,
+            None,
+        )
+    return result
+
+
 def _build_prediction_frame(
     source: pd.DataFrame,
     manifest: list[dict],
@@ -188,6 +334,7 @@ def _build_prediction_frame(
 ) -> pd.DataFrame:
     enriched = add_baseline_predictions(source)
     enriched = _add_trained_model_predictions(enriched, manifest)
+    enriched, ensemble_policy = _apply_temporal_ensemble(enriched)
     model_prediction_columns = [
         column
         for column in enriched.columns
@@ -203,6 +350,7 @@ def _build_prediction_frame(
         "item_code",
         "item_name",
         "stock_item_key",
+        *STANDARD_ITEM_OUTPUT_COLUMNS,
         "month_end_stock",
         "history_months",
         TARGET_COLUMN,
@@ -222,20 +370,63 @@ def _build_prediction_frame(
 
     output = output.merge(demand_patterns, on=SERIES_KEYS, how="left", validate="many_to_one")
     output["demand_pattern"] = output["demand_pattern"].fillna("new_series")
+    if ensemble_policy is not None:
+        output = _apply_pattern_ensemble(output, ensemble_policy)
     output = attach_standardization_metadata(output)
 
-    primary_column = _selected_prediction_column(manifest, set(prediction_columns))
+    primary_column = (
+        "temporal_ensemble_pred"
+        if ensemble_policy is not None
+        else _selected_prediction_column(
+            manifest,
+            set(prediction_columns),
+        )
+    )
     output["primary_model"] = primary_column
     output["predicted_usage"] = output[primary_column]
-    primary_name = primary_column.removesuffix("_pred")
-    primary_spec = next(
-        (row for row in manifest if row.get("model") == primary_name),
-        {},
-    )
-    output["external_demand_signal_in_forecast"] = bool(
-        primary_spec.get("uses_news", False)
-        or primary_spec.get("uses_module_c", False)
-    )
+    if ensemble_policy is not None:
+        manifest_by_prediction = {
+            f"{row['model']}_pred": row for row in manifest
+        }
+        output["external_demand_signal_in_forecast"] = any(
+            float(weight) > 0
+            and (
+                manifest_by_prediction.get(column, {}).get(
+                    "uses_news",
+                    False,
+                )
+                or manifest_by_prediction.get(column, {}).get(
+                    "uses_commodity",
+                    False,
+                )
+                or manifest_by_prediction.get(column, {}).get(
+                    "uses_module_c",
+                    False,
+                )
+            )
+            for column, weight in ensemble_policy[
+                "selected_weights"
+            ].items()
+        )
+        output["forecast_ensemble_policy_version"] = (
+            ensemble_policy["version"]
+        )
+    else:
+        primary_name = primary_column.removesuffix("_pred")
+        primary_spec = next(
+            (
+                row
+                for row in manifest
+                if row.get("model") == primary_name
+            ),
+            {},
+        )
+        output["external_demand_signal_in_forecast"] = bool(
+            primary_spec.get("uses_news", False)
+            or primary_spec.get("uses_commodity", False)
+            or primary_spec.get("uses_module_c", False)
+        )
+        output["forecast_ensemble_policy_version"] = ""
     output["current_stock"] = output["month_end_stock"].fillna(0.0)
     output["prediction_type"] = prediction_type
     output = attach_approved_material_mapping_metadata(output)
@@ -259,14 +450,16 @@ def _build_prediction_frame(
 
 def build_prediction_outputs() -> tuple[pd.DataFrame, pd.DataFrame]:
     manifest = _load_manifest()
+    demand_history = _load_demand_pattern_history()
+    demand_patterns = classify_demand_patterns(demand_history)
+    del demand_history
+    gc.collect()
     feature_table = _load_feature_table(manifest)
     eligible_mask = (
         feature_table["lag_1"].notna()
         & feature_table["lag_1"].ge(0)
         & feature_table["rolling_mean_3"].notna()
     )
-    demand_patterns = classify_demand_patterns(feature_table)
-
     test = feature_table[
         eligible_mask
         & feature_table[TARGET_COLUMN].notna()

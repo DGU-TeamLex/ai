@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .config import EXTERNAL_FEATURE_PATH, SERIES_KEYS
+from .config import CATEGORICAL_FEATURES, EXTERNAL_FEATURE_PATH, SERIES_KEYS
 
 
 LOGGER = logging.getLogger(__name__)
@@ -43,8 +43,9 @@ def add_external_features(df: pd.DataFrame, external_path: Path = EXTERNAL_FEATU
 
 def create_features(monthly_stock: pd.DataFrame) -> pd.DataFrame:
     df = monthly_stock.copy().sort_values([*SERIES_KEYS, "year_month"]).reset_index(drop=True)
-    for column in SERIES_KEYS:
-        df[column] = df[column].astype("category")
+    for column in CATEGORICAL_FEATURES:
+        if column in df.columns:
+            df[column] = df[column].astype("category")
     for column in ["stock_item_key", "item_name"]:
         if column in df.columns:
             df[column] = df[column].astype("category")

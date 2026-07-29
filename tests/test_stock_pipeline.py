@@ -13,6 +13,11 @@ from src.data_loader import (
 from src.features import create_features
 from src.modeling.baseline import add_baseline_predictions
 from src.modeling.metrics import regression_metrics
+from src.modeling.training import (
+    select_training_window,
+    split_time_series,
+    training_sample_weights,
+)
 
 
 def stock_row(
@@ -24,6 +29,11 @@ def stock_row(
     purchase_in: float = 0,
     transfer_in: float = 0,
     return_in: float = 0,
+    transfer_out: float = 0,
+    return_out: float = 0,
+    disposal: float = 0,
+    auto_disposal: float = 0,
+    correction_out: float = 0,
 ) -> list[str]:
     values = {
         "부서코드": "방문건강관리사업",
@@ -37,12 +47,12 @@ def stock_row(
         "입고량": str(purchase_in),
         "불출입고량": str(transfer_in),
         "반납입고량": str(return_in),
-        "불출출고량": "0",
+        "불출출고량": str(transfer_out),
         "정상출고량": str(consumption),
-        "반품출고량": "0",
-        "폐기출고량": "0",
-        "자동폐기출고량": "0",
-        "보정출고량": "0",
+        "반품출고량": str(return_out),
+        "폐기출고량": str(disposal),
+        "자동폐기출고량": str(auto_disposal),
+        "보정출고량": str(correction_out),
         "보건기관코드_en": "INST001",
     }
     return [values[column] for column in RAW_STOCK_COLUMNS]
@@ -75,6 +85,37 @@ class StockPipelineTest(unittest.TestCase):
         self.assertEqual(loaded.iloc[0]["vendor_code"], "")
         self.assertTrue(pd.isna(loaded.iloc[0]["average_unit_price"]))
 
+    def test_current_and_historical_patterns_can_be_processed_separately(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_path = Path(directory) / "익스포트_0_수정.DAT"
+            historical_path = (
+                Path(directory)
+                / "(한국사회보장정보원)_물품재고_0_2018_2019_수정.DAT"
+            )
+            for path, date in [
+                (current_path, "20240101"),
+                (historical_path, "20190101"),
+            ]:
+                with path.open("w", encoding="utf-8", newline="") as file:
+                    writer = csv.writer(file, delimiter="|")
+                    writer.writerow(RAW_STOCK_COLUMNS)
+                    writer.writerow(stock_row(date, 10, 8, 2))
+
+            current = load_stock_data(
+                raw_dir=Path(directory),
+                pattern="익스포트_*.DAT",
+            )
+            historical = load_stock_data(
+                raw_dir=Path(directory),
+                pattern="*2018_2019*.DAT",
+            )
+
+        self.assertEqual(current["year_month"].tolist(), [pd.Timestamp("2024-01-01")])
+        self.assertEqual(
+            historical["year_month"].tolist(),
+            [pd.Timestamp("2019-01-01")],
+        )
+
     def test_quote_aware_loader_builds_monthly_stock(self):
         import csv
 
@@ -100,7 +141,35 @@ class StockPipelineTest(unittest.TestCase):
         self.assertEqual(january["stock_item_key"], "INST001::방문건강관리사업::USE0000067")
         self.assertEqual(january["ledger_document_rule_violation_count"], 0)
         self.assertEqual(january["ledger_physical_violation_count"], 0)
+        self.assertEqual(january["ledger_balance_violation_count"], 0)
         self.assertNotIn("\n", january["item_name"])
+
+    def test_auto_disposal_is_excluded_from_demand_and_ledger_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stock.DAT"
+            with path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file, delimiter="|", quotechar='"')
+                writer.writerow(RAW_STOCK_COLUMNS)
+                writer.writerow(
+                    stock_row(
+                        "20240101",
+                        opening=10,
+                        closing=8,
+                        consumption=2,
+                        auto_disposal=-50,
+                    )
+                )
+
+            monthly = load_stock_data(path.parent, path.name, chunk_size=1)
+
+        row = monthly.iloc[0]
+        self.assertEqual(row["consumption_qty"], 2)
+        self.assertEqual(row["normal_outbound_nonnegative_sum"], 2)
+        self.assertEqual(row["other_outbound_qty"], 0)
+        self.assertEqual(row["auto_disposal_adjustment_qty"], -50)
+        self.assertEqual(row["ledger_balance_violation_count"], 0)
+        self.assertEqual(row["ledger_balance_residual_sum"], 0)
+        self.assertTrue(row["auto_disposal_excluded_from_demand_and_ledger"])
 
     def test_ledger_quality_separates_document_and_physical_inbound_rules(self):
         import csv
@@ -284,6 +353,67 @@ class StockPipelineTest(unittest.TestCase):
 
         self.assertEqual(metrics["N"], 2)
         self.assertAlmostEqual(metrics["MAE"], 0.5)
+
+    def test_standardized_historical_gap_data_is_included_in_training(self):
+        frame = pd.DataFrame(
+            {
+                "year_month": pd.to_datetime(
+                    ["2019-12-01", "2024-12-01", "2025-01-01", "2025-07-01"]
+                ),
+                "historical_training_eligible": [True, True, True, True],
+            }
+        )
+
+        train, valid, test = split_time_series(frame)
+
+        self.assertEqual(
+            train["year_month"].tolist(),
+            [
+                pd.Timestamp("2019-12-01"),
+                pd.Timestamp("2024-12-01"),
+            ],
+        )
+        self.assertEqual(valid["year_month"].tolist(), [pd.Timestamp("2025-01-01")])
+        self.assertEqual(test["year_month"].tolist(), [pd.Timestamp("2025-07-01")])
+
+    def test_unmatched_historical_item_is_excluded_from_model_training(self):
+        frame = pd.DataFrame(
+            {
+                "year_month": pd.to_datetime(
+                    ["2019-12-01", "2024-12-01", "2025-01-01", "2025-07-01"]
+                ),
+                "historical_training_eligible": [False, True, True, True],
+            }
+        )
+
+        train, _, _ = split_time_series(frame)
+
+        self.assertEqual(
+            train["year_month"].tolist(),
+            [pd.Timestamp("2024-12-01")],
+        )
+
+    def test_historical_weight_only_downweights_eligible_old_rows(self):
+        frame = pd.DataFrame(
+            {
+                "year_month": pd.to_datetime(
+                    ["2019-11-01", "2019-12-01", "2024-12-01"]
+                ),
+                "historical_training_eligible": [True, False, True],
+            }
+        )
+
+        train = select_training_window(frame, "2024-12", 0.25)
+        weights = training_sample_weights(train, 0.25)
+
+        self.assertEqual(
+            train["year_month"].tolist(),
+            [
+                pd.Timestamp("2019-11-01"),
+                pd.Timestamp("2024-12-01"),
+            ],
+        )
+        self.assertEqual(weights.tolist(), [0.25, 1.0])
 
 
 if __name__ == "__main__":

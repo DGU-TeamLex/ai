@@ -6,6 +6,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 RAW_STOCK_DIR = PROJECT_ROOT / "raw_stock"
 RAW_STOCK_FILE_PATTERN = "*.DAT"
+CURRENT_RAW_STOCK_FILE_PATTERN = "익스포트_*.DAT"
+HISTORICAL_RAW_STOCK_FILE_PATTERN = "*2018_2019*.DAT"
 
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 SAMPLE_DATA_DIR = PROJECT_ROOT / "data" / "sample"
@@ -18,6 +20,10 @@ MODEL_DIR = PROJECT_ROOT / "models"
 EXTERNAL_FEATURE_PATH = PROJECT_ROOT / "data" / "external_features.csv"
 
 MONTHLY_STOCK_PATH = PROCESSED_DATA_DIR / "stock_monthly.parquet"
+HISTORICAL_MONTHLY_STOCK_PATH = (
+    PROCESSED_DATA_DIR / "stock_monthly_2018_2019_auxiliary.parquet"
+)
+STOCK_PREPROCESSING_REPORT_PATH = OUTPUT_DIR / "stock_preprocessing_report.json"
 FEATURE_TABLE_PATH = OUTPUT_DIR / "stock_feature_table.parquet"
 NEWS_RISK_SCORE_PATH = OUTPUT_DIR / "stock_news_risk_scores.csv"
 NEWS_ARTICLE_SCORE_PATH = OUTPUT_DIR / "stock_news_article_scores.csv"
@@ -54,6 +60,9 @@ DRUG_INGREDIENT_SAMPLE_PATH = (
 TRADE_COUNTRY_SCOPE_PATH = MAPPING_DATA_DIR / "trade_country_scope.csv"
 TRADE_TOTAL_CACHE_PATH = EXTERNAL_TRADE_DATA_DIR / "kcs_trade_total_monthly.csv"
 TRADE_COUNTRY_CACHE_PATH = EXTERNAL_TRADE_DATA_DIR / "kcs_trade_country_monthly.csv"
+TRADE_COUNTRY_CACHE_SUMMARY_PATH = (
+    OUTPUT_DIR / "kcs_trade_country_cache_summary.csv"
+)
 TRADE_HS_FEATURE_PATH = OUTPUT_DIR / "hs_trade_risk_features.csv"
 TRADE_HS_FEATURE_SAMPLE_PATH = SAMPLE_DATA_DIR / "hs_trade_risk_features_sample_1000.csv"
 TRADE_RISK_SCORE_PATH = OUTPUT_DIR / "stock_trade_risk_scores.csv"
@@ -64,6 +73,18 @@ TRADE_INVENTORY_IMPACT_REPORT_PATH = (
 )
 TRADE_INVENTORY_IMPACT_SAMPLE_PATH = (
     SAMPLE_DATA_DIR / "trade_inventory_impact_sample_1000.csv"
+)
+TRADE_WEIGHT_CALIBRATION_REPORT_PATH = (
+    OUTPUT_DIR / "trade_weight_calibration_report.json"
+)
+TRADE_WEIGHT_CALIBRATION_TABLE_PATH = (
+    OUTPUT_DIR / "trade_weight_calibration_observations.csv"
+)
+TRADE_WEIGHT_CALIBRATION_POLICY_PATH = (
+    OUTPUT_DIR / "trade_weight_calibration_policy.csv"
+)
+TRADE_WEIGHT_CALIBRATION_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "trade_weight_calibration_sample_1000.csv"
 )
 MODULE_C_RISK_SCORE_PATH = OUTPUT_DIR / "stock_module_c_risk_scores.csv"
 MODULE_C_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_module_c_risk_audit.csv"
@@ -90,6 +111,21 @@ MODEL_COMBINATION_SEGMENT_EVALUATION_PATH = (
 MODEL_COMBINATION_POLICY_PATH = OUTPUT_DIR / "stock_combination_policy.json"
 MODEL_COMBINATION_SAMPLE_PATH = (
     SAMPLE_DATA_DIR / "stock_combination_experiment_sample_1000.csv"
+)
+FORECAST_ENSEMBLE_POLICY_PATH = (
+    MAPPING_DATA_DIR / "forecast_ensemble_policy.json"
+)
+FORECAST_ENSEMBLE_VALIDATION_PATH = (
+    OUTPUT_DIR / "forecast_ensemble_validation_candidates.csv"
+)
+FORECAST_ENSEMBLE_REPORT_PATH = (
+    OUTPUT_DIR / "forecast_ensemble_temporal_report.json"
+)
+FORECAST_ENSEMBLE_SEGMENT_PATH = (
+    OUTPUT_DIR / "forecast_ensemble_test_by_segment.csv"
+)
+FORECAST_ENSEMBLE_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "forecast_ensemble_test_sample_1000.csv"
 )
 MODEL_VALIDATION_REPORT_PATH = OUTPUT_DIR / "stock_model_validation_report.csv"
 MODEL_CV_REPORT_PATH = OUTPUT_DIR / "stock_model_cv_report.csv"
@@ -134,6 +170,21 @@ ITEM_INTEGRATED_CLASSIFICATION_REPORT_PATH = (
 )
 ITEM_INTEGRATED_SAMPLE_PATH = (
     SAMPLE_DATA_DIR / "item_integrated_classification_sample_1000.csv"
+)
+STANDARD_ITEM_MAPPING_PATH = (
+    PROCESSED_DATA_DIR / "stock_standard_item_mapping.parquet"
+)
+STANDARD_ITEM_MAPPING_REPORT_PATH = (
+    OUTPUT_DIR / "stock_standard_item_mapping_report.json"
+)
+STANDARD_ITEM_MAPPING_SAMPLE_PATH = (
+    SAMPLE_DATA_DIR / "stock_standard_item_mapping_sample_1000.csv"
+)
+HISTORICAL_TRAINING_POLICY_PATH = (
+    MAPPING_DATA_DIR / "historical_training_policy.json"
+)
+HISTORICAL_TRAINING_TUNING_REPORT_PATH = (
+    OUTPUT_DIR / "historical_training_weight_report.json"
 )
 ITEM_CLASSIFICATION_EVALUATION_REPORT_PATH = (
     OUTPUT_DIR / "item_classification_evaluation.json"
@@ -270,9 +321,23 @@ NEWS_RISK_WEIGHT_PATH = MAPPING_DATA_DIR / "news_risk_weights.yaml"
 
 GROUP_KEYS = ["year_month", "institution_code", "department", "item_code"]
 SERIES_KEYS = ["institution_code", "department", "item_code"]
-CATEGORICAL_FEATURES = ["institution_code", "department", "item_code"]
+CATEGORICAL_FEATURES = [
+    "institution_code",
+    "department",
+    "standard_item_definition_key",
+    "standard_item_group_id",
+    "standard_item_family_id",
+    "standard_item_subtype_id",
+    "standard_item_specification",
+    "standard_item_unit_code",
+    "standardization_match_method",
+    "data_period",
+]
 TARGET_COLUMN = "target_usage"
 
+HISTORICAL_TRAIN_START = "2018-01"
+HISTORICAL_TRAIN_END = "2019-12"
+TRAIN_START = "2024-01"
 TRAIN_END = "2024-12"
 VALID_START = "2025-01"
 VALID_END = "2025-06"
@@ -332,7 +397,7 @@ DEMAND_RISK_BUFFER_RATE = 0.20
 SUPPLY_RISK_BUFFER_RATE = 0.20
 MATERIAL_RISK_BUFFER_RATE = 0.10
 DEFAULT_REVIEW_PERIOD_DAYS = 30
-DEFAULT_LEAD_TIME_DAYS = 0
+DEFAULT_LEAD_TIME_DAYS = 15
 
 RANDOM_STATE = 42
 CSV_CHUNK_SIZE = 300_000

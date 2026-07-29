@@ -156,7 +156,7 @@ class SupplyRiskLevelPolicyTest(unittest.TestCase):
         self.assertAlmostEqual(result["order_recommendation"], 16.46, places=2)
         self.assertEqual(result["inventory_status"], "BELOW_ROP")
 
-    def test_inventory_policy_applies_documented_parameter_floors(self):
+    def test_inventory_policy_preserves_zero_demand_and_uses_lead_time_fallback(self):
         result = calculate_level_based_safety_stock(
             mean_daily_usage=0.0,
             daily_demand_stddev=0.0,
@@ -166,16 +166,34 @@ class SupplyRiskLevelPolicyTest(unittest.TestCase):
             on_hand=-2.0,
         )
 
-        self.assertEqual(result["effective_mean_daily_usage"], 0.5)
-        self.assertEqual(result["effective_daily_demand_stddev"], 0.1)
-        self.assertEqual(result["base_lead_time_days"], 1.0)
+        self.assertEqual(result["effective_mean_daily_usage"], 0.0)
+        self.assertEqual(result["effective_daily_demand_stddev"], 0.0)
+        self.assertFalse(result["mu_is_floored"])
+        self.assertFalse(result["sigma_is_floored"])
+        self.assertEqual(result["base_lead_time_days"], 15.0)
         self.assertTrue(result["lead_time_floor_applied"])
+        self.assertTrue(result["lead_time_fallback_applied"])
+        self.assertFalse(result["lead_time_cap_applied"])
         self.assertEqual(
             result["lead_time_estimator_status"],
-            "pending_raw_event_estimator",
+            "item_p25_with_15d_fallback_and_120d_cap",
         )
         self.assertEqual(result["on_hand"], 0.0)
         self.assertEqual(result["inventory_status"], "CRITICAL")
+
+    def test_lead_time_is_capped_before_supply_risk_multiplier(self):
+        result = calculate_level_based_safety_stock(
+            mean_daily_usage=2.0,
+            daily_demand_stddev=3.0,
+            lead_time_days=547.5,
+            supply_risk_level="WARNING",
+            policy=self.policy,
+        )
+
+        self.assertEqual(result["base_lead_time_days"], 120.0)
+        self.assertEqual(result["effective_lead_time_days"], 150.0)
+        self.assertTrue(result["lead_time_cap_applied"])
+        self.assertFalse(result["lead_time_fallback_applied"])
 
     def test_policy_validation_rejects_non_monotonic_z_values(self):
         invalid = {

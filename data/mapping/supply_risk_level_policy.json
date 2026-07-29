@@ -1,6 +1,6 @@
 {
-  "version": "supply-risk-level-v1.1",
-  "policy_status": "provisional_team_review_required",
+  "version": "supply-risk-level-v1.2",
+  "policy_status": "provisional_zero_preserving_demand_and_capped_lead_time",
   "source_report": "docs/report_공급위험레벨_안전재고_과적재.md",
   "levels": {
     "NORMAL": {
@@ -110,13 +110,15 @@
     "required_review_status": "approved"
   },
   "demand_parameter_floors": {
-    "mean_daily_usage": 0.5,
-    "daily_demand_stddev": 0.1
+    "mean_daily_usage": 0.0,
+    "daily_demand_stddev": 0.0
   },
   "lead_time_estimation": {
     "method": "stockout_duration_p25",
     "minimum_days": 1.0,
-    "estimator_status": "pending_raw_event_estimator"
+    "fallback_days": 15.0,
+    "maximum_days": 120.0,
+    "estimator_status": "item_p25_with_15d_fallback_and_120d_cap"
   },
   "inventory_status": {
     "watch_reorder_point_multiplier": 1.2,

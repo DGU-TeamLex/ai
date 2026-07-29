@@ -123,8 +123,8 @@ class ServingForecastTest(unittest.TestCase):
         self.assertEqual(prediction_response[0], 200)
         self.assertEqual(prediction_response[1][0]["predicted_usage"], 100.0)
         self.assertEqual(order_response[0], 200)
-        self.assertEqual(order_response[1]["base_stock"], 120.0)
-        self.assertEqual(order_response[1]["recommended_order"], 80.0)
+        self.assertEqual(order_response[1]["base_stock"], 180.0)
+        self.assertEqual(order_response[1]["recommended_order"], 140.0)
 
     def test_inventory_policy_rederives_level_and_requires_explicit_daily_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -194,14 +194,20 @@ class ServingForecastTest(unittest.TestCase):
         self.assertIsNotNone(calculated["levelBasedTargetStock"])
         self.assertIsNotNone(calculated["levelBasedOrderRecommendation"])
         self.assertFalse(calculated["assumedLeadTime"])
+        self.assertFalse(calculated["leadTimeFallbackApplied"])
+        self.assertFalse(calculated["leadTimeCapApplied"])
+        self.assertFalse(calculated["muFloorApplied"])
+        self.assertFalse(calculated["sigmaFloorApplied"])
         self.assertEqual(calculated["calculationStatus"], "CALCULATED")
         self.assertIsNone(insufficient["ROP"])
         self.assertEqual(
             insufficient["calculationStatus"],
             "INSUFFICIENT_DAILY_VARIANCE_OR_LEAD_TIME",
         )
-        self.assertGreater(not_operated["rawLevelBasedOrderRecommendation"], 0)
+        self.assertEqual(not_operated["rawLevelBasedOrderRecommendation"], 0)
         self.assertEqual(not_operated["levelBasedOrderRecommendation"], 0)
+        self.assertEqual(not_operated["baseLeadTimeDays"], 15.0)
+        self.assertTrue(not_operated["leadTimeFallbackApplied"])
         self.assertEqual(
             not_operated["operationalInventoryStatus"],
             "NOT_OPERATED",

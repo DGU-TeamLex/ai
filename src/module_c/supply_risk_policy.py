@@ -77,6 +77,17 @@ def validate_supply_risk_policy(policy: dict[str, Any]) -> dict[str, Any]:
     minimum_lead_time = float(lead_time.get("minimum_days", 0))
     if not math.isfinite(minimum_lead_time) or minimum_lead_time <= 0:
         raise ValueError("Supply risk policy minimum lead time must be positive")
+    fallback_lead_time = float(lead_time.get("fallback_days", 0))
+    maximum_lead_time = float(lead_time.get("maximum_days", 0))
+    if (
+        not math.isfinite(fallback_lead_time)
+        or not math.isfinite(maximum_lead_time)
+        or fallback_lead_time < minimum_lead_time
+        or maximum_lead_time < fallback_lead_time
+    ):
+        raise ValueError(
+            "Supply risk lead-time fallback and maximum must be ordered"
+        )
 
     inventory_status = policy.get("inventory_status", {})
     watch_multiplier = float(
@@ -251,8 +262,18 @@ def calculate_level_based_safety_stock(
         float(daily_demand_stddev),
         float(floors["daily_demand_stddev"]),
     )
-    minimum_lead_time = float(policy["lead_time_estimation"]["minimum_days"])
-    base_lead_time = max(float(lead_time_days), minimum_lead_time)
+    lead_time_policy = policy["lead_time_estimation"]
+    minimum_lead_time = float(lead_time_policy["minimum_days"])
+    fallback_lead_time = float(lead_time_policy["fallback_days"])
+    maximum_lead_time = float(lead_time_policy["maximum_days"])
+    raw_lead_time = float(lead_time_days)
+    lead_time_fallback_applied = raw_lead_time < minimum_lead_time
+    lead_time_cap_applied = raw_lead_time > maximum_lead_time
+    base_lead_time = (
+        fallback_lead_time
+        if lead_time_fallback_applied
+        else min(raw_lead_time, maximum_lead_time)
+    )
     effective_lead_time = base_lead_time * float(
         level_policy["lead_time_multiplier"]
     )
@@ -291,11 +312,19 @@ def calculate_level_based_safety_stock(
         "lead_time_multiplier": float(level_policy["lead_time_multiplier"]),
         "raw_mean_daily_usage": float(mean_daily_usage),
         "effective_mean_daily_usage": effective_mean_daily_usage,
+        "mu_is_floored": (
+            effective_mean_daily_usage > float(mean_daily_usage)
+        ),
         "raw_daily_demand_stddev": float(daily_demand_stddev),
         "effective_daily_demand_stddev": effective_daily_demand_stddev,
-        "raw_lead_time_days": float(lead_time_days),
+        "sigma_is_floored": (
+            effective_daily_demand_stddev > float(daily_demand_stddev)
+        ),
+        "raw_lead_time_days": raw_lead_time,
         "base_lead_time_days": base_lead_time,
-        "lead_time_floor_applied": base_lead_time > float(lead_time_days),
+        "lead_time_floor_applied": lead_time_fallback_applied,
+        "lead_time_fallback_applied": lead_time_fallback_applied,
+        "lead_time_cap_applied": lead_time_cap_applied,
         "lead_time_estimation_method": policy["lead_time_estimation"]["method"],
         "lead_time_estimator_status": policy["lead_time_estimation"][
             "estimator_status"

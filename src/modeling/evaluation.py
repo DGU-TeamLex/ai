@@ -7,6 +7,7 @@ from ..config import (
     EVALUATION_SEGMENT_REPORT_PATH,
     OUTPUT_DIR,
     SERIES_KEYS,
+    TRAIN_START,
     VALID_END,
 )
 from ..utils import ensure_dirs, setup_logging
@@ -25,7 +26,10 @@ def build_evaluation_report(predictions: pd.DataFrame) -> pd.DataFrame:
 
 def classify_demand_patterns(feature_table: pd.DataFrame) -> pd.DataFrame:
     history_mask = (
-        (feature_table["year_month"] <= pd.Timestamp(VALID_END))
+        feature_table["year_month"].between(
+            pd.Timestamp(TRAIN_START),
+            pd.Timestamp(VALID_END),
+        )
         & feature_table["demand_qty"].notna()
     )
     history = feature_table.loc[history_mask, [*SERIES_KEYS, "demand_qty"]].copy()

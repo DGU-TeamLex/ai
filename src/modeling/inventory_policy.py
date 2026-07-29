@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from ..config import (
-    DEFAULT_LEAD_TIME_DAYS,
     DEFAULT_REVIEW_PERIOD_DAYS,
     DEMAND_RISK_BUFFER_RATE,
     MATERIAL_RISK_BUFFER_RATE,
@@ -11,6 +10,7 @@ from ..config import (
     SUPPLY_RISK_BUFFER_RATE,
 )
 from ..module_c.config import load_module_c_config
+from ..module_c.supply_risk_policy import load_supply_risk_policy
 
 
 MODULE_C_POLICY_COLUMNS = {
@@ -70,6 +70,32 @@ def _boolean_column(df: pd.DataFrame, column: str, default: bool = False) -> pd.
     )
 
 
+def _resolve_lead_time(
+    df: pd.DataFrame,
+    column: str | None,
+) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, dict]:
+    policy = load_supply_risk_policy()
+    lead_time_policy = policy["lead_time_estimation"]
+    minimum = float(lead_time_policy["minimum_days"])
+    fallback = float(lead_time_policy["fallback_days"])
+    maximum = float(lead_time_policy["maximum_days"])
+    if column and column in df.columns:
+        raw = pd.to_numeric(df[column], errors="coerce").astype("float64")
+    else:
+        raw = pd.Series(np.nan, index=df.index, dtype="float64")
+    finite = pd.Series(
+        np.isfinite(raw.to_numpy(dtype="float64")),
+        index=df.index,
+    )
+    fallback_applied = ~finite | raw.lt(minimum)
+    cap_applied = finite & raw.gt(maximum)
+    resolved = raw.where(~fallback_applied, fallback).clip(
+        lower=minimum,
+        upper=maximum,
+    )
+    return raw, resolved, fallback_applied, cap_applied, policy
+
+
 def calculate_risk_components(df: pd.DataFrame) -> pd.DataFrame:
     mapping_gate = _approved_mapping_gate(df).astype(float)
     demand = _numeric_column(df, "disease_news_risk", 0.0, 0.0, 1.0) * mapping_gate
@@ -120,17 +146,25 @@ def add_inventory_recommendations(
         float(DEFAULT_REVIEW_PERIOD_DAYS),
         lower=1.0,
     )
-    lead_time_days = _numeric_column(
+    (
+        raw_lead_time_days,
+        lead_time_days,
+        lead_time_fallback_applied,
+        lead_time_cap_applied,
+        lead_time_policy,
+    ) = _resolve_lead_time(
         result,
         lead_time_days_col,
-        float(DEFAULT_LEAD_TIME_DAYS),
-        lower=0.0,
     )
     protection_period_days = review_period_days + lead_time_days
     protection_period_demand = predicted_usage * protection_period_days / 30.0
 
     result["review_period_days"] = review_period_days
+    result["raw_lead_time_days"] = raw_lead_time_days
     result["lead_time_days"] = lead_time_days
+    result["lead_time_fallback_applied"] = lead_time_fallback_applied
+    result["lead_time_cap_applied"] = lead_time_cap_applied
+    result["lead_time_policy_version"] = lead_time_policy["version"]
     result["protection_period_days"] = protection_period_days
     result["protection_period_demand"] = protection_period_demand
     result["safety_stock"] = protection_period_demand * SAFETY_STOCK_RATE
@@ -308,4 +342,47 @@ def add_inventory_recommendations(
             result["target_stock"] - result["inventory_position"],
             0,
         )
+        result["raw_recommended_order"] = result["recommended_order"]
+        suppression_reason = pd.Series("", index=result.index, dtype="string")
+        dormant = (
+            result.get(
+                "demand_class",
+                pd.Series("", index=result.index, dtype="string"),
+            )
+            .astype("string")
+            .fillna("")
+            .str.upper()
+            .eq("DORMANT")
+        )
+        zero_reason = (
+            result.get(
+                "zero_stock_reason",
+                pd.Series("", index=result.index, dtype="string"),
+            )
+            .astype("string")
+            .fillna("")
+            .str.upper()
+        )
+        not_operated = zero_reason.eq("NOT_OPERATED")
+        review_required = zero_reason.isin(
+            {"DATA_MISSING", "STALE_OR_MISSING_OBSERVATION"}
+        )
+        suppression_reason = suppression_reason.mask(
+            dormant,
+            "DORMANT",
+        )
+        suppression_reason = suppression_reason.mask(
+            not_operated,
+            "NOT_OPERATED",
+        )
+        suppression_reason = suppression_reason.mask(
+            review_required,
+            zero_reason,
+        )
+        result.loc[dormant | not_operated, "recommended_order"] = 0.0
+        result.loc[review_required, "recommended_order"] = np.nan
+        result["order_recommendation_suppressed"] = (
+            dormant | not_operated | review_required
+        )
+        result["order_recommendation_suppression_reason"] = suppression_reason
     return result

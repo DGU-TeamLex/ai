@@ -53,10 +53,11 @@ class InventoryPolicyTest(unittest.TestCase):
             current_stock_col="current_stock",
         ).iloc[0]
 
-        self.assertAlmostEqual(result["base_stock"], 120.0)
+        self.assertAlmostEqual(result["base_stock"], 180.0)
         self.assertAlmostEqual(result["risk_buffer"], 0.0)
-        self.assertAlmostEqual(result["target_stock"], 120.0)
-        self.assertAlmostEqual(result["recommended_order"], 95.0)
+        self.assertAlmostEqual(result["target_stock"], 180.0)
+        self.assertAlmostEqual(result["recommended_order"], 155.0)
+        self.assertTrue(result["lead_time_fallback_applied"])
 
     def test_total_risk_buffer_is_capped_at_half_of_protection_demand(self):
         source = pd.DataFrame(
@@ -73,8 +74,8 @@ class InventoryPolicyTest(unittest.TestCase):
 
         result = add_inventory_recommendations(source).iloc[0]
 
-        self.assertAlmostEqual(result["risk_buffer"], 50.0)
-        self.assertAlmostEqual(result["target_stock"], 170.0)
+        self.assertAlmostEqual(result["risk_buffer"], 75.0)
+        self.assertAlmostEqual(result["target_stock"], 255.0)
 
     def test_unapproved_mapping_metadata_blocks_nonzero_risk_inputs(self):
         source = pd.DataFrame(
@@ -95,7 +96,62 @@ class InventoryPolicyTest(unittest.TestCase):
 
         self.assertEqual(result["external_risk_score"], 0.0)
         self.assertEqual(result["risk_buffer"], 0.0)
-        self.assertEqual(result["target_stock"], 120.0)
+        self.assertEqual(result["target_stock"], 180.0)
+
+    def test_dormant_and_data_quality_rows_are_not_auto_ordered(self):
+        source = pd.DataFrame(
+            [
+                {
+                    "predicted_usage": 100.0,
+                    "current_stock": 0.0,
+                    "demand_class": "DORMANT",
+                    "zero_stock_reason": "NOT_OPERATED",
+                },
+                {
+                    "predicted_usage": 100.0,
+                    "current_stock": 0.0,
+                    "demand_class": "",
+                    "zero_stock_reason": "DATA_MISSING",
+                },
+            ]
+        )
+
+        result = add_inventory_recommendations(
+            source,
+            current_stock_col="current_stock",
+        )
+
+        self.assertGreater(result.iloc[0]["raw_recommended_order"], 0)
+        self.assertEqual(result.iloc[0]["recommended_order"], 0)
+        self.assertEqual(
+            result.iloc[0]["order_recommendation_suppression_reason"],
+            "NOT_OPERATED",
+        )
+        self.assertTrue(pd.isna(result.iloc[1]["recommended_order"]))
+        self.assertEqual(
+            result.iloc[1]["order_recommendation_suppression_reason"],
+            "DATA_MISSING",
+        )
+
+    def test_continuous_policy_caps_raw_lead_time(self):
+        source = pd.DataFrame(
+            [
+                {
+                    "predicted_usage": 30.0,
+                    "lead_time_days": 547.5,
+                }
+            ]
+        )
+
+        result = add_inventory_recommendations(
+            source,
+            lead_time_days_col="lead_time_days",
+        ).iloc[0]
+
+        self.assertEqual(result["raw_lead_time_days"], 547.5)
+        self.assertEqual(result["lead_time_days"], 120.0)
+        self.assertTrue(result["lead_time_cap_applied"])
+        self.assertFalse(result["lead_time_fallback_applied"])
 
 
 if __name__ == "__main__":

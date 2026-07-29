@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import json
 import logging
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ import re
 import time
 from typing import Callable
 from urllib.parse import unquote, urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
@@ -51,6 +53,7 @@ COUNTRY_SCOPE_COLUMNS = [
     "scope_version",
 ]
 XmlRequester = Callable[[str, dict[str, str], int], bytes]
+COLLECTION_STATE_VERSION = "kcs-trade-collection-state-v1"
 
 
 def _request_xml(url: str, params: dict[str, str], timeout: int = 60) -> bytes:
@@ -58,12 +61,108 @@ def _request_xml(url: str, params: dict[str, str], timeout: int = 60) -> bytes:
         f"{url}?{urlencode(params)}",
         headers={"User-Agent": "WeP-Stock-AI/1.0"},
     )
-    with urlopen(request, timeout=timeout) as response:
-        return response.read()
+    max_retries = max(0, int(os.getenv("TRADE_MAX_RETRIES", "5")))
+    backoff = max(
+        0.1,
+        float(os.getenv("TRADE_RETRY_BACKOFF_SECONDS", "2.0")),
+    )
+    last_error: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.read()
+        except HTTPError as error:
+            last_error = error
+            if error.code != 429 and error.code < 500:
+                raise
+        except (URLError, TimeoutError) as error:
+            last_error = error
+        if attempt == max_retries:
+            break
+        wait_seconds = min(backoff * (2 ** attempt), 60.0)
+        LOGGER.warning(
+            "KCS request failed (%s); retrying in %.1f seconds (%s/%s)",
+            last_error,
+            wait_seconds,
+            attempt + 1,
+            max_retries,
+        )
+        time.sleep(wait_seconds)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("KCS request failed without an exception")
 
 
 def _empty_trade() -> pd.DataFrame:
     return pd.DataFrame(columns=TRADE_COLUMNS)
+
+
+def _collection_state_path(country_cache_path: Path) -> Path:
+    return country_cache_path.with_name("kcs_trade_collection_state.json")
+
+
+def _load_collection_state(
+    path: Path,
+    *,
+    start_month: str,
+    end_month: str,
+) -> dict[str, object]:
+    if not path.exists():
+        return {
+            "version": COLLECTION_STATE_VERSION,
+            "start_month": start_month,
+            "end_month": end_month,
+            "completed_total_hs_codes": [],
+            "completed_country_hs_pairs": [],
+        }
+    with path.open("r", encoding="utf-8") as file:
+        state = json.load(file)
+    if (
+        state.get("version") != COLLECTION_STATE_VERSION
+        or state.get("start_month") != start_month
+        or state.get("end_month") != end_month
+    ):
+        return {
+            "version": COLLECTION_STATE_VERSION,
+            "start_month": start_month,
+            "end_month": end_month,
+            "completed_total_hs_codes": [],
+            "completed_country_hs_pairs": [],
+        }
+    return state
+
+
+def _write_collection_state(
+    state: dict[str, object],
+    path: Path,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+    temporary = path.with_suffix(f"{path.suffix}.tmp")
+    with temporary.open("w", encoding="utf-8") as file:
+        json.dump(state, file, ensure_ascii=False, indent=2)
+        file.write("\n")
+    temporary.replace(path)
+
+
+def _merge_trade_cache(
+    existing: pd.DataFrame,
+    collected: pd.DataFrame,
+) -> pd.DataFrame:
+    if existing.empty:
+        return normalize_trade_flows(collected)
+    if collected.empty:
+        return normalize_trade_flows(existing)
+    return normalize_trade_flows(
+        pd.concat([existing, collected], ignore_index=True)
+    )
+
+
+def _write_trade_cache(frame: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(f"{path.suffix}.tmp")
+    frame.to_csv(temporary, index=False)
+    temporary.replace(path)
 
 
 def load_trade_country_scope(
@@ -334,6 +433,7 @@ def collect_trade_flows(
     provider: str | None = None,
     total_cache_path: Path = TRADE_TOTAL_CACHE_PATH,
     country_cache_path: Path = TRADE_COUNTRY_CACHE_PATH,
+    state_path: Path | None = None,
     refresh: bool | None = None,
     request_xml: XmlRequester = _request_xml,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -383,9 +483,83 @@ def collect_trade_flows(
         if configured_country_codes
         else load_trade_country_scope()
     )
+    requested_hs_codes = sorted({str(code).strip() for code in hs_codes})
+    requested_country_codes = sorted(
+        {str(code).strip().upper() for code in country_codes if str(code).strip()}
+    )
+    existing_totals = (
+        normalize_trade_flows(
+            pd.read_csv(total_cache_path, dtype={"hs_code": "string"})
+        )
+        if total_cache_path.exists()
+        else _empty_trade()
+    )
+    existing_countries = (
+        normalize_trade_flows(
+            pd.read_csv(country_cache_path, dtype={"hs_code": "string"})
+        )
+        if country_cache_path.exists()
+        else _empty_trade()
+    )
+    state_path = state_path or _collection_state_path(country_cache_path)
+    state = _load_collection_state(
+        state_path,
+        start_month=start_month,
+        end_month=end_month,
+    )
+    completed_totals = {
+        str(code) for code in state.get("completed_total_hs_codes", [])
+    }
+    completed_country_pairs = {
+        str(value) for value in state.get("completed_country_hs_pairs", [])
+    }
+
+    expected_start = pd.Period(start_month, freq="M").strftime("%Y-%m")
+    expected_end = pd.Period(end_month, freq="M").strftime("%Y-%m")
+    if (
+        not existing_totals.empty
+        and existing_totals["STD_YYYYMM"].min() <= expected_start
+        and existing_totals["STD_YYYYMM"].max() >= expected_end
+    ):
+        observed_total_hs = set(existing_totals["hs_code"].astype(str))
+        if set(requested_hs_codes).issubset(observed_total_hs):
+            completed_totals.update(requested_hs_codes)
+    if not existing_countries.empty:
+        for country_code, rows in existing_countries.groupby(
+            "country_code",
+            observed=True,
+        ):
+            if (
+                rows["STD_YYYYMM"].min() <= expected_start
+                and rows["STD_YYYYMM"].max() >= expected_end
+            ):
+                completed_country_pairs.update(
+                    f"{country_code}:{hs_code}"
+                    for hs_code in requested_hs_codes
+                )
+
+    missing_total_hs = [
+        hs_code
+        for hs_code in requested_hs_codes
+        if hs_code not in completed_totals
+    ]
+    missing_country_hs = {
+        country_code: [
+            hs_code
+            for hs_code in requested_hs_codes
+            if f"{country_code}:{hs_code}" not in completed_country_pairs
+        ]
+        for country_code in requested_country_codes
+    }
+    missing_country_hs = {
+        country_code: codes
+        for country_code, codes in missing_country_hs.items()
+        if codes
+    }
     chunk_count = len(_month_chunks(start_month, end_month))
-    estimated_requests = len(set(hs_codes)) * chunk_count * (
-        1 + len(set(country_codes))
+    estimated_requests = chunk_count * (
+        len(missing_total_hs)
+        + sum(len(codes) for codes in missing_country_hs.values())
     )
     max_requests = int(os.getenv("TRADE_MAX_REQUESTS", "1000"))
     if max_requests <= 0:
@@ -396,30 +570,93 @@ def collect_trade_flows(
             f"estimated={estimated_requests}, allowed={max_requests}. "
             "Reduce HS codes, countries, or the date range."
         )
-    totals = collect_kcs_trade_totals(
-        hs_codes,
-        start_month,
-        end_month,
-        service_key,
-        request_xml=request_xml,
-        request_delay_seconds=delay,
+    LOGGER.info(
+        "KCS incremental collection: missing_total_hs=%s "
+        "missing_country_hs_pairs=%s estimated_requests=%s",
+        len(missing_total_hs),
+        sum(len(codes) for codes in missing_country_hs.values()),
+        estimated_requests,
     )
-    countries = (
-        collect_kcs_country_trade(
-            hs_codes,
-            country_codes,
+    total_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    totals = existing_totals
+    for index, hs_code in enumerate(missing_total_hs, start=1):
+        LOGGER.info(
+            "Collecting KCS total HSK %s (%s/%s)",
+            hs_code,
+            index,
+            len(missing_total_hs),
+        )
+        collected = collect_kcs_trade_totals(
+            [hs_code],
             start_month,
             end_month,
             service_key,
             request_xml=request_xml,
             request_delay_seconds=delay,
         )
-        if country_codes
-        else _empty_trade()
+        totals = _merge_trade_cache(totals, collected)
+        _write_trade_cache(totals, total_cache_path)
+        completed_totals.add(hs_code)
+        state["completed_total_hs_codes"] = sorted(completed_totals)
+        state["completed_country_hs_pairs"] = sorted(completed_country_pairs)
+        _write_collection_state(state, state_path)
+
+    countries = existing_countries
+    pending_country_pairs = sum(
+        len(codes) for codes in missing_country_hs.values()
     )
-    total_cache_path.parent.mkdir(parents=True, exist_ok=True)
-    totals.to_csv(total_cache_path, index=False)
-    countries.to_csv(country_cache_path, index=False)
+    completed_pending_pairs = 0
+    for country_index, (country_code, country_hs_codes) in enumerate(
+        sorted(missing_country_hs.items()),
+        start=1,
+    ):
+        LOGGER.info(
+            "Collecting KCS country %s for %s HSK codes (%s/%s)",
+            country_code,
+            len(country_hs_codes),
+            country_index,
+            len(missing_country_hs),
+        )
+        for hs_code in country_hs_codes:
+            completed_pending_pairs += 1
+            LOGGER.info(
+                "Collecting KCS country-HSK %s:%s (%s/%s)",
+                country_code,
+                hs_code,
+                completed_pending_pairs,
+                pending_country_pairs,
+            )
+            collected = collect_kcs_country_trade(
+                [hs_code],
+                [country_code],
+                start_month,
+                end_month,
+                service_key,
+                request_xml=request_xml,
+                request_delay_seconds=delay,
+            )
+            countries = _merge_trade_cache(countries, collected)
+            _write_trade_cache(countries, country_cache_path)
+            completed_country_pairs.add(f"{country_code}:{hs_code}")
+            state["completed_total_hs_codes"] = sorted(completed_totals)
+            state["completed_country_hs_pairs"] = sorted(
+                completed_country_pairs
+            )
+            _write_collection_state(state, state_path)
+
+    if not total_cache_path.exists():
+        _write_trade_cache(totals, total_cache_path)
+    if not country_cache_path.exists():
+        _write_trade_cache(countries, country_cache_path)
+    state["completed_total_hs_codes"] = sorted(completed_totals)
+    state["completed_country_hs_pairs"] = sorted(completed_country_pairs)
+    _write_collection_state(state, state_path)
+    requested_hs = set(requested_hs_codes)
+    totals = totals[totals["hs_code"].astype(str).isin(requested_hs)].copy()
+    countries = countries[
+        countries["hs_code"].astype(str).isin(requested_hs)
+        & countries["country_code"].isin(requested_country_codes)
+    ].copy()
     return totals, countries
 
 

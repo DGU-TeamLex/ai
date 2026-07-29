@@ -17,6 +17,13 @@ WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** �
 현재 사용량 예측 정확도, 세부유형 커버리지, Module C 비교와 운영 가능 범위는
 `docs/2026-07-23_05_CURRENT_FORECAST_MODEL_EVALUATION.md`에서 확인합니다.
 
+20개국 관세청 캐시, 무역위험 세부 가중치 보정, 홀드아웃 성능과 최종 재고 영향은
+`docs/2026-07-29_03_20_COUNTRY_TRADE_WEIGHT_RECALIBRATION.md`에서 확인합니다.
+
+최신 데이터를 검증·테스트로 분리한 예측 혼합 가중치, v1.4 무역 가중치와 현재
+재고 출력은 `docs/2026-07-29_04_TEMPORAL_TRAIN_VALIDATION_TEST_WEIGHT_TUNING.md`에서
+확인합니다.
+
 PDF 3종과 현재 코드의 차이, 이번 보완 내용, 실제 재실행 결과와 남은 제약은
 `docs/2026-07-24_01_PDF_REQUIREMENT_GAP_AND_IMPLEMENTATION.md`에서 확인합니다.
 
@@ -112,6 +119,17 @@ src/dashboard/                  AI 결과 확인용 Streamlit MVP
 현재고 기준값: 해당 월 마지막 마감재고량
 ```
 
+`자동폐기출고량`은 수요와 재고 수지에서 제외하고 별도 정보열로만 보존합니다.
+2018~2019 데이터는 현재 표준품목과 strict/core 규칙으로 매칭된 행만 학습 후보가 됩니다.
+매칭되지 않은 과거 전용 명칭은 제외하며, 2019→2024 공백은 별도 시계열 구간으로 끊어
+lag가 이어지지 않게 합니다. 과거자료 학습 가중치는 2025년 검증 WAPE로 선택하며 현재
+정책값은 `data/mapping/historical_training_policy.json`의 `1.0`입니다.
+
+일평균 수요와 표준편차는 실제 0을 보존하며 `mu_is_floored`,
+`sigma_is_floored`로 정책 하한 적용 여부를 별도 기록합니다. 현재 하한은 모두 0입니다.
+리드타임은 품목 P25를 사용하고 미매칭·0일은 15일로 대체하며, 원천값은 120일에서
+상한 처리한 뒤 공급위험 배수를 적용합니다.
+
 물품별 뉴스·원자재 위험은 검수된 `data/mapping/stock_item_material_mapping.csv`만 사용합니다. 매핑이 없으면 임의 원자재를 배정하지 않고 위험 점수를 0으로 둡니다.
 
 재고량 출력은 사용량 예측과 분리됩니다. `predicted_usage`는 다음 달 예상 사용량,
@@ -198,7 +216,11 @@ python -m src.trade.hsk_reference
 python -m src.trade.trade_risk_scorer
 python -m src.module_c.pipeline
 python -m src.feature_engineering
+python -m src.modeling.historical_weight_tuning --apply
 python -m src.modeling.training
+python -m src.modeling.prediction
+python -m src.modeling.temporal_ensemble_tuning --apply
+# 적용된 혼합 가중치로 현재 예측 재생성
 python -m src.modeling.prediction
 python -m src.trade.trade_inventory_impact
 python -m src.modeling.classified_prediction
@@ -259,9 +281,10 @@ python -m src.item_bulk_approval --apply --sample-size 1000
 
 ## Usage Forecast Validation
 
-사용량 예측은 표준 품목명이 아니라 `기관 + 부서 + 내부 물품코드` 시계열을 사용합니다.
-품목 표준화가 미완료여도 로컬 예측은 가능하지만 기관 간 통합 및 뉴스·원자재 연결에는
-승인된 표준 ID가 필요합니다.
+사용량 예측의 물리 시계열은 `기관 + 부서 + 내부 물품코드`를 유지합니다. 여기에 검증된
+표준품목 정의, 품목군, family, subtype, 규격, 단위를 모델 특성으로 추가해 과거자료와
+현재자료가 의미 계층을 공유하게 합니다. 상세 표준키나 내부 품목코드 자체는 고유값이
+너무 많아 모델 범주 특성에서 제외하고, 원본 식별·출력·원자재 연결에는 그대로 보존합니다.
 
 기준선 6종과 LightGBM L1/Tweedie를 확장형 시계열 교차검증으로 비교하며, 검증 WAPE가
 가장 낮은 방법을 운영 기본값으로 선택합니다. 뉴스·원자재 값이 모두 0이면 관련 모델은
@@ -327,6 +350,13 @@ Brent 같은 대리변수는 `proxy_quality`와 전파 가중치를 낮춰 별�
 서비스 활용승인이 끝난 뒤에만 사용합니다. 국가코드를 비워두면 승인된
 `data/mapping/trade_country_scope.csv`를 사용합니다.
 
+20개국 캐시가 완결된 뒤 무역 계수를 재보정할 때만 다음 명령을 실행합니다.
+미완료 국가-HSK가 있으면 적용 전에 중단됩니다.
+
+```bash
+python -m src.trade.trade_weight_calibration --apply
+```
+
 ## Dashboard
 
 ```bash
@@ -350,8 +380,17 @@ outputs/stock_trade_risk_scores.csv
 outputs/stock_trade_risk_audit.csv
 outputs/stock_trade_risk_report.json
 outputs/trade_inventory_impact_report.json
+outputs/kcs_trade_country_cache_summary.csv
+outputs/trade_weight_calibration_report.json
+outputs/trade_weight_calibration_policy.csv
+outputs/trade_weight_calibration_observations.csv
+outputs/forecast_ensemble_temporal_report.json
+outputs/forecast_ensemble_validation_candidates.csv
+outputs/forecast_ensemble_test_by_segment.csv
 data/sample/hs_trade_risk_features_sample_1000.csv
 data/sample/trade_inventory_impact_sample_1000.csv
+data/sample/trade_weight_calibration_sample_1000.csv
+data/sample/forecast_ensemble_test_sample_1000.csv
 outputs/stock_module_c_risk_scores.csv
 outputs/stock_module_c_risk_audit.csv
 outputs/stock_module_c_alerts.csv

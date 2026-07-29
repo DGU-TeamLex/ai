@@ -381,6 +381,12 @@ def inventory_policy(
             if zero_stock_value is None or pd.isna(zero_stock_value)
             else str(zero_stock_value)
         )
+        demand_class_value = row.get("demand_class", "")
+        demand_class = (
+            ""
+            if demand_class_value is None or pd.isna(demand_class_value)
+            else str(demand_class_value).strip().upper()
+        )
         action_value = row.get("inventory_action", "")
         inventory_action_value = (
             ""
@@ -401,7 +407,7 @@ def inventory_policy(
             else None
         )
         operational_level_order = raw_level_order
-        if zero_stock_reason == "NOT_OPERATED":
+        if demand_class == "DORMANT" or zero_stock_reason == "NOT_OPERATED":
             operational_level_order = 0.0
         elif zero_stock_reason in {
             "DATA_MISSING",
@@ -431,6 +437,7 @@ def inventory_policy(
                 ),
                 "operationalInventoryStatus": operational_status,
                 "zeroStockReason": zero_stock_reason or None,
+                "demandClass": demand_class or None,
                 "inventoryAction": inventory_action_value or None,
                 "urgentShortage": _optional_bool(row.get("urgent_shortage")),
                 "exactGroupTotalStock": (
@@ -450,6 +457,11 @@ def inventory_policy(
                     if calculated
                     else None
                 ),
+                "muFloorApplied": (
+                    bool(calculated["mu_is_floored"])
+                    if calculated
+                    else None
+                ),
                 "dailyDemandStddev": (
                     float(calculated["effective_daily_demand_stddev"])
                     if calculated
@@ -457,6 +469,11 @@ def inventory_policy(
                 ),
                 "rawDailyDemandStddev": (
                     float(calculated["raw_daily_demand_stddev"])
+                    if calculated
+                    else None
+                ),
+                "sigmaFloorApplied": (
+                    bool(calculated["sigma_is_floored"])
                     if calculated
                     else None
                 ),
@@ -488,6 +505,16 @@ def inventory_policy(
                 "inventoryPolicyMethod": "level_based_daily_ss_rop",
                 "assumedLeadTime": (
                     bool(calculated["lead_time_floor_applied"])
+                    if calculated
+                    else None
+                ),
+                "leadTimeFallbackApplied": (
+                    bool(calculated["lead_time_fallback_applied"])
+                    if calculated
+                    else None
+                ),
+                "leadTimeCapApplied": (
+                    bool(calculated["lead_time_cap_applied"])
                     if calculated
                     else None
                 ),
