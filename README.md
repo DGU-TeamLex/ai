@@ -231,7 +231,18 @@ python -m src.modeling.evaluation
 
 # 8~9월 보정, 10~12월 홀드아웃으로 예측×재고정책 조합 비교
 python -m src.modeling.combination_experiment
+
+# 2025-12를 기준으로 2026-01~08 가상 사용량·월말재고 재귀 시뮬레이션
+python -m src.modeling.recursive_inventory_simulation \
+  --start-month 2026-01 \
+  --end-month 2026-08 \
+  --usage-deviation 0.10 \
+  --random-seed 42
 ```
+
+재귀 시뮬레이션의 가정, 8월 결과, 이상치 포함·제외 집계와 산출물은
+[`docs/2026-07-30_01_2026_AUGUST_RECURSIVE_INVENTORY_SIMULATION.md`](docs/2026-07-30_01_2026_AUGUST_RECURSIVE_INVENTORY_SIMULATION.md)를
+참고한다.
 
 원자재 매핑 승인과 최종 재고 영향 실험은
 [`docs/2026-07-23_01_MATERIAL_MAPPING_APPROVAL_FINAL_INVENTORY_REPORT.md`](docs/2026-07-23_01_MATERIAL_MAPPING_APPROVAL_FINAL_INVENTORY_REPORT.md)의
@@ -445,8 +456,8 @@ models/stock_model_a_usage_tweedie.pkl
 models/stock_manifest.json
 ```
 
-현재 GitHub 이슈·PR과 로컬 구현의 대조 결과는
-`docs/2026-07-22_05_GITHUB_ISSUE_PR_ALIGNMENT.md`를 참고한다.
+현재 GitHub 이슈·PR과 로컬 구현의 전수 대조 결과는
+`docs/2026-07-30_02_GITHUB_PR_ISSUE_FULL_AUDIT.md`를 참고한다.
 
 `stock_model_b_news.pkl`, `stock_model_c_news_commodity.pkl`,
 `stock_model_d_module_c.pkl`은 각각 필요한 검증 위험 feature가 학습기간에 실제로 존재할
