@@ -6,6 +6,11 @@ import tempfile
 import pandas as pd
 
 from .config import CSV_CHUNK_SIZE, GROUP_KEYS, RAW_STOCK_DIR, RAW_STOCK_FILE_PATTERN
+from .ledger_rules import (
+    LEDGER_TOLERANCE,
+    nonnegative_quantity,
+    physical_outbound_violation,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -83,9 +88,6 @@ DEMAND_MOMENT_COLUMNS = [
     "normal_outbound_squared_sum",
 ]
 
-LEDGER_TOLERANCE = 1e-9
-
-
 def discover_raw_stock_files(
     raw_dir: Path = RAW_STOCK_DIR,
     pattern: str = RAW_STOCK_FILE_PATTERN,
@@ -160,15 +162,12 @@ def normalize_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
     result[SUM_COLUMNS] = result[SUM_COLUMNS].fillna(0.0)
 
     opening_known = result["opening_stock"].notna()
-    opening_available = result["opening_stock"].clip(lower=0)
-    normal_outbound = result["consumption_qty"].clip(lower=0)
+    opening_available = nonnegative_quantity(result["opening_stock"])
+    normal_outbound = nonnegative_quantity(result["consumption_qty"])
     result["normal_outbound_nonnegative_sum"] = normal_outbound
     result["normal_outbound_squared_sum"] = normal_outbound.pow(2)
     purchase_available = result["purchase_in_qty"].clip(lower=0)
     document_available = opening_available + purchase_available
-    physical_available = document_available + result[
-        ["transfer_in_qty", "return_in_qty"]
-    ].clip(lower=0).sum(axis=1)
     result["ledger_document_rule_violation_count"] = (
         opening_known
         & result["consumption_qty"].gt(
@@ -177,9 +176,12 @@ def normalize_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
             + LEDGER_TOLERANCE
         )
     ).astype("int8")
-    result["ledger_physical_violation_count"] = (
-        opening_known
-        & normal_outbound.gt(physical_available + LEDGER_TOLERANCE)
+    result["ledger_physical_violation_count"] = physical_outbound_violation(
+        result["consumption_qty"],
+        result["opening_stock"],
+        result["purchase_in_qty"],
+        result["transfer_in_qty"],
+        result["return_in_qty"],
     ).astype("int8")
     result["ledger_opening_stock_missing_count"] = (~opening_known).astype("int8")
     ledger_expected_closing = (

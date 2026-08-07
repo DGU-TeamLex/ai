@@ -25,15 +25,12 @@
     DATABASE_URL=... SSIS_DRUG_FILE=~/Downloads/SSIS_20260728/drug_ingredient.DAT \
     EXPECTED_ROWS=3576320 python3 src/loading/load_drug_ingredients.py
 
-    DRY_RUN=1 이면 스캔·검증만 하고 DB 에 쓰지 않는다.
+    기본값은 DRY_RUN=1이다. 실제 적재는 DRY_RUN=0을 명시해야 한다.
 """
-import collections
 import csv
 import io
 import os
 import time
-
-import psycopg
 
 csv.field_size_limit(10 ** 9)
 
@@ -41,7 +38,7 @@ DRUG_FILE = os.path.expanduser(
     os.environ.get("SSIS_DRUG_FILE", "~/Downloads/SSIS_20260728/drug_ingredient.DAT")
 )
 EXPECTED_ROWS = int(os.environ.get("EXPECTED_ROWS", "0"))
-DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
+DRY_RUN = os.environ.get("DRY_RUN", "1") == "1"
 
 COLMAP = [
     ("보건기관코드_en", "institution_code"),
@@ -81,7 +78,7 @@ def scan(stats, votes, names, attrs):
 
             code = (parts[idx["성분코드"]] or "").strip()
             if code:
-                votes[drug][code] += 1
+                votes.setdefault(drug, {}).setdefault(code, set()).add(inst)
                 if code not in names:
                     names[code] = (parts[idx["성분명"]] or "").strip()
             else:
@@ -99,7 +96,14 @@ def build_master(votes, names, attrs):
     for drug, (dname, usage, kind, unit) in attrs.items():
         v = votes.get(drug)
         if v:
-            top, n = sorted(v.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+            counts = {
+                code: len(institutions)
+                for code, institutions in v.items()
+            }
+            top, n = sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )[0]
         else:
             top, n = None, 0
         yield (drug, top, names.get(top) if top else None, usage or None,
@@ -107,9 +111,11 @@ def build_master(votes, names, attrs):
 
 
 def main():
+    import psycopg
+
     print(f"원본: {DRUG_FILE}")
     stats = dict(read=0, bad_cols=0, bad_key=0, missing_ing=0)
-    votes = collections.defaultdict(collections.Counter)
+    votes = {}
     names, attrs = {}, {}
     t0 = time.time()
 

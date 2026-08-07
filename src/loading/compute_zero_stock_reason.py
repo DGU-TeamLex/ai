@@ -1,67 +1,220 @@
-"""재고 0 품목의 '원인' 판별 — 미운영 / 데이터누락 / 실제결품 (ai#32).
+"""Build the zero-stock reason handoff from the normalized stock ledger.
 
-[문제] status=CRITICAL(재고 0) 128,250건이 전부 '긴급 부족'으로 표시되나, 실제로는
-  운영하지 않는 품목·재고기록 누락이 섞여 있어 실무 우선순위를 흐린다(7/23 기관 리뷰회의 지적).
+DATA_MISSING uses the physical availability rule shared with ``src.data_loader``:
 
-[판별 규칙] 원장 pair(기관×물품) 단위, 최종 마감재고 ≤ 0 인 건에 한해 부여.
-  ①NOT_OPERATED (미운영)   : 전 기간 정상출고량 합 = 0 → 재고만 0이고 쓴 적이 없음
-  ②DATA_MISSING (데이터누락): 출고 이력은 있고 **정합성 위반**이 존재
-       위반 = 정상출고량 > (이전최종재고량 + 입고량)
-       → 있지도 않은 재고를 출고 = 물리적으로 불가 = 재고 기재 누락의 직접 증거
-  ③TRUE_STOCKOUT (실제결품): 출고 이력 있고 정합성도 정상 → 소진 후 미보충
+    normal_outbound >
+        max(opening, 0) + max(purchase_in, 0)
+        + max(transfer_in, 0) + max(return_in, 0)
 
-[실측 2026-07-23] 최종재고≤0 pair 128,281 중
-  ①미운영 60,876(47.5%) ②데이터누락 4,000(3.1%) ③실제결품 63,405(49.4%).
-  최근3개월 실수요가 있는 건 ②892 + ③10,377 = 11,269 → 이것이 실제 발주 검토 대상.
-
-[주의] 최종재고는 반드시 **재고마감일 정렬 후** last 를 취해야 한다(정렬 없이 last 를 쓰면
-  128,281이 아니라 56,559로 나와 DB CRITICAL 과 어긋난다 — 실제로 한 번 틀렸던 지점).
-
-[조인키] mu_forecast 와 동일 — 전체 원장 anon 집합 정렬-zip 으로 institution_id 매핑,
-  standard_code = 물품코드.
+The narrower document rule that omits transfer/return inbound remains an audit
+metric in the preprocessing pipeline, but it must not drive automatic status.
 """
+from __future__ import annotations
+
 import os
+from pathlib import Path
 
 import pandas as pd
 
-LEDGER_PATH = os.environ.get("LEDGER_PATH", os.path.expanduser("~/Downloads/물품재고_정규화완료.parquet"))
-INST_MAP = os.environ.get("INST_MAP", "data/mapping/institution_ids_sorted.csv")
-LAST3 = ["2025-10", "2025-11", "2025-12"]
+from src.ledger_rules import nonnegative_quantity, physical_outbound_violation
 
-led = pd.read_parquet(LEDGER_PATH, columns=[
-    "보건기관코드_en", "물품코드", "재고마감일", "정상출고량", "마감재고량", "이전최종재고량", "입고량"])
 
-# 정합성 위반: 있지도 않은 재고를 출고한 행
-avail = led["이전최종재고량"].fillna(0) + led["입고량"].fillna(0)
-led["violation"] = led["정상출고량"].fillna(0) > avail
+LEDGER_PATH = Path(
+    os.path.expanduser(
+        os.environ.get(
+            "LEDGER_PATH",
+            "~/Downloads/물품재고_정규화완료.parquet",
+        )
+    )
+)
+INST_IDS = Path(
+    os.environ.get("INST_IDS", "data/mapping/institution_ids_sorted.csv")
+)
+INST_CODE_MAP = os.environ.get("INST_CODE_MAP", "")
+OUT_PATH = Path(
+    os.environ.get("OUT", "data/handoff/zero_stock_reason.csv")
+)
+RECENT_MONTHS = int(os.environ.get("RECENT_MONTHS", "3"))
+ZERO_STOCK_POLICY_VERSION = "inventory-status-v1.1-physical"
 
-led = led.sort_values("재고마감일")           # ★ 정렬 필수 (last 의 의미가 달라짐)
-key = ["보건기관코드_en", "물품코드"]
-g = led.groupby(key, observed=True).agg(
-    ship_sum=("정상출고량", "sum"), violations=("violation", "sum"))
-g["last_stock"] = led.groupby(key, observed=True)["마감재고량"].last()
+LEDGER_COLUMNS = [
+    "보건기관코드_en",
+    "물품코드",
+    "재고마감일",
+    "정상출고량",
+    "마감재고량",
+    "이전최종재고량",
+    "입고량",
+    "불출입고량",
+    "반납입고량",
+]
+KEY_COLUMNS = ["보건기관코드_en", "물품코드"]
 
-led["ym"] = led["재고마감일"].dt.to_period("M").astype(str)
-g["recent3m"] = (led[led["ym"].isin(LAST3)].groupby(key, observed=True)["정상출고량"].sum()
-                 .reindex(g.index).fillna(0))
 
-z = g[g["last_stock"].fillna(0) <= 0].copy()
-z["zero_stock_reason"] = "TRUE_STOCKOUT"
-z.loc[z["ship_sum"] <= 0, "zero_stock_reason"] = "NOT_OPERATED"
-z.loc[(z["ship_sum"] > 0) & (z["violations"] > 0), "zero_stock_reason"] = "DATA_MISSING"
-z = z.reset_index()
+def build_zero_stock_reasons(
+    ledger: pd.DataFrame,
+    *,
+    recent_months: int = RECENT_MONTHS,
+) -> pd.DataFrame:
+    """Classify zero-stock institution/item pairs without DB key mapping."""
+    missing = sorted(set(LEDGER_COLUMNS) - set(ledger.columns))
+    if missing:
+        raise ValueError(f"ledger is missing required columns: {missing}")
+    if recent_months <= 0:
+        raise ValueError("recent_months must be positive")
 
-# 익명 기관코드 → 실 기관 ID (전체 원장 집합 기준 정렬 zip — 부분집합이면 오매핑)
-anon_full = sorted(led["보건기관코드_en"].dropna().unique())
-real = pd.read_csv(INST_MAP)["institution_id"].tolist()
-mapping = dict(zip(anon_full, sorted(real)))
-z["institution_id"] = z["보건기관코드_en"].map(mapping)
-z = z.dropna(subset=["institution_id"]).rename(columns={"물품코드": "standard_code"})
+    frame = ledger.copy()
+    frame["재고마감일"] = pd.to_datetime(
+        frame["재고마감일"],
+        errors="coerce",
+    )
+    if frame["재고마감일"].isna().any():
+        raise ValueError("ledger contains invalid 재고마감일 values")
 
-out = z[["institution_id", "standard_code", "zero_stock_reason", "recent3m"]]
-os.makedirs("data/handoff", exist_ok=True)
-out.to_csv("data/handoff/zero_stock_reason.csv", index=False, encoding="utf-8-sig")
-print(f"저장: data/handoff/zero_stock_reason.csv ({len(out):,}행)")
-for r, n in out["zero_stock_reason"].value_counts().items():
-    act = int(((out["zero_stock_reason"] == r) & (out["recent3m"] > 0)).sum())
-    print(f"  {r:<15} {n:>8,} ({n / len(out) * 100:4.1f}%) | 최근3개월 실수요>0 {act:,}")
+    frame["normal_outbound_nonnegative"] = nonnegative_quantity(
+        frame["정상출고량"]
+    )
+    frame["physical_violation"] = physical_outbound_violation(
+        frame["정상출고량"],
+        frame["이전최종재고량"],
+        frame["입고량"],
+        frame["불출입고량"],
+        frame["반납입고량"],
+    )
+    frame = frame.sort_values(
+        [*KEY_COLUMNS, "재고마감일"],
+        kind="mergesort",
+    )
+
+    grouped = (
+        frame.groupby(KEY_COLUMNS, observed=True, sort=False)
+        .agg(
+            ship_sum=("normal_outbound_nonnegative", "sum"),
+            violations=("physical_violation", "sum"),
+            last_stock=("마감재고량", "last"),
+        )
+        .reset_index()
+    )
+
+    latest_period = frame["재고마감일"].max().to_period("M")
+    recent_periods = {
+        str(latest_period - offset) for offset in range(recent_months)
+    }
+    frame["year_month"] = frame["재고마감일"].dt.to_period("M").astype(str)
+    recent = (
+        frame.loc[frame["year_month"].isin(recent_periods)]
+        .groupby(KEY_COLUMNS, observed=True, sort=False)[
+            "normal_outbound_nonnegative"
+        ]
+        .sum()
+        .rename("recent_demand")
+        .reset_index()
+    )
+    grouped = grouped.merge(
+        recent,
+        on=KEY_COLUMNS,
+        how="left",
+        validate="one_to_one",
+    )
+    grouped["recent_demand"] = grouped["recent_demand"].fillna(0.0)
+
+    zero = grouped[
+        pd.to_numeric(grouped["last_stock"], errors="coerce")
+        .fillna(0.0)
+        .le(0.0)
+    ].copy()
+    zero["zero_stock_reason"] = "TRUE_STOCKOUT"
+    zero.loc[zero["ship_sum"].le(0), "zero_stock_reason"] = "NOT_OPERATED"
+    zero.loc[
+        zero["ship_sum"].gt(0) & zero["violations"].gt(0),
+        "zero_stock_reason",
+    ] = "DATA_MISSING"
+    return zero
+
+
+def load_institution_mapping(
+    anonymous_codes: pd.Series,
+    *,
+    explicit_mapping_path: str = INST_CODE_MAP,
+    institution_ids_path: Path = INST_IDS,
+) -> dict[str, str]:
+    """Load an explicit mapping, or fail closed unless sorted sets align."""
+    if explicit_mapping_path:
+        mapping_frame = pd.read_csv(explicit_mapping_path)
+        aliases = {
+            "anon_institution_code": "institution_code",
+            "보건기관코드_en": "institution_code",
+        }
+        mapping_frame = mapping_frame.rename(columns=aliases)
+        required = {"institution_code", "institution_id"}
+        missing = sorted(required - set(mapping_frame.columns))
+        if missing:
+            raise ValueError(
+                f"institution mapping is missing columns: {missing}"
+            )
+        mapping_frame = mapping_frame.dropna(subset=list(required))
+        if mapping_frame["institution_code"].duplicated().any():
+            raise ValueError("institution mapping contains duplicate source codes")
+        return dict(
+            zip(
+                mapping_frame["institution_code"].astype(str),
+                mapping_frame["institution_id"].astype(str),
+            )
+        )
+
+    anonymous = sorted(anonymous_codes.dropna().astype(str).unique())
+    real = sorted(
+        pd.read_csv(institution_ids_path)["institution_id"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+    if len(anonymous) != len(real):
+        raise ValueError(
+            "sorted-zip institution mapping is unsafe: "
+            f"anonymous={len(anonymous):,}, institution_id={len(real):,}. "
+            "Provide a verified two-column INST_CODE_MAP."
+        )
+    return dict(zip(anonymous, real))
+
+
+def main() -> None:
+    if not LEDGER_PATH.exists():
+        raise SystemExit(f"[중단] 원장 파일이 없다: {LEDGER_PATH}")
+    ledger = pd.read_parquet(LEDGER_PATH, columns=LEDGER_COLUMNS)
+    zero = build_zero_stock_reasons(ledger)
+
+    mapping = load_institution_mapping(ledger["보건기관코드_en"])
+    zero["institution_id"] = zero["보건기관코드_en"].astype(str).map(mapping)
+    if zero["institution_id"].isna().any():
+        count = int(zero["institution_id"].isna().sum())
+        raise SystemExit(f"[중단] 기관 매핑 실패 {count:,}행")
+
+    output = zero.rename(columns={"물품코드": "standard_code"})[
+        [
+            "institution_id",
+            "standard_code",
+            "zero_stock_reason",
+            "recent_demand",
+        ]
+    ].rename(columns={"recent_demand": "recent3m"})
+    output["policy_version"] = ZERO_STOCK_POLICY_VERSION
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    output.to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
+    print(f"저장: {OUT_PATH} ({len(output):,}행)")
+    for reason, count in output["zero_stock_reason"].value_counts().items():
+        recent = int(
+            (
+                output["zero_stock_reason"].eq(reason)
+                & output["recent3m"].gt(0)
+            ).sum()
+        )
+        print(
+            f"  {reason:<15} {count:>8,} "
+            f"({count / max(1, len(output)) * 100:4.1f}%) "
+            f"| 최근 {RECENT_MONTHS}개월 수요>0 {recent:,}"
+        )
+
+
+if __name__ == "__main__":
+    main()

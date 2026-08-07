@@ -36,22 +36,21 @@
     EXPECTED_ROWS=6106936 \
     python3 src/loading/load_inventory_daily.py
 
-    DRY_RUN=1 이면 파싱·검증만 하고 DB 에 쓰지 않는다.
+    기본값은 DRY_RUN=1이다. 실제 적재는 DRY_RUN=0을 명시해야 한다.
 """
 import csv
+from datetime import datetime
 import glob
 import io
 import os
 import time
-
-import psycopg
 
 csv.field_size_limit(10 ** 9)
 
 DATA_DIR = os.path.expanduser(os.environ.get("SSIS_DATA_DIR", "."))
 FILE_GLOB = os.environ.get("SSIS_FILE_GLOB", "*.DAT")
 EXPECTED_ROWS = int(os.environ.get("EXPECTED_ROWS", "0"))
-DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
+DRY_RUN = os.environ.get("DRY_RUN", "1") == "1"
 # 적재 배치 식별자. 같은 배치로 다시 넣으려면 RELOAD=1 (해당 배치 행을 지우고 재적재).
 BATCH_ID = os.environ.get("LOAD_BATCH_ID", "ssis_2018_2019")
 RELOAD = os.environ.get("RELOAD", "0") == "1"
@@ -124,6 +123,13 @@ def rows_from(path, stats):
                 if abs(expected - close_v) > 1e-6:
                     stats["identity_bad"] += 1
 
+            raw_date = parts[idx["재고마감일"]]
+            try:
+                stock_date = datetime.strptime(raw_date, "%Y%m%d").date().isoformat()
+            except (TypeError, ValueError):
+                stats["bad_key"] += 1
+                continue
+
             out = []
             for src, dst in COLMAP:
                 if src not in idx:
@@ -131,7 +137,7 @@ def rows_from(path, stats):
                     continue
                 raw = parts[idx[src]]
                 if dst == "stock_date":
-                    out.append(f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}" if len(raw) == 8 else None)
+                    out.append(stock_date)
                 elif dst == "dept_code":
                     out.append(raw or "")
                 elif dst in NUMERIC:
@@ -145,6 +151,8 @@ def rows_from(path, stats):
 
 
 def main():
+    import psycopg
+
     files = sorted(glob.glob(os.path.join(DATA_DIR, FILE_GLOB)))
     if not files:
         raise SystemExit(f"[FATAL] 대상 파일 없음: {DATA_DIR}/{FILE_GLOB}")

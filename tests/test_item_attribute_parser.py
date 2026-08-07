@@ -86,6 +86,20 @@ class ItemAttributeParserTest(unittest.TestCase):
         self.assertEqual(parsed["needle_gauge"], "")
         self.assertEqual(parsed["active_strengths"], "")
 
+    def test_gauze_dimensions_and_package_count_are_separate(self):
+        parsed = self.parser.parse(
+            "멸균거즈 10cm*10cm 10매",
+            item_group_id="MED_SUPPLY",
+            item_family_id="MEDICAL_GAUZE",
+            standard_unit="SHEET",
+        )
+
+        self.assertEqual(parsed["base_item_name_candidate"], "멸균거즈")
+        self.assertEqual(parsed["dimensions"], "10cm x 10cm")
+        self.assertEqual(parsed["pack_quantity"], "10")
+        self.assertEqual(parsed["pack_unit"], "SHEET")
+        self.assertEqual(parsed["needle_gauge"], "")
+
     def test_trailing_topical_mass_is_net_weight_and_per_unit_is_pack(self):
         parsed = self.parser.parse(
             "후시딘연고(동화약품공업)-10G(1EA)",

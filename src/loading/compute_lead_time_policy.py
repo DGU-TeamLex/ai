@@ -19,12 +19,12 @@ DB 는 읽기만 한다.
 """
 import os
 
-import psycopg
-
 CAPS = [int(c) for c in os.environ.get("CAPS", "180,120,90,60,30").split(",")]
 
 
 def main():
+    import psycopg
+
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         cur = conn.cursor()
 

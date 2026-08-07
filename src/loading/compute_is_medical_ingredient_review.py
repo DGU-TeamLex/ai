@@ -19,8 +19,6 @@ import csv
 import io
 import os
 
-import psycopg
-
 csv.field_size_limit(10 ** 9)
 
 DRUG_FILE = os.path.expanduser(
@@ -52,6 +50,8 @@ def drug_codes():
 
 
 def main():
+    import psycopg
+
     info = drug_codes()
     print(f"약성분 약품코드 {len(info):,}종")
 

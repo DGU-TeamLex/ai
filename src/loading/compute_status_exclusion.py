@@ -35,7 +35,6 @@ frontend `StatusBadge` 는 미지 status 를 원문+중립 스타일로 폴백�
 import os
 
 import pandas as pd
-import psycopg
 
 HANDOFF = os.environ.get("HANDOFF", "data/handoff/zero_stock_reason.csv")
 OUT = os.environ.get("OUT", "data/handoff/status_exclusion.csv")
@@ -44,6 +43,8 @@ TARGET_STATUSES = ("CRITICAL", "BELOW_ROP", "WATCH")
 
 
 def main():
+    import psycopg
+
     df = pd.read_csv(HANDOFF)[
         ["institution_id", "standard_code", "zero_stock_reason", "recent3m"]
     ]

@@ -59,14 +59,17 @@ def read_drug_file(path: str):
             yield {name: row[i] for name, i in idx.items()}
 
 
-def build_master():
+def build_master(path: str = DRUG_FILE):
     """약품코드별 canonical 성분 매핑 — 기관 간 교차 보완."""
-    ing_votes = collections.defaultdict(collections.Counter)  # drug -> {ingredient_code: 기관수}
+    # 같은 기관의 중복 행이 투표를 부풀리지 않도록 기관 집합을 센다.
+    ing_sources = collections.defaultdict(
+        lambda: collections.defaultdict(set)
+    )
     ing_name = {}
     attrs = {}          # drug -> (약품명, 용도구분, 약종류구분, 약품단위)
     rows = 0
 
-    for r in read_drug_file(DRUG_FILE):
+    for r in read_drug_file(path):
         rows += 1
         drug = r["약품코드"]
         if not drug:
@@ -78,18 +81,29 @@ def build_master():
             )
         code = (r.get("성분코드") or "").strip()
         if code:
-            ing_votes[drug][code] += 1
+            institution = (r.get("보건기관코드_en") or "").strip()
+            if institution:
+                ing_sources[drug][code].add(institution)
             if code not in ing_name:
                 ing_name[code] = (r.get("성분명") or "").strip()
 
     master = {}
     for drug, (name, usage, kind, unit) in attrs.items():
-        votes = ing_votes.get(drug)
-        if votes:
+        sources = ing_sources.get(drug)
+        if sources:
+            counts = {
+                code: len(institutions)
+                for code, institutions in sources.items()
+            }
             # 최다 기관이 보고한 성분코드를 대표로 삼는다(동률이면 코드 오름차순으로 고정).
-            top_code, top_n = sorted(votes.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+            top_code, top_n = sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )[0]
+            total_votes = sum(counts.values())
         else:
             top_code, top_n = "", 0
+            total_votes = 0
         master[drug] = {
             "drug_code": drug,
             "drug_name": name,
@@ -98,8 +112,13 @@ def build_master():
             "drug_unit": unit,
             "ingredient_code": top_code,
             "ingredient_name": ing_name.get(top_code, ""),
-            "has_multiple_ingredients": "true" if votes and len(votes) > 1 else "false",
+            "has_multiple_ingredients": (
+                "true" if sources and len(sources) > 1 else "false"
+            ),
             "source_institution_count": top_n,
+            "ingredient_consensus_ratio": (
+                round(top_n / total_votes, 6) if total_votes else ""
+            ),
         }
     return master, rows
 
@@ -107,12 +126,17 @@ def build_master():
 def assign_tiers(master: dict, item_group: dict):
     """3계층 폴백 배정. tier1 성분군 → tier2 용도×약종류 → tier3 품목군."""
     size = collections.Counter(
-        m["ingredient_code"] for m in master.values() if m["ingredient_code"]
+        m["ingredient_code"]
+        for m in master.values()
+        if m["ingredient_code"] and m["has_multiple_ingredients"] == "false"
     )
     out = {}
     for drug, m in master.items():
         code = m["ingredient_code"]
-        if code and size[code] >= MIN_GROUP_SIZE:
+        # 복수 코드 관측은 복합제/이력변경/코드충돌을 구분할 수 없다. 대표 코드 하나로
+        # 대체 가능성을 단정하지 않고 tier2 로 내린다.
+        unambiguous = m["has_multiple_ingredients"] == "false"
+        if code and unambiguous and size[code] >= MIN_GROUP_SIZE:
             tier, gid = 1, f"ING:{code}"
         elif m["usage_division"] or m["drug_kind"]:
             tier, gid = 2, f"USE:{m['usage_division']}/{m['drug_kind']}"
@@ -167,7 +191,7 @@ def main():
         w = csv.DictWriter(f, fieldnames=[
             "drug_code", "drug_name", "usage_division", "drug_kind", "drug_unit",
             "ingredient_code", "ingredient_name", "has_multiple_ingredients",
-            "source_institution_count",
+            "source_institution_count", "ingredient_consensus_ratio",
         ])
         w.writeheader()
         for drug in sorted(master):

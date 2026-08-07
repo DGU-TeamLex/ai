@@ -31,7 +31,6 @@ import os
 
 import numpy as np
 import pandas as pd
-import psycopg
 
 STOCK_GLOB = os.path.expanduser(
     os.environ.get("SSIS_STOCK_GLOB", "~/Downloads/SSIS_20260728/stock_*.DAT")
@@ -68,6 +67,8 @@ def lead_time_samples(df):
 
 
 def main():
+    import psycopg
+
     print(f"원장 로드: {STOCK_GLOB}")
     df = load_ledger()
     print(f"총 {len(df):,}행")

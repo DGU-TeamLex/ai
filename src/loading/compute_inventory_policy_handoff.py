@@ -193,8 +193,7 @@ def main() -> None:
     g["institution_id"] = g["institution_code"].map(mapping)
     unmapped = int(g["institution_id"].isna().sum())
     if unmapped:
-        print(f"⚠ 매핑 실패 {unmapped:,}행 — 제외한다")
-    g = g.dropna(subset=["institution_id"])
+        die(f"기관 매핑 실패 {unmapped:,}행 — 부분 handoff를 만들지 않는다")
     g = g.rename(columns={"item_code": "standard_code"})
 
     out = g[[

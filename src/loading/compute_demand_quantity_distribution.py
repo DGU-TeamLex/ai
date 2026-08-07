@@ -52,6 +52,7 @@ def main():
     freq = collections.Counter()   # 출고 수량 -> 건수
     rows = zero = 0
     total_qty = 0.0
+    non_integer_events = 0
 
     for path in files:
         with io.open(path, "r", encoding="utf-8", newline="") as f:
@@ -77,8 +78,11 @@ def main():
                     zero += 1
                     continue
                 total_qty += q
-                # 정수 수량이 대부분이므로 정수로 버킷팅한다(소수는 올림 없이 버림).
-                freq[int(q)] += 1
+                if not q.is_integer():
+                    non_integer_events += 1
+                # 소수 수량도 원본 값 그대로 보존한다. int(q)는 0.5를 0으로 바꾸고
+                # 분위수와 "수량=1" 비중을 왜곡한다.
+                freq[q] += 1
 
     events = sum(freq.values())
     print(f"전체 행 {rows:,}  출고 발생 {events:,}건  출고 0/결측 {zero:,}")
@@ -86,6 +90,10 @@ def main():
         raise SystemExit("출고 건이 없음")
 
     print(f"출고 총량 {total_qty:,.0f}  건당 평균 {total_qty / events:.2f}")
+    print(
+        f"소수 수량 {non_integer_events:,}건 "
+        f"({100 * non_integer_events / events:.2f}%)"
+    )
 
     ones = freq.get(1, 0)
     le5 = sum(c for q, c in freq.items() if q <= 5)

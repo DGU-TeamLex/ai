@@ -114,7 +114,10 @@ institutions       : 3,598      ← 68개 차이
 
 ---
 
----
+`zero_stock_reason.csv`의 `policy_version`은 자동 적용 게이트다.
+`inventory-status-v1.1-physical`만 적용할 수 있으며, 과거
+`legacy-document-rule-v0-unapproved` 파일은 이관·반납입고를 누락한 좁은 식으로 생성돼
+검토용으로만 남긴다. 검증된 2열 기관 매핑이 마련되기 전에는 새 handoff를 만들지 않는다.
 
 ## `drug_ingredient_master.csv`
 
@@ -131,7 +134,10 @@ institutions       : 3,598      ← 68개 차이
 외부 데이터 없이 자체 복구된다. `source_institution_count` 는 그 성분코드를 보고한 기관 수다.
 
 - `has_multiple_ingredients` — 한 약품코드에 성분코드가 2개 이상 관측된 경우(**72종**).
-  복합제이거나 이력 변경이며, 대표값은 최다 기관이 보고한 코드다.
+  복합제·이력 변경·코드 충돌을 원본만으로 구분할 수 없으므로 대표값은 감사용으로만
+  남기고 **tier1 성분 동일군에는 넣지 않는다**.
+- `ingredient_consensus_ratio` — 대표 성분을 보고한 기관 수 / 모든 성분코드 투표 수.
+  중복 원본 행이 투표를 부풀리지 않도록 `(기관, 약품, 성분)`을 한 표로 센다.
 - 조인키 **무변환**: `drug_code` = 물품재고의 `물품코드` = DB `standard_items.standard_code`.
 
 ## `ingredient_tiers.csv`
@@ -140,12 +146,14 @@ institutions       : 3,598      ← 68개 차이
 
 | tier | 정의 | 배정 |
 |---|---|---|
-| 1 | 성분군 (2종 이상) | 64,197종 (79.3%) |
-| 2 | 용도구분 × 약종류구분 | 16,721종 (20.7%) |
+| 1 | 성분군 (2종 이상, 복수 코드 품목 제외) | 64,120종 (79.2%) |
+| 2 | 용도구분 × 약종류구분 | 16,798종 (20.8%) |
 | 3 | 현행 품목군 | `ITEM_GROUP_CSV` 지정 시 |
 | 0 | 미배정 | 16종 |
 
-성분군은 13,212개이고 그중 **50.1%(6,615개)가 1종짜리**라 축소추정이 불가하므로 tier2 로 내린다.
+성분군은 13,209개이고 그중 **50.1%(6,620개)가 1종짜리**라 축소추정이 불가하므로 tier2 로 내린다.
+복수 성분코드가 관측된 72종도 원본만으로 복합제·이력변경·코드 충돌을 구분할 수 없어
+tier2로 내렸다. 수치는 2026-07-30에 3,576,320행 전수로 재검증했다.
 ※ 위 수치는 **약성분 파일 전체(80,934종)** 기준이다. ai#45 본문의 2,326군·59.5% 는
 DB `standard_items`(17,148종)와 교집합을 낸 범위라 모수가 다르다.
 
@@ -155,3 +163,23 @@ DB `standard_items`(17,148종)와 교집합을 낸 범위라 모수가 다르다
 
 관련: ai#24(절단편향), ai#25(DB 적재 이관), ai#26(구현 PR), backend#16(기관 매핑),
 ai#45(3계층), ai#43(is_medical), backend#65(약성분 스키마)
+
+---
+
+## 검증 예측 handoff
+
+`backtest_predictions.parquet`는 backend가 검증된 예측을 적재할 수 있도록 701MB 원본
+CSV에서 행 식별키, 표준품목 정의, 실측, 최종 예측, 선택 모델만 추린 압축 전달물이다.
+`backtest_segment_evaluation.parquet`는 같은 실행의 수요패턴·품목군 등 세그먼트 평가다.
+
+```bash
+conda run -n teamlex python -m src.modeling.backtest_handoff
+```
+
+두 파일은 다음 게이트를 통과한 경우에만 생성된다.
+
+- 예측 grain: `forecast_origin_month × year_month × 기관 × 부서 × 물품` 유일
+- `actual_usage`, `predicted_usage`: 유한한 0 이상 수치
+- 행별 예측과 세그먼트 평가에 필요한 계약 컬럼 전부 존재
+
+관련: ai#28
