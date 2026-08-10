@@ -112,16 +112,24 @@ def _prepare_folds(variant: str) -> tuple[list[dict], list[str], str, float]:
     if not valid_rows.all():
         feature_table = feature_table.loc[valid_rows]
 
-    # 운영 학습과 같은 품질 게이트. 외부 신호가 전부 0 이면 그 variant 는
-    # 의미 없는 조합을 최적화하게 되므로 탐색 자체를 막는다(fail closed).
-    missing = _missing_external_signal(feature_table, options)
-    if missing is not None:
-        raise ValueError(f"Cannot tune variant {variant}: {missing}")
-
     historical_weight = float(
         load_historical_training_policy().get("selected_historical_weight", 0.0)
     )
     folds = _fold_frames(feature_table, historical_weight)
+
+    # 운영 학습과 같은 품질 게이트. 외부 신호가 전부 0 이면 그 variant 는
+    # 의미 없는 조합을 최적화하게 되므로 탐색 자체를 막는다(fail closed).
+    #
+    # ⚠️ 반드시 fold 의 **train 행** 으로만 검사한다. 전체 feature_table 로 검사하면
+    #    학습 구간엔 신호가 없고 validation 구간에만 있는 경우도 통과해 버린다
+    #    (validation 정보가 게이트 판단에 새어 들어간다). ai#60 리뷰 지적.
+    for fold in folds:
+        missing = _missing_external_signal(fold["train"], options)
+        if missing is not None:
+            raise ValueError(
+                f"Cannot tune variant {variant}: fold {fold.get('name', '?')} "
+                f"training rows have {missing}"
+            )
     feature_cols = select_feature_columns(
         feature_table,
         use_news=options["use_news"],
@@ -133,28 +141,71 @@ def _prepare_folds(variant: str) -> tuple[list[dict], list[str], str, float]:
     return folds, feature_cols, options["objective"], historical_weight
 
 
-def _suggest_params(trial, base_objective: str, random_state: int) -> dict:
-    params = {
+# 탐색 대상이 아닌 고정 파라미터. tuner·baseline·JSON 복원이 **모두 이걸 거쳐야** 한다.
+#
+# 이걸 공용으로 뺀 이유(ai#60 리뷰 지적):
+#   기존에는 study.best_params(=Optuna 가 제안한 값만) 를 그대로 저장했다. 그래서
+#   subsample_freq 가 빠졌고, LightGBM 기본값이 subsample_freq=0 이라 저장된 JSON 을
+#   training.py 로 옮기면 subsample 이 **적용되지 않는다**. 보고한 WAPE 가 재현되지 않는다.
+#   objective·random_state·n_jobs·force_col_wise·verbosity 도 같은 이유로 누락됐었다.
+#
+# 또 하나: baseline 에만 histogram_pool_size 가 있고 탐색 쪽엔 없어서 두 조건이
+# 애초에 동일하지 않았다. 여기로 합쳐 같은 값을 쓰게 한다.
+def _fixed_params(base_objective: str, random_state: int) -> dict:
+    return {
         "objective": base_objective,
-        "n_estimators": SEARCH_MAX_ESTIMATORS,
+        "subsample_freq": 1,
+        "random_state": random_state,
+        "n_jobs": 4,
+        "force_col_wise": True,
+        "histogram_pool_size": 256,
+        "verbosity": -1,
+    }
+
+
+# 탐색 공간. 이름을 한 곳에 모아 두어야 JSON 복원 때 무엇이 탐색값이었는지 알 수 있다.
+SEARCHED_PARAM_NAMES = (
+    "learning_rate", "num_leaves", "min_child_samples",
+    "subsample", "colsample_bytree", "reg_lambda", "reg_alpha",
+    "tweedie_variance_power",
+)
+
+
+def build_estimator_params(
+    searched: dict,
+    base_objective: str,
+    n_estimators: int,
+    random_state: int = RANDOM_STATE,
+) -> dict:
+    """탐색값 + 고정값 → LGBMRegressor 에 실제로 넘어가는 전체 파라미터.
+
+    tuner 도, 저장된 JSON 을 다시 읽는 쪽도 이 함수를 쓴다. 그래야 round-trip 이 성립한다.
+    """
+    params = _fixed_params(base_objective, random_state)
+    params["n_estimators"] = int(n_estimators)
+    for name in SEARCHED_PARAM_NAMES:
+        if name in searched:
+            params[name] = searched[name]
+    return params
+
+
+def _suggest_params(trial, base_objective: str, random_state: int) -> dict:
+    searched = {
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
         "num_leaves": trial.suggest_int("num_leaves", 15, 255),
         "min_child_samples": trial.suggest_int("min_child_samples", 20, 400),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-        "subsample_freq": 1,
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
         "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
         "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 10.0, log=True),
-        "random_state": random_state,
-        "n_jobs": 4,
-        "force_col_wise": True,
-        "verbosity": -1,
     }
     if base_objective == "tweedie":
-        params["tweedie_variance_power"] = trial.suggest_float(
+        searched["tweedie_variance_power"] = trial.suggest_float(
             "tweedie_variance_power", 1.05, 1.9,
         )
-    return params
+    return build_estimator_params(
+        searched, base_objective, SEARCH_MAX_ESTIMATORS, random_state,
+    )
 
 
 def _prepare_matrices(
@@ -300,25 +351,22 @@ def _make_objective(prepared: list[dict], base_objective: str, n_trials: int | N
 
 
 def _baseline_params(base_objective: str) -> dict:
-    """training.py::_build_estimator() 의 현재 고정값. 같은 조건 비교용."""
-    params = {
-        "objective": base_objective,
-        "n_estimators": 160,
+    """training.py::_build_estimator() 의 현재 고정값. 같은 조건 비교용.
+
+    탐색 쪽과 **같은 빌더**를 거친다. 종전에는 baseline 에만 histogram_pool_size 가
+    있고 탐색 쪽엔 없어서 두 조건이 동일하지 않았다.
+    """
+    searched = {
         "learning_rate": 0.05,
         "num_leaves": 31,
         "min_child_samples": 100,
         "subsample": 0.9,
         "colsample_bytree": 0.9,
         "reg_lambda": 0.1,
-        "random_state": RANDOM_STATE,
-        "n_jobs": 4,
-        "force_col_wise": True,
-        "histogram_pool_size": 256,
-        "verbosity": -1,
     }
     if base_objective == "tweedie":
-        params["tweedie_variance_power"] = 1.3
-    return params
+        searched["tweedie_variance_power"] = 1.3
+    return build_estimator_params(searched, base_objective, 160, RANDOM_STATE)
 
 
 def tune(variant: str, n_trials: int | None, timeout: int | None) -> dict:
@@ -358,7 +406,11 @@ def tune(variant: str, n_trials: int | None, timeout: int | None) -> dict:
 
     best = study.best_trial
     selected_n_estimators = int(best.user_attrs["selected_n_estimators"])
-    best_params = {**study.best_params, "n_estimators": selected_n_estimators}
+    # 실제로 LGBMRegressor 에 들어가는 전체 파라미터를 저장한다.
+    # study.best_params 만 저장하면 subsample_freq 등 고정값이 빠져 재현되지 않는다.
+    best_params = build_estimator_params(
+        dict(study.best_params), base_objective, selected_n_estimators, RANDOM_STATE,
+    )
     delta = best.value - baseline["combined"]["WAPE"]
 
     result = {
@@ -381,7 +433,11 @@ def tune(variant: str, n_trials: int | None, timeout: int | None) -> dict:
         "n_trials_completed": len(study.trials),
         "search_max_estimators": SEARCH_MAX_ESTIMATORS,
         "selected_n_estimators": selected_n_estimators,
+        # best_params = LGBMRegressor(**best_params) 로 바로 쓸 수 있는 전체 파라미터.
+        # searched_params 는 그중 Optuna 가 탐색한 값만 따로 보관한다(감사용).
         "best_params": best_params,
+        "searched_params": dict(study.best_params),
+        "fixed_params": _fixed_params(base_objective, RANDOM_STATE),
         "best_combined_metrics": best.user_attrs["combined"],
         "best_per_fold": best.user_attrs["per_fold"],
         "baseline_params": _baseline_params(base_objective),

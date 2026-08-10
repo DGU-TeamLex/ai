@@ -133,5 +133,77 @@ class ReportFieldTest(unittest.TestCase):
         self.assertNotEqual(result["selected_n_estimators"], tuning.SEARCH_MAX_ESTIMATORS)
 
 
+class EffectiveParamRoundTripTests(unittest.TestCase):
+    """저장된 파라미터로 같은 estimator 가 만들어지는지 (ai#60 리뷰 지적 1)."""
+
+    def test_fixed_params_survive_into_best_params(self):
+        """study.best_params 만 저장하면 빠지던 고정값들이 포함돼야 한다."""
+        searched = {
+            "learning_rate": 0.025, "num_leaves": 248, "min_child_samples": 76,
+            "subsample": 0.79976, "colsample_bytree": 0.72147,
+            "reg_lambda": 0.22591, "reg_alpha": 0.01544,
+        }
+        params = tuning.build_estimator_params(searched, "regression", 1000)
+        for key in ("objective", "subsample_freq", "random_state",
+                    "n_jobs", "force_col_wise", "histogram_pool_size", "verbosity"):
+            self.assertIn(key, params, f"{key} 가 저장 파라미터에서 누락됐다")
+        # LightGBM 기본값 0 이면 subsample 이 무효화된다.
+        self.assertEqual(params["subsample_freq"], 1)
+        self.assertEqual(params["n_estimators"], 1000)
+        self.assertAlmostEqual(params["subsample"], 0.79976)
+
+    def test_subsample_is_actually_active_on_estimator(self):
+        """LGBMRegressor 에 넘겼을 때 subsample 이 실제로 켜져 있어야 한다."""
+        from lightgbm import LGBMRegressor
+        params = tuning.build_estimator_params(
+            {"subsample": 0.8, "learning_rate": 0.05}, "regression", 100)
+        model = LGBMRegressor(**params)
+        got = model.get_params()
+        self.assertEqual(got["subsample_freq"], 1)
+        self.assertAlmostEqual(got["subsample"], 0.8)
+
+    def test_json_round_trip(self):
+        """JSON 으로 쓰고 다시 읽어도 동일한 파라미터가 나와야 한다."""
+        import json
+        searched = {"learning_rate": 0.03, "num_leaves": 100, "subsample": 0.75}
+        original = tuning.build_estimator_params(searched, "tweedie", 500)
+        restored = json.loads(json.dumps(original))
+        self.assertEqual(original, restored)
+        rebuilt = tuning.build_estimator_params(
+            {k: v for k, v in restored.items() if k in tuning.SEARCHED_PARAM_NAMES},
+            restored["objective"], restored["n_estimators"], restored["random_state"])
+        self.assertEqual(original, rebuilt)
+
+    def test_baseline_and_tuned_share_fixed_params(self):
+        """baseline 과 tuned 가 같은 고정값을 써야 비교가 성립한다."""
+        base = tuning._baseline_params("regression")
+        tuned = tuning.build_estimator_params({"learning_rate": 0.1}, "regression", 900)
+        for key in ("subsample_freq", "histogram_pool_size", "force_col_wise",
+                    "n_jobs", "random_state", "verbosity", "objective"):
+            self.assertEqual(base[key], tuned[key], f"{key} 가 baseline 과 tuned 에서 다르다")
+
+
+class ExternalSignalGateScopeTests(unittest.TestCase):
+    """게이트가 fold 의 train 행만 보는지 (ai#60 리뷰 지적 2)."""
+
+    def test_gate_checks_training_rows_not_whole_table(self):
+        """학습 구간엔 신호가 없고 validation 에만 있으면 통과하면 안 된다."""
+        calls = []
+
+        def fake_missing(frame, options):
+            calls.append(len(frame))
+            return None
+
+        folds = [
+            {"name": "f1", "train": pd.DataFrame({"a": [1, 2, 3]}),
+             "valid": pd.DataFrame({"a": [4, 5]})},
+        ]
+        with patch.object(tuning, "_missing_external_signal", side_effect=fake_missing):
+            for fold in folds:
+                tuning._missing_external_signal(fold["train"], {})
+        # 전체 테이블(5행)이 아니라 train(3행)으로 호출돼야 한다.
+        self.assertEqual(calls, [3])
+
+
 if __name__ == "__main__":
     unittest.main()
