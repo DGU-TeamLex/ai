@@ -396,6 +396,16 @@ MAX_RISK_BUFFER_RATE = 0.50
 DEMAND_RISK_BUFFER_RATE = 0.20
 SUPPLY_RISK_BUFFER_RATE = 0.20
 MATERIAL_RISK_BUFFER_RATE = 0.10
+
+# 발주 주기 — 보건기관은 재고 소진 시 수시 발주가 아니라 월 단위로 정기 발주한다.
+#   확인: 2026-07-30 reo-23, 이슈 #54 (조달 실무 확인 결과)
+#   그래서 재고 모형은 연속검토(ROP 도달 시 발주)가 아니라 정기검토를 쓴다.
+#   보호기간 = 검토주기 + 리드타임 이며 src/modeling/inventory_policy.py 가 이를 따른다.
+#
+#   ⚠️ backend 는 연속검토 식(SS = z·σ·√L, ROP = μ·L + SS)으로 운영 DB 를 채워 왔다.
+#      두 모형이 공존하던 문제가 #54 이고, 실무 확인으로 정기검토가 정본임이 확정됐다.
+#      운영 DB 재산정은 별도 PR 로 다룬다 — src/loading/apply_inventory_policy.py 는
+#      그때까지 ss/rop/target/status/order_recommendation 을 쓰지 않는다.
 DEFAULT_REVIEW_PERIOD_DAYS = 30
 DEFAULT_LEAD_TIME_DAYS = 15
 
