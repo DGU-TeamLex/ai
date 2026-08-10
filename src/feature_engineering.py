@@ -80,6 +80,14 @@ def _merge_risk(
     value_columns: list[str],
 ) -> pd.DataFrame:
     if not path.exists():
+        # 위험점수 산출물이 없으면 해당 외부신호는 전 행 0 이 된다.
+        # 조용히 넘어가면 모듈 C 를 쓰는 모델이 "신호가 없는 상태"로 학습되고도
+        # 정상처럼 보이므로, 어떤 신호가 왜 비었는지 반드시 남긴다.
+        LOGGER.warning(
+            "Risk score output not found: %s — %s will be filled with 0.0 for every row",
+            path,
+            ", ".join(value_columns),
+        )
         feature_table[value_columns] = 0.0
         return feature_table
 
@@ -94,6 +102,11 @@ def _merge_risk(
         pd.read_csv(path, low_memory=False, usecols=read_columns)
     )
     if risk.empty:
+        LOGGER.warning(
+            "Risk score output is empty: %s — %s will be filled with 0.0 for every row",
+            path,
+            ", ".join(value_columns),
+        )
         feature_table[value_columns] = 0.0
         return feature_table
     if not set(RISK_JOIN_KEYS).issubset(risk.columns):
@@ -154,10 +167,41 @@ def build_feature_table() -> pd.DataFrame:
     feature_table = _merge_risk(feature_table, NEWS_RISK_SCORE_PATH, news_columns)
     feature_table = _merge_risk(feature_table, COMMODITY_RISK_SCORE_PATH, commodity_columns)
     feature_table = _merge_risk(feature_table, MODULE_C_RISK_SCORE_PATH, module_c_columns)
-    feature_table[[*news_columns, *commodity_columns, *module_c_columns]] = feature_table[
-        [*news_columns, *commodity_columns, *module_c_columns]
-    ].fillna(0.0).astype("float32")
+    external_columns = [*news_columns, *commodity_columns, *module_c_columns]
+    feature_table[external_columns] = feature_table[external_columns].fillna(0.0).astype("float32")
+    _log_external_signal_coverage(feature_table, external_columns)
     return feature_table.sort_values(GROUP_KEYS).reset_index(drop=True)
+
+
+def _log_external_signal_coverage(
+    feature_table: pd.DataFrame,
+    external_columns: list[str],
+) -> None:
+    """외부신호가 실제로 몇 행에 붙었는지 남긴다.
+
+    산출물 파일이 있어도 승인된 원자재 매핑에 걸린 재고키에만 값이 붙으므로,
+    커버리지가 1% 미만인 상태가 정상처럼 지나갈 수 있다. 학습 전에 규모를
+    눈으로 확인할 수 있도록 요약한다.
+    """
+    total = len(feature_table)
+    if not total:
+        return
+    empty = []
+    for column in external_columns:
+        nonzero = int((feature_table[column] != 0).sum())
+        if nonzero == 0:
+            empty.append(column)
+            continue
+        LOGGER.info(
+            "External signal %s: %s/%s rows non-zero (%.4f%%), max=%.6f",
+            column, f"{nonzero:,}", f"{total:,}", nonzero / total * 100,
+            float(feature_table[column].max()),
+        )
+    if empty:
+        LOGGER.warning(
+            "External signals with no non-zero value in any row (%s): %s",
+            len(empty), ", ".join(empty),
+        )
 
 
 def run_feature_engineering() -> None:

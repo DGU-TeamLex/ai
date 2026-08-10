@@ -462,11 +462,29 @@ def collect_trade_flows(
     if selected != "kcs":
         raise ValueError(f"Unsupported TRADE_PROVIDER: {selected}")
     if total_cache_path.exists() and not refresh:
-        return collect_trade_flows(
+        cached_totals, cached_countries = collect_trade_flows(
             hs_codes,
             provider="csv",
             total_cache_path=total_cache_path,
             country_cache_path=country_cache_path,
+        )
+        # 캐시 파일이 존재한다는 사실만으로 반환하면, 새로 추가된 HS 코드가
+        # 수집되지 않은 채 성공처럼 보인다. 요청한 코드를 모두 담고 있을 때만
+        # 캐시를 그대로 쓰고, 하나라도 빠졌으면 아래 증분 수집으로 내려간다.
+        cached_codes = (
+            set(cached_totals["hs_code"].astype(str))
+            if not cached_totals.empty
+            else set()
+        )
+        requested_codes = {str(code).strip() for code in hs_codes}
+        missing_codes = requested_codes - cached_codes
+        if not missing_codes:
+            return cached_totals, cached_countries
+        LOGGER.info(
+            "Trade cache is missing %s of %s requested HS codes; collecting the remainder: %s",
+            len(missing_codes),
+            len(requested_codes),
+            ", ".join(sorted(missing_codes)[:10]),
         )
 
     start_month = os.getenv("TRADE_START_MONTH", "2023-01")

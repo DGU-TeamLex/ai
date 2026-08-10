@@ -1,8 +1,41 @@
 import json
+import os
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_dotenv(path: Path = PROJECT_ROOT / ".env") -> list[str]:
+    """프로젝트 루트의 `.env` 를 os.environ 에 채운다.
+
+    문서(운영 가이드 21.1)는 `.env` 에 키를 넣으라고만 안내하는데, 지금까지는
+    이를 읽는 코드가 없어 파일을 만들어도 `NEWS_PROVIDER`/`TRADE_PROVIDER`/
+    API 키가 전부 미설정으로 남았다. 그 결과 모듈 C 신호가 조용히 0 이 됐다.
+
+    이미 설정된 환경변수는 덮어쓰지 않는다(CI·쉘 지정이 우선).
+    외부 의존성을 추가하지 않기 위해 표준 라이브러리만 쓴다.
+    """
+    if not path.exists():
+        return []
+    loaded = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ[key] = value
+        loaded.append(key)
+    return loaded
+
+
+DOTENV_LOADED_KEYS = load_dotenv()
 
 RAW_STOCK_DIR = PROJECT_ROOT / "raw_stock"
 RAW_STOCK_FILE_PATTERN = "*.DAT"
