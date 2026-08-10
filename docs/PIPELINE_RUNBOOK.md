@@ -80,6 +80,28 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 리뷰 대기 중인 수정
+
+2026-08-10 기준으로 아래 넷이 `dev` 에 아직 병합되지 않았다. 없으면 각각
+파이프라인이 중간에 멈추거나 조용히 잘못된 결과를 낸다.
+
+| 브랜치 | 없으면 |
+|---|---|
+| `fix/bulk-approval-history-only-keys` | 2018~19 원장을 넣으면 일괄승인이 예외로 죽는다 |
+| `fix/alias-duplicate-resolution` | alias 중복으로 예측 산출이 실패한다 |
+| `feat/news-collection-runner` | 뉴스 재수집 8시간, 감사파일 28.8GB |
+| `docs/pipeline-runbook` | 이 문서 |
+
+넷을 합쳐 둔 브랜치가 있다(충돌 없음, 테스트 244건 통과).
+
+```bash
+git checkout integration/2026-08-10-desktop
+```
+
+병합이 끝나면 이 절과 통합 브랜치는 지운다.
+
+### 환경
+
 **pandas 3.x 에서는 `item_normalization` 이 죽는다**(`make_na_array` AssertionError).
 `requirements.txt` 가 상한을 두지 않으므로 설치 후 확인한다.
 
