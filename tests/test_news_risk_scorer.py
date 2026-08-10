@@ -11,7 +11,10 @@ from urllib.error import HTTPError
 
 import pandas as pd
 
-from src.news.news_risk_scorer import build_news_risk_outputs
+from src.news.news_risk_scorer import (
+    _write_article_score_audit,
+    build_news_risk_outputs,
+)
 from src.news.news_collector import (
     _find_recent_gdelt_ngram_batches,
     _news_from_gdelt_ngram_batch,
@@ -453,6 +456,54 @@ class NewsCollectorTest(unittest.TestCase):
 
         self.assertTrue(scores.empty)
         self.assertTrue(audit.empty)
+
+
+class ArticleScoreAuditFormatTest(unittest.TestCase):
+    FRAME = pd.DataFrame(
+        [
+            {"STD_YYYYMM": "2025-01", "stock_item_key": "I1::D::A", "article_score": 0.5},
+            {"STD_YYYYMM": "2025-01", "stock_item_key": "I1::D::B", "article_score": 0.25},
+        ]
+    )
+
+    def _write_with(self, fmt: str | None, directory: str):
+        target = Path(directory) / "stock_news_article_scores.csv"
+        env = {} if fmt is None else {"NEWS_ARTICLE_SCORE_FORMAT": fmt}
+        with patch.dict(os.environ, env, clear=False):
+            if fmt is None:
+                os.environ.pop("NEWS_ARTICLE_SCORE_FORMAT", None)
+            with patch(
+                "src.news.news_risk_scorer.NEWS_ARTICLE_SCORE_PATH", target
+            ):
+                return _write_article_score_audit(self.FRAME)
+
+    def test_csv_is_the_default_so_the_documented_artifact_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            written = self._write_with(None, directory)
+
+            self.assertEqual(written.suffix, ".csv")
+            self.assertTrue(written.exists())
+            pd.testing.assert_frame_equal(pd.read_csv(written), self.FRAME)
+
+    def test_parquet_round_trips_without_loss(self):
+        with tempfile.TemporaryDirectory() as directory:
+            written = self._write_with("parquet", directory)
+
+            self.assertEqual(written.suffix, ".parquet")
+            pd.testing.assert_frame_equal(pd.read_parquet(written), self.FRAME)
+
+    def test_parquet_does_not_leave_a_stale_csv_behind(self):
+        with tempfile.TemporaryDirectory() as directory:
+            written = self._write_with("parquet", directory)
+
+            self.assertFalse(written.with_suffix(".csv").exists())
+
+    def test_unknown_format_fails_instead_of_silently_picking_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError) as caught:
+                self._write_with("json", directory)
+
+        self.assertIn("NEWS_ARTICLE_SCORE_FORMAT", str(caught.exception))
 
 
 if __name__ == "__main__":

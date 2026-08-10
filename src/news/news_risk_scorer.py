@@ -1,5 +1,6 @@
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -686,14 +687,39 @@ def score_news_risk() -> pd.DataFrame:
     return scores
 
 
+def _write_article_score_audit(article_scores: pd.DataFrame) -> Path:
+    """Write the per-article audit, optionally as parquet.
+
+    The audit holds one row per (article x matched stock item), so it grows
+    linearly with the collected window: one month of GDELT produced 1.2GB of
+    CSV, which puts a 24-month collection around 29GB. Parquet+zstd keeps the
+    same rows in a fraction of that.
+
+    CSV stays the default so the documented artifact does not change shape
+    without the team deciding to switch.
+    """
+    fmt = os.getenv("NEWS_ARTICLE_SCORE_FORMAT", "csv").strip().lower()
+    if fmt == "csv":
+        article_scores.to_csv(NEWS_ARTICLE_SCORE_PATH, index=False)
+        return NEWS_ARTICLE_SCORE_PATH
+    if fmt == "parquet":
+        path = NEWS_ARTICLE_SCORE_PATH.with_suffix(".parquet")
+        article_scores.to_parquet(path, index=False, compression="zstd")
+        return path
+    raise ValueError(
+        "NEWS_ARTICLE_SCORE_FORMAT must be 'csv' or 'parquet', "
+        f"got {fmt!r}"
+    )
+
+
 def run_news_risk_scoring() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
     scores, article_scores = build_news_risk_outputs()
     scores.to_csv(NEWS_RISK_SCORE_PATH, index=False)
-    article_scores.to_csv(NEWS_ARTICLE_SCORE_PATH, index=False)
+    audit_path = _write_article_score_audit(article_scores)
     LOGGER.info("Saved news risk scores: %s (%s rows)", NEWS_RISK_SCORE_PATH, len(scores))
-    LOGGER.info("Saved news article score audit: %s (%s rows)", NEWS_ARTICLE_SCORE_PATH, len(article_scores))
+    LOGGER.info("Saved news article score audit: %s (%s rows)", audit_path, len(article_scores))
 
 
 if __name__ == "__main__":
