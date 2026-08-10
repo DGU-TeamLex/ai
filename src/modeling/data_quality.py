@@ -22,6 +22,50 @@ STANDARDIZATION_COLUMNS = [
     "item_family_id_candidate",
 ]
 
+# A row carrying none of these signals says nothing about the item, so it can
+# lose to a row that does without discarding any product identity.
+UNRESOLVED_NORMALIZATION_STATUS = "unresolved"
+UNRESOLVED_ITEM_GROUP = "UNCLASSIFIED"
+
+
+def _resolve_alias_duplicates(aliases: pd.DataFrame) -> pd.DataFrame:
+    """Collapse duplicate local_item_key rows without picking between products.
+
+    Two relaxations are safe and nothing else is:
+
+    1. Rows identical across every column we read are redundant.
+    2. A key whose remaining rows are one classified row plus unresolved
+       placeholders keeps the classified row. A key that is placeholders all
+       the way down keeps one of them, so the key itself never disappears.
+
+    A key left with two genuinely different classifications is a real identity
+    conflict, so it still raises and has to be fixed upstream.
+    """
+    deduped = aliases.drop_duplicates()
+    conflicting = deduped["local_item_key"].duplicated(keep=False)
+    if not conflicting.any():
+        return deduped
+
+    unresolved = deduped["normalization_status"].astype("string").fillna("").eq(
+        UNRESOLVED_NORMALIZATION_STATUS
+    ) & deduped["item_group_id_candidate"].astype("string").fillna("").eq(
+        UNRESOLVED_ITEM_GROUP
+    )
+    resolved_per_key = (
+        (~unresolved & conflicting).groupby(deduped["local_item_key"]).sum()
+    )
+    ambiguous = resolved_per_key[resolved_per_key > 1].index
+    if len(ambiguous):
+        raise ValueError(
+            "item alias mapping has conflicting classifications for "
+            f"{len(ambiguous)} local_item_key(s): {sorted(ambiguous)[:5]}"
+        )
+    ordered = deduped.assign(_is_placeholder=unresolved).sort_values(
+        ["local_item_key", "_is_placeholder"], kind="stable"
+    )
+    kept = ordered.drop_duplicates("local_item_key", keep="first")
+    return kept.sort_index().drop(columns="_is_placeholder")
+
 
 def attach_standardization_metadata(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
@@ -34,6 +78,7 @@ def attach_standardization_metadata(df: pd.DataFrame) -> pd.DataFrame:
         ITEM_ALIAS_CANDIDATE_PATH,
         columns=["local_item_key", *STANDARDIZATION_COLUMNS],
     )
+    aliases = _resolve_alias_duplicates(aliases)
     if aliases["local_item_key"].duplicated().any():
         raise ValueError("item alias mapping must have one row per local_item_key")
     result["local_item_key"] = (
