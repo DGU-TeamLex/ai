@@ -52,6 +52,7 @@ from .training import (
     _load_feature_table,
     _missing_external_signal,
     load_historical_training_policy,
+    production_lgbm_params,
     select_feature_columns,
     select_training_window,
     training_sample_weights,
@@ -254,7 +255,10 @@ def _fit_and_predict(params: dict, fold: dict) -> tuple[np.ndarray, int]:
 
     model = LGBMRegressor(**params)
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+        # LightGBM 이 trial 마다 categorical_feature / verbose 관련 UserWarning 을
+        # 반복 출력해 로그를 덮는다. 전부 끄면(simplefilter("ignore"))
+        # 데이터 이상을 알리는 다른 경고까지 삼키므로 UserWarning 만 막는다.
+        warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
         model.fit(
             fold["x_train"],
             fold["y_train"],
@@ -351,22 +355,15 @@ def _make_objective(prepared: list[dict], base_objective: str, n_trials: int | N
 
 
 def _baseline_params(base_objective: str) -> dict:
-    """training.py::_build_estimator() 의 현재 고정값. 같은 조건 비교용.
+    """현재 운영 baseline. 운영 코드의 단일 정의를 그대로 가져온다.
 
-    탐색 쪽과 **같은 빌더**를 거친다. 종전에는 baseline 에만 histogram_pool_size 가
-    있고 탐색 쪽엔 없어서 두 조건이 동일하지 않았다.
+    이 함수가 자체적으로 파라미터를 나열하면 운영 계약과 어긋난다(ai#60 리뷰 2번).
+    특히 `subsample_freq` 는 운영에서 지정하지 않아 LightGBM 기본값 0 이고,
+    따라서 `subsample=0.9` 는 **비활성**이다. 탐색 쪽은 `subsample_freq=1` 을
+    넣으므로 이는 파라미터 탐색이 아니라 **동작 변경**이며, 개선폭을 보고할 때
+    반드시 분리해서 기술해야 한다.
     """
-    searched = {
-        "learning_rate": 0.05,
-        "num_leaves": 31,
-        "min_child_samples": 100,
-        "subsample": 0.9,
-        "colsample_bytree": 0.9,
-        "reg_lambda": 0.1,
-    }
-    if base_objective == "tweedie":
-        searched["tweedie_variance_power"] = 1.3
-    return build_estimator_params(searched, base_objective, 160, RANDOM_STATE)
+    return production_lgbm_params(base_objective)
 
 
 def tune(variant: str, n_trials: int | None, timeout: int | None) -> dict:
