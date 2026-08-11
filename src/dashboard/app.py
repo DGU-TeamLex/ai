@@ -56,7 +56,14 @@ current_stock = policy_cols[0].number_input(
 on_order_qty = policy_cols[1].number_input("입고 예정", min_value=0.0, value=0.0)
 backorder_qty = policy_cols[2].number_input("미납 수량", min_value=0.0, value=0.0)
 lead_time_days = policy_cols[3].number_input(
-    "조달 리드타임(일)", min_value=0, max_value=365, value=0
+    "조달 리드타임(일)",
+    min_value=0,
+    max_value=365,
+    value=int(row.get("lead_time_days", 0) or 0),
+    help=(
+        "0 = 미지정. 미지정이거나 정책 하한 미만이면 fallback 값으로 대체되고, "
+        "정책 상한을 넘으면 상한으로 잘립니다. 실제 적용된 값은 아래에 표시됩니다."
+    ),
 )
 review_period_days = policy_cols[4].number_input(
     "검토 주기(일)", min_value=1, max_value=365, value=30
@@ -77,10 +84,39 @@ policy = add_inventory_recommendations(
     review_period_days_col="review_period_days",
 ).iloc[0]
 
-order_cols = st.columns(3)
+order_cols = st.columns(4)
 order_cols[0].metric("기본 재고량", f"{policy['base_stock']:.2f}")
 order_cols[1].metric("위험조정 목표 재고량", f"{policy['target_stock']:.2f}")
 order_cols[2].metric("권장 발주량", f"{policy['recommended_order']:.2f}")
+order_cols[3].metric(
+    "적용 리드타임(일)",
+    f"{policy['lead_time_days']:.0f}",
+    delta=(
+        None
+        if lead_time_days == 0
+        else f"{policy['lead_time_days'] - lead_time_days:+.0f} vs 입력값"
+    ),
+)
+
+# 입력값이 조용히 무시되면 사용자는 "바꿨는데 발주량이 그대로"라고 느낀다.
+# 대체/절단이 일어난 경우 반드시 알린다.
+if bool(policy["lead_time_fallback_applied"]):
+    st.warning(
+        f"입력한 리드타임({lead_time_days}일)이 미지정이거나 정책 하한 미만이라 "
+        f"fallback {policy['lead_time_days']:.0f}일이 적용되었습니다. "
+        f"(정책 버전 {policy['lead_time_policy_version']})"
+    )
+elif bool(policy["lead_time_cap_applied"]):
+    st.warning(
+        f"입력한 리드타임({lead_time_days}일)이 정책 상한을 넘어 "
+        f"{policy['lead_time_days']:.0f}일로 잘렸습니다. "
+        f"(정책 버전 {policy['lead_time_policy_version']})"
+    )
+st.caption(
+    f"보호기간 = 검토주기 {policy['review_period_days']:.0f}일 + 리드타임 "
+    f"{policy['lead_time_days']:.0f}일 = {policy['protection_period_days']:.0f}일 → "
+    f"보호기간수요 {policy['protection_period_demand']:.2f}"
+)
 
 st.subheader("위험 점수")
 st.bar_chart(

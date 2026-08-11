@@ -526,10 +526,14 @@ def _build_policy_input(
             policy[column] = pd.to_numeric(
                 state[column], errors="coerce"
             ).fillna(0.0).to_numpy()
+    # prediction.py 와 동일한 이유로 리드타임/검토주기 컬럼을 명시적으로 넘긴다.
+    # 넘기지 않으면 시뮬레이션 전 구간이 fallback 15일로 고정된다.
     return add_inventory_recommendations(
         policy,
         prediction_col="predicted_usage",
         current_stock_col="current_stock",
+        lead_time_days_col="lead_time_days",
+        review_period_days_col="review_period_days",
     )
 
 
