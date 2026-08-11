@@ -55,39 +55,148 @@ csv.field_size_limit(10**8)
 
 BASE_URL = "http://data.gdeltproject.org/gdeltv2"
 OUT_DIR = PROJECT_ROOT / "data" / "raw" / "news"
-OUT_PATH = OUT_DIR / "gdelt_archive_history.csv"
-PROGRESS_PATH = OUT_DIR / ".gdelt_archive_progress.json"
+OUT_PATH = OUT_DIR / "gdelt_supply_disruption_news.csv"
+PROGRESS_PATH = OUT_DIR / ".gdelt_supply_disruption_progress.json"
 
 # 하루 96개 슬라이스 중 매시 정각만. 표본률 1/4.
 MINUTES_SAMPLED = ("0000",)
 SAMPLE_RATE = len(MINUTES_SAMPLED) * 24 / 96
 DOWNLOAD_WORKERS = 8
 
-# DOC API 질의(DEFAULT_GDELT_QUERIES)와 같은 세 축을 유지한다.
-TOPIC_KEYWORDS = {
-    "infectious_disease": (
-        "pandemic", "epidemic", "influenza", "covid", "outbreak",
-        "measles", "mpox", "cholera", "dengue",
+# 목표는 **공급 차질 사건 탐지** 다. 가격 등락이 아니다.
+#
+# 리드타임을 늘려야 하는 것은 공장 가동 중단·파업·항만 적체 같은 **사건** 이고,
+# 가격은 그 결과로 따라오는 후행 지표다. 게다가 가격은 Alpha Vantage 로 이미
+# 숫자로 갖고 있으므로 뉴스에서 다시 볼 이유가 없다.
+#
+# 첫 수집(29,453건)은 가격 기사 중심이라 이 목적에 맞지 않았다.
+#   "Closing prices for crude oil, gold and other commodities"
+#   "ICE cotton drops following US export sales report"
+
+# ── 무엇에 대한 차질인가 ────────────────────────────────────────────────
+# material  : 우리 품목에 매핑된 원자재. 그 원자재 품목의 리드타임에 반영한다.
+# logistics : 물류·통관 전반. 원자재를 가리지 않으므로 **전 품목** 에 반영한다.
+# medical_supply : 완제 의료용품 자체의 공급 차질.
+SUBJECT_KEYWORDS = {
+    "material": (
+        "naphtha", "crude oil", "polypropylene", "polyethylene", "pvc",
+        "latex", "nitrile", "aluminum", "aluminium", "cotton", "pulp",
+        "petrochemical", "resin", "ethylene", "propylene", "bauxite", "alumina",
+    ),
+    "logistics": (
+        "shipping", "freight", "container", "port", "customs", "tariff",
+        "supply chain", "logistics", "vessel", "canal", "shipment",
     ),
     "medical_supply": (
         "medical supplies", "medical device", "syringe", "catheter",
-        "respirator", "ppe", "vaccine", "surgical mask", "glove",
-    ),
-    "raw_material": (
-        "naphtha", "crude oil", "polypropylene", "polyethylene", "pvc",
-        "latex", "nitrile", "aluminum", "aluminium", "cotton", "pulp",
-        "petrochemical", "resin",
+        "respirator", "surgical mask", "surgical glove", "vaccine supply",
     ),
 }
-# 단순 언급을 버리고 위험 문맥이 있는 것만 남긴다.
-# DOC API 질의의 두 번째 괄호와 같은 역할이다.
-RISK_KEYWORDS = (
-    "shortage", "disruption", "shutdown", "export ban", "sanction",
-    "price", "supply chain", "halt", "strike", "surge", "soar", "plunge",
-    "crisis", "delay", "ban", "cut",
+
+# ── 어떤 사건인가 ──────────────────────────────────────────────────────
+# 공급이 실제로 끊기거나 늦어지는 사건만 남긴다.
+# 가격 등락어(price, surge, soar, plunge, drop)는 **의도적으로 제외** 한다.
+#
+# 사건어를 두 등급으로 나눈다. 단어 하나로는 걸러지지 않기 때문이다.
+# 2차 수집에서 fire/strike/explosion/blast 가 5,176건 중 2,919건(56%)이었는데
+# 대부분 무관했다.
+#
+#   "Crude oil steady on Gaza cease-fire hopes"     ← cease-fire 의 fire
+#   "Iran's Strike Against Israel"                  ← 군사 공격
+#   "Humpback calf injured in strike with BC Ferries"
+#   "Former Port Clinton fire chief indicted"
+#
+# 명확한 사건어는 단독으로 채택하고, 모호한 사건어는 **산업 문맥 동반**을 요구한다.
+
+# 그 자체로 공급 차질을 뜻하는 표현.
+DISRUPTION_UNAMBIGUOUS = (
+    "force majeure", "production halt", "halts production", "halted production",
+    "suspend production", "suspends production", "suspended production",
+    "plant closure", "plant shutdown", "shutdown", "shut down",
+    "supply disruption", "supply chain disruption", "shortage",
+    "export ban", "export curb", "export control", "export restriction",
+    "import ban", "embargo", "sanctions", "quota",
+    "port congestion", "port strike", "dock strike", "port closure",
+    "shipping delay", "delivery delay", "delayed shipment", "lead time",
+    "capacity cut", "output cut", "production cut", "curtailment",
+    "backlog", "bottleneck", "walkout", "labor dispute", "labour dispute",
+    "outage", "disrupted supply", "supply crunch",
+)
+
+# 문맥이 있어야 공급 차질인 표현.
+DISRUPTION_AMBIGUOUS = (
+    "fire", "explosion", "blast", "strike", "closure", "suspended",
+    "disrupted", "blocked", "halted", "disruption", "curtail",
+)
+
+# 모호한 사건어를 채택하기 위한 산업·조달 문맥.
+INDUSTRIAL_CONTEXT = (
+    "plant", "factory", "refinery", "mill", "smelter", "terminal",
+    "warehouse", "pipeline", "port", "dock", "harbour", "harbor",
+    "cargo", "freight", "shipment", "supply", "production", "output",
+    "manufacturer", "manufacturing", "processing", "facility", "operations",
+    "exports", "imports", "workers", "union",
+)
+
+# 명백한 오탐. 이 표현이 있으면 사건어가 맞아도 버린다.
+NEGATIVE_CONTEXT = (
+    "cease-fire", "ceasefire", "cease fire",
+    "missile strike", "air strike", "airstrike", "drone strike",
+    "fire chief", "fire department", "firefighter", "fire station",
+    "hunger strike", "strike vote", "on strike over pay",
 )
 
 TITLE_PATTERN = re.compile(r"<PAGE_TITLE>(.*?)</PAGE_TITLE>")
+
+# GKG 는 2019-10 경부터 Extras 에 PAGE_TITLE 을 넣기 시작했다. 실측:
+#   2018-01-15 / 2019-01-15 / 2019-07-01 / 2019-09-01  → 보유율 0%
+#   2019-10-01 / 2024-01-15                            → 보유율 100%
+# 제목이 없으면 사건 분류가 불가능하므로 2018-01~2019-09 가 통째로 비었다.
+# 그 구간은 URL 슬러그에서 제목을 복원한다(실측 복원율 80%).
+SLUG_STRIP_EXTENSION = re.compile(r"\.(html?|php|aspx?|shtml)$", re.IGNORECASE)
+SLUG_SEPARATORS = re.compile(r"[-_]+")
+# 슬러그 끝에 붙는 기사 ID(숫자·해시)는 단어가 아니므로 떼어낸다.
+SLUG_TRAILING_ID = re.compile(r"(?:\s+[0-9a-f]{5,})+$", re.IGNORECASE)
+SLUG_MIN_WORDS = 4
+
+
+def _title_from_url(url: str) -> str:
+    """URL 슬러그에서 제목을 복원한다. 복원 불가면 빈 문자열.
+
+    슬러그는 대개 헤드라인을 하이픈으로 이은 것이라 키워드 매칭에 쓸 수 있다.
+    단어가 너무 적으면(카테고리 페이지, 숫자 ID 만 있는 경로) 버린다 —
+    잘못 복원한 제목으로 사건을 분류하면 오탐이 늘어난다.
+    """
+    tail = url.rstrip("/").split("/")[-1]
+    tail = SLUG_STRIP_EXTENSION.sub("", tail)
+    text = SLUG_SEPARATORS.sub(" ", tail).strip()
+    text = SLUG_TRAILING_ID.sub("", text).strip()
+    return text if len(text.split()) >= SLUG_MIN_WORDS else ""
+
+
+def _boundary_pattern(keywords: tuple[str, ...]) -> re.Pattern:
+    """단어 경계 매칭.
+
+    첫 수집은 부분 문자열 매칭이라 오탐이 심했다. `ban` 이 Ban-non 에,
+    `cut` 이 exe-cut-ion 에, `ppe` 가 a-ppe-al 에 걸려 medical_supply 22,523건
+    대부분이 무관한 기사였다("Wrapped BNB Price Reaches $484.95" 등).
+    """
+    alternatives = "|".join(
+        re.escape(keyword) for keyword in sorted(keywords, key=len, reverse=True)
+    )
+    return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)", re.IGNORECASE)
+
+
+SUBJECT_PATTERNS = {
+    subject: _boundary_pattern(keywords)
+    for subject, keywords in SUBJECT_KEYWORDS.items()
+}
+UNAMBIGUOUS_PATTERN = _boundary_pattern(DISRUPTION_UNAMBIGUOUS)
+AMBIGUOUS_PATTERN = _boundary_pattern(DISRUPTION_AMBIGUOUS)
+INDUSTRIAL_PATTERN = _boundary_pattern(INDUSTRIAL_CONTEXT)
+NEGATIVE_PATTERN = re.compile(
+    "|".join(re.escape(phrase) for phrase in NEGATIVE_CONTEXT), re.IGNORECASE
+)
 # GKG 2.0 열 순서 (0-based): 1=DATE, 3=SourceCommonName, 4=DocumentIdentifier
 COL_DATE, COL_SOURCE, COL_URL = 1, 3, 4
 
@@ -104,13 +213,26 @@ def _slice_urls(start: date, end: date) -> list[tuple[str, str]]:
     return urls
 
 
-def _classify(title: str) -> str | None:
-    lowered = title.lower()
-    if not any(word in lowered for word in RISK_KEYWORDS):
+def _classify(title: str) -> tuple[str, str] | None:
+    """(대상, 사건어)를 돌려준다. 공급 차질 사건이 아니면 None.
+
+    사건어를 함께 남기는 이유: 나중에 "어떤 사건이 리드타임을 늘렸는가" 를
+    되짚을 수 있어야 한다. 점수만 남으면 근거를 잃는다.
+    """
+    if NEGATIVE_PATTERN.search(title):
         return None
-    for category, keywords in TOPIC_KEYWORDS.items():
-        if any(word in lowered for word in keywords):
-            return category
+
+    disruption = UNAMBIGUOUS_PATTERN.search(title)
+    if not disruption:
+        # 모호한 사건어는 산업·조달 문맥이 함께 있을 때만 채택한다.
+        candidate = AMBIGUOUS_PATTERN.search(title)
+        if not candidate or not INDUSTRIAL_PATTERN.search(title):
+            return None
+        disruption = candidate
+
+    for subject, pattern in SUBJECT_PATTERNS.items():
+        if pattern.search(title):
+            return subject, disruption.group(0).lower()
     return None
 
 
@@ -139,12 +261,18 @@ def _fetch_slice(stamp: str, url: str) -> list[dict]:
         if len(record) < 27:
             continue
         match = TITLE_PATTERN.search(record[-1] or "")
-        if not match:
+        if match:
+            title = match.group(1).strip()
+            title_source = "page_title"
+        else:
+            title = _title_from_url(record[COL_URL] or "")
+            title_source = "url_slug"
+        if not title:
             continue
-        title = match.group(1).strip()
-        category = _classify(title)
-        if not category:
+        classified = _classify(title)
+        if not classified:
             continue
+        subject, event = classified
         rows.append(
             {
                 "date": f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:8]}",
@@ -153,7 +281,11 @@ def _fetch_slice(stamp: str, url: str) -> list[dict]:
                 "source": record[COL_SOURCE],
                 "country": "Unknown",
                 "url": record[COL_URL],
-                "category": category,
+                "category": subject,
+                "disruption_event": event,
+                # 2019-10 전후로 제목 출처가 다르다. 시계열 비교 시 이 차이를
+                # 반드시 함께 봐야 한다(복원 제목은 정밀도가 낮다).
+                "title_source": title_source,
             }
         )
     return rows
@@ -194,7 +326,10 @@ def collect(start: str, end: str) -> None:
     with OUT_PATH.open("a", encoding="utf-8-sig", newline="") as sink:
         writer = csv.DictWriter(
             sink,
-            fieldnames=["date", "title", "summary", "source", "country", "url", "category"],
+            fieldnames=[
+                "date", "title", "summary", "source", "country", "url",
+                "category", "disruption_event", "title_source",
+            ],
         )
         if write_header:
             writer.writeheader()
