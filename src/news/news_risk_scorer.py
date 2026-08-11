@@ -402,6 +402,9 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
     for col in NEWS_RISK_COLUMNS[:-1]:
         if col not in pivot.columns:
             pivot[col] = 0.0
+
+    pivot = _broadcast_supply_wide(pivot)
+
     pivot["total_news_risk"] = pivot[NEWS_RISK_COLUMNS[:-1]].sum(axis=1).clip(0, 1)
     confidence = (
         scored.groupby(["STD_YYYYMM", "stock_item_key"], as_index=False, observed=True)
@@ -495,6 +498,53 @@ def _one_mapping_per_stock_item(mapping: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _broadcast_supply_wide(pivot: pd.DataFrame) -> pd.DataFrame:
+    """전 품목 공통 공급위험을 실제 품목 행으로 펼치고 임시 키를 제거한다.
+
+    항만 파업·전쟁·수출통제는 원자재를 가리지 않으므로 그 달의 모든 품목에
+    같은 값이 적용된다. 품목별로 감사행을 만들면 3.7억 행이 되므로 사건당
+    1행(임시 키)만 만들어 두고 여기서 펼친다.
+
+    기존 품목별 supply_news_risk 와는 **최댓값**으로 합친다. 합산하면 같은
+    사건이 두 경로로 들어와 이중 계상된다.
+    """
+    if ALL_ITEMS_SENTINEL not in set(pivot["stock_item_key"]):
+        return pivot
+
+    wide = pivot[pivot["stock_item_key"].eq(ALL_ITEMS_SENTINEL)]
+    monthly = wide.set_index("STD_YYYYMM")["supply_news_risk"]
+    result = pivot[pivot["stock_item_key"].ne(ALL_ITEMS_SENTINEL)].copy()
+    if result.empty:
+        return result
+    broadcast = result["STD_YYYYMM"].map(monthly).fillna(0.0)
+    result["supply_news_risk"] = result["supply_news_risk"].combine(broadcast, max)
+    LOGGER.info(
+        "전 품목 공통 공급위험 적용: %s개월, 대상 %s행 (월 최대 %.4f)",
+        f"{len(monthly):,}",
+        f"{len(result):,}",
+        float(monthly.max()),
+    )
+    return result
+
+
+# 특정 원자재에 귀속되지 않고 조달 전반을 늦추는 사건. 전 품목에 적용한다.
+# 분류기(news_llm_analyzer)가 이들에 material="general_material" 을 부여한다.
+SUPPLY_WIDE_EVENT_TYPES = frozenset(
+    {
+        "port_or_logistics_disruption",
+        "export_restriction_or_sanction",
+        "war_or_armed_conflict",
+        "factory_shutdown",
+        "policy_regulation_uncertainty",
+    }
+)
+# factory_shutdown 은 라텍스 등 원자재가 특정되면 그쪽으로 먼저 매칭되고,
+# 특정되지 않은 경우에만 여기로 내려온다.
+GENERIC_MATERIALS = frozenset({"general_material", "", "None", "nan"})
+# 전 품목 공통 신호를 담는 임시 키. 집계 후 실제 품목으로 펼치고 제거한다.
+ALL_ITEMS_SENTINEL = "__ALL_ITEMS__"
+
+
 def _match_stock_mapping(
     mapping: pd.DataFrame,
     analysis: dict,
@@ -523,8 +573,36 @@ def _match_stock_mapping(
             return _one_mapping_per_stock_item(matched), "material"
     material = analysis.get("disease_or_material")
     matched = mapping[mapping["related_material"].eq(material)]
-    path = "demand" if event_type == "infectious_disease_outbreak" else "material"
-    return _one_mapping_per_stock_item(matched), path
+    if not matched.empty:
+        path = "demand" if event_type == "infectious_disease_outbreak" else "material"
+        return _one_mapping_per_stock_item(matched), path
+
+    # 전 품목 공통 공급 사건 — 특정 원자재에 귀속되지 않는다.
+    #
+    # 항만 파업·전쟁·수출통제·물류 차질은 원자재를 가리지 않고 조달 전반을
+    # 늦춘다. 분류기는 이런 사건에 material="general_material" 을 부여하는데,
+    # 그 이름의 원자재 매핑이 없어 **전량 폐기**되고 있었다.
+    #
+    # 실측: 수집 기사 6,844건을 분류기에 통과시키면 공급 사건이 6,127건(89.5%)
+    # 인데, 산출물에 남은 고유 기사는 36건뿐이고 그중 공급 사건은 0건이었다.
+    # 그래서 supply_news_risk 가 비영 0% 였고, supply_signal 가중치의 45% 가
+    # 죽은 채로 남아 리드타임 조정폭이 최대 1.2일에 그쳤다.
+    #
+    # 원자재별 매핑을 아무리 넓혀도 이 경로는 열리지 않는다. 특정 원자재에
+    # 붙일 수 없는 사건이기 때문이다. 전 품목에 적용하는 것이 정의상 맞다.
+    if event_type in SUPPLY_WIDE_EVENT_TYPES and str(material) in GENERIC_MATERIALS:
+        # 전 품목에 같은 값이 붙으므로 품목별 감사행을 남길 이유가 없다.
+        # 실제로 남기면 사건 1건이 6만 행이 되고, 공급사건 6,127건이면
+        # 3.7억 행(약 190GB)이 되어 디스크가 먼저 터진다.
+        # 대표 1행만 만들고 집계 단계에서 전 품목으로 펼친다.
+        sentinel = pd.DataFrame(
+            [{"stock_item_key": ALL_ITEMS_SENTINEL, "mapping_weight": 1.0}]
+        )
+        return sentinel, "supply_wide"
+
+    return _one_mapping_per_stock_item(matched), (
+        "demand" if event_type == "infectious_disease_outbreak" else "material"
+    )
 
 
 def build_news_risk_outputs(
