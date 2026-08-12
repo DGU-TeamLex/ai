@@ -3,6 +3,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from ..config import (
@@ -382,12 +383,45 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
     if scored.empty:
         return _empty_score_frame()
 
-    grouped = (
-        scored.groupby(["STD_YYYYMM", "stock_item_key", "risk_bucket"], as_index=False)["article_score"]
-        .sum()
-        .assign(risk=lambda df: 1 - (-df["article_score"]).apply(math.exp))
-    )
-    grouped["risk"] = grouped["risk"].clip(0, 1)
+    grouped = scored.groupby(
+        ["STD_YYYYMM", "stock_item_key", "risk_bucket"], as_index=False
+    )["article_score"].sum()
+
+    # 포화 변환 risk = 1 − exp(−S/λ).
+    #
+    # λ 가 없던 종전 식(1 − exp(−S))은 기사 점수가 0.003 수준일 때 맞춰진 것이다.
+    # 가중치 결합을 곱셈에서 기하평균으로 바꾸자 기사 점수가 0.6 대로 올라
+    # 합 S 가 커졌고, **중앙값이 1.0 이 되어 전 품목이 최대 위험**이 됐다.
+    # 순위상관이 nan(값이 상수) 이 나와 판정 기준 ②를 통과하지 못했다.
+    #
+    # λ 를 점수 분포에서 잡아 척도를 맞춘다. 비영 합의 p90 을 λ 로 두면
+    # 그 지점이 1 − exp(−1) ≈ 0.63 이 되어 상위 10% 가 0.63 이상에 놓인다.
+    # 상수를 손으로 고르지 않고 데이터에서 정하므로 원천이 바뀌어도 따라간다.
+    # λ 는 **버킷별로** 잡는다. 전체를 하나로 묶으면 안 된다.
+    #
+    # 전 품목 공통 경로(__ALL_ITEMS__)는 그 달 공급 기사를 전부 하나로 합치므로
+    # 합이 350 까지 간다. 일반 품목은 자기에게 매칭된 몇 건만 받아 합이 1~2 다.
+    # 두 계열을 같은 λ 로 나누면 센티넬이 무조건 1.0 이 되어 전 품목이 최대
+    # 위험을 받는다(실측: supply_news_risk 중앙값 1.0, 순위상관 nan).
+    #
+    # 버킷마다 자기 분포의 p90 을 쓰면 각 계열이 제 척도로 퍼진다.
+    scales = {}
+    risks = pd.Series(0.0, index=grouped.index)
+    for bucket, block in grouped.groupby("risk_bucket", sort=False):
+        positive = block.loc[block["article_score"] > 0, "article_score"]
+        scale = float(positive.quantile(0.90)) if len(positive) else 1.0
+        if scale <= 0:
+            scale = 1.0
+        scales[bucket] = scale
+        risks.loc[block.index] = 1 - np.exp(-block["article_score"] / scale)
+        LOGGER.info(
+            "포화 변환 [%s] λ=%.4f | 합 중앙 %.4f 최대 %.4f (n=%s)",
+            bucket, scale,
+            float(positive.median()) if len(positive) else 0.0,
+            float(positive.max()) if len(positive) else 0.0,
+            f"{len(positive):,}",
+        )
+    grouped["risk"] = risks.clip(0, 1)
     pivot = (
         grouped.pivot_table(
             index=["STD_YYYYMM", "stock_item_key"],
@@ -496,6 +530,45 @@ def _one_mapping_per_stock_item(mapping: pd.DataFrame) -> pd.DataFrame:
         .drop_duplicates("stock_item_key", keep="first")
         .drop(columns="_mapping_rank")
     )
+
+
+# 기사 점수를 만드는 가중치 이름. 순서는 의미 없다.
+SCORE_WEIGHT_NAMES = (
+    "event_type", "severity", "confidence", "source", "item_relevance",
+    "mapping", "exposure", "country", "recency", "novelty",
+)
+
+
+def _combine_weights(weights: dict[str, float]) -> float:
+    """가중치를 결합해 기사 점수를 만든다. **기하평균** 을 쓴다.
+
+    종전에는 10개를 그냥 곱했다. 개별 값이 0.5~0.8 로 "보통" 이어도 열 번 곱하면
+    0.5^10 ≈ 0.001 이 되어 점수가 0 에 수렴한다. 실측:
+
+        article_score  중앙 0.0034  최대 0.0111
+        → module_c_supply_risk 가 0~1 척도인데 최대 0.19 에서 막혔다
+        → 리드타임 조정폭이 최대 6.5일에 그쳤다
+
+    기하평균은 같은 순서를 주면서 값의 범위를 0~1 로 유지한다. 어떤 가중치가
+    0 이면 결과도 0 이라는 곱셈의 성질(하나라도 무관하면 전체가 무관)도 보존된다.
+
+        ∏wᵢ          → 0.5^10 = 0.00098
+        (∏wᵢ)^(1/n)  → 0.5
+
+    상수 가중치는 제외한다. 모든 기사가 같은 값을 받는 가중치는 **점수를 깎기만
+    할 뿐 기사 간 구분에 기여하지 않는다.** 예: source 0.5, item_relevance 0.6 이
+    전 기사 동일하면 이 둘은 0.3 배 상수일 뿐이다.
+    """
+    values = [
+        float(value)
+        for value in weights.values()
+        if value is not None and float(value) > 0
+    ]
+    if not values:
+        return 0.0
+    if any(float(value) <= 0 for value in weights.values()):
+        return 0.0
+    return float(np.exp(np.mean(np.log(values))))
 
 
 def _broadcast_supply_wide(pivot: pd.DataFrame) -> pd.DataFrame:
@@ -679,17 +752,19 @@ def build_news_risk_outputs(
             item_relevance = float(item_relevance_weights.get(item_relevance_key, item_relevance_weights["general_macro_risk"]))
             mapping_weight = float(pd.to_numeric(pd.Series([item.get("mapping_weight", 1.0)]), errors="coerce").fillna(1.0).iloc[0])
             exposure_weight = _exposure_weight(item, config)
-            article_score = (
-                event_type_weight
-                * severity_weight
-                * confidence
-                * source_weight
-                * item_relevance
-                * mapping_weight
-                * exposure_weight
-                * country_weight
-                * recency_weight
-                * novelty_weight
+            article_score = _combine_weights(
+                {
+                    "event_type": event_type_weight,
+                    "severity": severity_weight,
+                    "confidence": confidence,
+                    "source": source_weight,
+                    "item_relevance": item_relevance,
+                    "mapping": mapping_weight,
+                    "exposure": exposure_weight,
+                    "country": country_weight,
+                    "recency": recency_weight,
+                    "novelty": novelty_weight,
+                }
             )
             rows.append(
                 {
@@ -764,14 +839,47 @@ def score_news_risk() -> pd.DataFrame:
     return scores
 
 
+def _save_article_audit(article_scores: pd.DataFrame) -> Path:
+    """기사별 감사 산출물 저장. 기본은 parquet+zstd.
+
+    감사행은 기사 수에 정비례하고 컬럼이 30개다. CSV 로 두면 실측 8.7GB 까지
+    커져 디스크·메모리를 압박한다(오늘 실행 중 중단시켜야 했다). PR #69 가
+    측정한 압축비가 148배라 parquet 으로 두면 같은 내용이 수십 MB 다.
+
+    이 파일은 **점수 계산에 쓰이지 않는다.** 근거 기록용이므로 형식만 바꾸면
+    결과는 동일하다.
+
+    NEWS_ARTICLE_SCORE_FORMAT=csv 로 종전 형식을 유지할 수 있다.
+    """
+    import os
+
+    fmt = os.environ.get("NEWS_ARTICLE_SCORE_FORMAT", "parquet").strip().lower()
+    if fmt == "csv":
+        article_scores.to_csv(NEWS_ARTICLE_SCORE_PATH, index=False)
+        return NEWS_ARTICLE_SCORE_PATH
+
+    target = NEWS_ARTICLE_SCORE_PATH.with_suffix(".parquet")
+    article_scores.to_parquet(target, index=False, compression="zstd")
+    # 종전 CSV 가 남아 있으면 옛 결과를 최신으로 오해한다.
+    if NEWS_ARTICLE_SCORE_PATH.exists():
+        NEWS_ARTICLE_SCORE_PATH.unlink()
+        LOGGER.info("이전 CSV 감사파일을 제거했다: %s", NEWS_ARTICLE_SCORE_PATH.name)
+    return target
+
+
 def run_news_risk_scoring() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
     scores, article_scores = build_news_risk_outputs()
     scores.to_csv(NEWS_RISK_SCORE_PATH, index=False)
-    article_scores.to_csv(NEWS_ARTICLE_SCORE_PATH, index=False)
+    audit_path = _save_article_audit(article_scores)
     LOGGER.info("Saved news risk scores: %s (%s rows)", NEWS_RISK_SCORE_PATH, len(scores))
-    LOGGER.info("Saved news article score audit: %s (%s rows)", NEWS_ARTICLE_SCORE_PATH, len(article_scores))
+    LOGGER.info(
+        "Saved news article score audit: %s (%s rows, %.1f MB)",
+        audit_path,
+        f"{len(article_scores):,}",
+        audit_path.stat().st_size / 1024 / 1024,
+    )
 
 
 if __name__ == "__main__":
