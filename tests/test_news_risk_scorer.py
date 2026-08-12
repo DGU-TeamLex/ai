@@ -457,3 +457,55 @@ class NewsCollectorTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewsFilterCoversClassifierTest(unittest.TestCase):
+    """입구 필터가 분류기보다 좁으면 안 된다.
+
+    filter_relevant_news 에서 걸러진 기사는 news_llm_analyzer 가 볼 기회조차
+    없다. 실제로 좁아서 수집 7,756건 중 991건(12.8%)만 통과했고, 탈락분에
+    port_or_logistics_disruption 으로 잡힐 기사가 대량으로 있었다. 그 결과
+    supply_news_risk 가 비영 0% 였다.
+    """
+
+    CLASSIFIABLE_TITLES = [
+        "Port strike halts container operations at major terminal",
+        "US customs computer outage causes delays for airport travelers",
+        "Company declares force majeure after plant explosion",
+        "New sanctions restrict aluminium exports",
+        "Red Sea shipping disruption forces vessels to reroute",
+        "Factory shutdown cuts polypropylene output",
+        "Freight backlog grows amid port congestion",
+    ]
+
+    def test_filter_keeps_everything_the_classifier_can_classify(self):
+        from src.news.news_filter import filter_relevant_news
+        from src.news.news_llm_analyzer import analyze_news_row
+
+        news = pd.DataFrame(
+            [
+                {
+                    "date": "2024-05-01",
+                    "title": title,
+                    "summary": "",
+                    "source": "reuters.com",
+                    "country": "Unknown",
+                    "url": f"https://example.invalid/{index}",
+                }
+                for index, title in enumerate(self.CLASSIFIABLE_TITLES)
+            ]
+        )
+        classified = [
+            title
+            for title, (_, row) in zip(self.CLASSIFIABLE_TITLES, news.iterrows())
+            if analyze_news_row(row)["event_type"] != "none"
+        ]
+        self.assertTrue(classified, "분류기가 하나도 못 잡으면 이 테스트가 무의미하다")
+
+        kept = set(filter_relevant_news(news)["title"])
+        dropped = [title for title in classified if title not in kept]
+        self.assertEqual(
+            dropped,
+            [],
+            f"분류 가능한 기사가 입구 필터에서 탈락한다: {dropped}",
+        )
