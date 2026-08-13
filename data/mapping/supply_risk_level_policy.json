@@ -1,5 +1,5 @@
 {
-  "version": "supply-risk-level-v1.2",
+  "version": "supply-risk-level-v1.3-periodic-review",
   "policy_status": "provisional_zero_preserving_demand_and_capped_lead_time",
   "source_report": "docs/report_공급위험레벨_안전재고_과적재.md",
   "levels": {
@@ -123,5 +123,34 @@
   "inventory_status": {
     "watch_reorder_point_multiplier": 1.2,
     "target_cover_days": 1.0
+  },
+  "review_policy": {
+    "review_mode": "periodic",
+    "decision_basis": "보건기관은 재고 소진 시 수시 발주가 아니라 정기 검토 후 발주한다. 따라서 보호기간은 리드타임 L 이 아니라 검토주기 R 을 더한 R+L 이고, 목표재고는 mu*(R+L)+SS 다. backend 의 연속검토 형태(SS=z*sigma*sqrt(L), ROP=mu*L+SS)를 대체한다.",
+    "decided_at": "2026-08-10",
+    "decided_in": "DGU-TeamLex/ai#54",
+    "review_period_days": {
+      "status": "default_only_not_constant",
+      "default_days": 30.0,
+      "minimum_days": 1.0,
+      "maximum_days": 434.0,
+      "per_item_table": "data/mapping/review_period_by_item.csv",
+      "override_column": "review_period_days",
+      "wired_into_pipeline": false,
+      "measurement": "원장 입고 간격 423,573건(품목x기관)에서 품목별 중앙값을 산출하고 Buhlmann-Straub 신뢰도(k=3.2)로 전체 중앙값 102일 쪽으로 수축했다. 분할표본 안정성 Spearman rho=0.530 (p=1.8e-231).",
+      "measured_distribution_days": {
+        "p10": 31.0,
+        "p50": 91.0,
+        "p90": 141.0,
+        "min": 1.0,
+        "max": 434.0,
+        "share_within_21_to_40_days": 0.076
+      },
+      "why_not_constant": "기본값 30일 부근(21~40일)에 드는 품목은 7.6% 뿐이고 주력 의약품은 93~140일이다. R 을 상수로 두면 회전이 빠른 품목은 과다발주, 분기 조달 품목은 재고 소진이라 방향이 반대여서 평균으로 상쇄되지 않는다. 담당자가 화면에서 조정할 수 있어야 한다.",
+      "measured_at": "2026-08-12",
+      "measured_in": "DGU-TeamLex/ai#54"
+    },
+    "protection_interval_note": "R+L 은 현행 45일(R=30, L=15)에서 실측 129일(R=99 가중평균, L=30)로 2.87배가 된다. 목표재고 예산이 걸린 변경이라 배선 전 발주처 확인이 필요하다.",
+    "supersedes": "backend 의 연속검토 가정(SS=z*sigma*sqrt(L), ROP=mu*L+SS)"
   }
 }

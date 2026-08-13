@@ -406,7 +406,7 @@ material_buffer = 보호기간수요 * material_risk * 0.10
 전체 버퍼 상한  = 보호기간수요의 50%
 ```
 
-신규 최종 산출물은 `inventory_policy_method=module_c_continuous_target_stock`인지
+신규 최종 산출물은 `inventory_policy_method=module_c_periodic_target_stock`인지
 확인해야 하며, legacy 계수와 Module C 계수를 혼합해서 설명하면 안 된다.
 
 ## 11. 현재 산출물 주의사항
