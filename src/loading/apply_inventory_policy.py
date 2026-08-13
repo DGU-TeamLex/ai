@@ -1,13 +1,17 @@
 """Apply AI demand statistics to DB inventory without choosing an SS/ROP model.
 
-Issue #54 records an unresolved policy conflict:
+Issue #54 recorded a policy conflict between two models:
 
 * backend: continuous review, ``SS=z*sigma*sqrt(L)``, ``ROP=mu*L+SS``
 * AI: periodic review plus lead time, fixed/risk-adjusted target stock
 
-Until the ordering cadence and one canonical policy are approved, this loader
-updates only demand statistics and classification fields. It deliberately does
-not write ``ss``, ``rop``, ``target``, ``status`` or ``order_recommendation``.
+The cadence question is resolved (ai#54 request 1, 2026-07-30 confirmation from
+reo-23): institutions place orders on a monthly cadence, so periodic review is
+the canonical model. What is NOT yet done is applying that decision to the DB —
+the SS/ROP recalculation itself is a separate, still-pending PR. Until that PR
+lands, this loader updates only demand statistics and classification fields. It
+deliberately does not write ``ss``, ``rop``, ``target``, ``status`` or
+``order_recommendation``.
 
 Run with ``DRY_RUN=1`` first. ``DRY_RUN=0`` commits the restricted update.
 """
@@ -121,7 +125,7 @@ def main() -> None:
     )
     print(
         "보호 범위: SS/ROP/target/status/order_recommendation "
-        "(ai#54 결정 전 미변경)"
+        "(정기검토 모형 확정됨(ai#54 요청1) — DB 재계산은 별도 PR 대기, 이 로더는 미변경)"
     )
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
