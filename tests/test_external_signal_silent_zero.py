@@ -7,8 +7,9 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from src.config import load_dotenv
+from src.config import DotenvSyntaxError, load_dotenv
 from src.feature_engineering import _merge_risk
+from src.module_c.pipeline import _preflight_report
 from src.trade.trade_collector import collect_trade_flows
 
 
@@ -206,6 +207,75 @@ class TradeCacheCoverageTest(unittest.TestCase):
                         country_cache_path=country,
                         refresh=False,
                     )
+
+
+class DotenvStrictParsingTest(unittest.TestCase):
+    """`.env` 파서가 잘못된 줄을 조용히 무시하지 않아야 한다.
+
+    `.env` 오타 하나로 provider 가 꺼진 채 신호가 0 이 되는 것이 이 PR 이
+    막으려는 실패다. 파서가 같은 실패를 만들면 안 된다(ai#71).
+    """
+
+    def _load(self, text: str):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text(text, encoding="utf-8")
+            return load_dotenv(path)
+
+    def test_supported_syntax_loads(self):
+        keys = ("TEAMLEX_PLAIN", "TEAMLEX_QUOTED", "TEAMLEX_SINGLE", "TEAMLEX_BLANK")
+        for key in keys:
+            os.environ.pop(key, None)
+        loaded = self._load(
+            "# 주석 줄\n"
+            "TEAMLEX_PLAIN=value\n"
+            '  TEAMLEX_QUOTED = "quoted"  \n'
+            "TEAMLEX_SINGLE='single'\n"
+            "TEAMLEX_BLANK=\n"
+        )
+        try:
+            self.assertEqual(sorted(loaded), sorted(keys))
+            self.assertEqual(os.environ["TEAMLEX_QUOTED"], "quoted")
+            self.assertEqual(os.environ["TEAMLEX_SINGLE"], "single")
+            self.assertEqual(os.environ["TEAMLEX_BLANK"], "")
+        finally:
+            for key in keys:
+                os.environ.pop(key, None)
+
+    def test_line_without_equals_is_rejected(self):
+        with self.assertRaises(DotenvSyntaxError) as caught:
+            self._load("NEWS_PROVIDER gdelt\n")
+        self.assertIn("'=' 가 없다", str(caught.exception))
+
+    def test_export_prefix_is_rejected(self):
+        """`export KEY=v` 는 'export KEY' 가 키가 되므로 통과시키면 안 된다."""
+        with self.assertRaises(DotenvSyntaxError) as caught:
+            self._load("export NEWS_PROVIDER=gdelt\n")
+        self.assertIn("export", str(caught.exception))
+
+    def test_error_reports_line_number(self):
+        with self.assertRaises(DotenvSyntaxError) as caught:
+            self._load("NEWS_PROVIDER=gdelt\n\n오타난줄\n")
+        self.assertIn("3행", str(caught.exception))
+
+
+class PreflightReportTest(unittest.TestCase):
+    """어느 provider 로 돌았는지가 산출물에 남아야 한다."""
+
+    def test_disabled_provider_is_reported_and_keys_are_not_leaked(self):
+        with patch.dict(
+            os.environ,
+            {"NEWS_PROVIDER": "disabled", "COMMODITY_PROVIDER": "alpha_vantage"},
+            clear=False,
+        ):
+            report = _preflight_report()
+
+        self.assertEqual(report["providers"]["news"], "disabled")
+        self.assertEqual(report["providers"]["commodity"], "alpha_vantage")
+        # 키 값 자체는 담지 않는다. 존재 여부(bool)만.
+        self.assertTrue(
+            all(isinstance(value, bool) for value in report["api_keys_present"].values())
+        )
 
 
 if __name__ == "__main__":
