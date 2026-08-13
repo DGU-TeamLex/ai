@@ -8,7 +8,12 @@ from unittest.mock import patch
 import pandas as pd
 
 from src.config import DotenvSyntaxError, load_dotenv
-from src.feature_engineering import _merge_risk
+from src.feature_engineering import (
+    ExternalSignalContractError,
+    _merge_risk,
+    enforce_external_signal_contract,
+    external_signal_coverage_by_split,
+)
 from src.module_c.pipeline import _preflight_report
 from src.trade.trade_collector import collect_trade_flows
 
@@ -276,6 +281,66 @@ class PreflightReportTest(unittest.TestCase):
         self.assertTrue(
             all(isinstance(value, bool) for value in report["api_keys_present"].values())
         )
+
+
+class ExternalSignalContractTest(unittest.TestCase):
+    """운영 profile 에서는 0 채움이 조용히 통과하면 안 된다 (ai#71 Blocking 2)."""
+
+    def _table(self):
+        # 2018~19 는 외부신호가 원래 없는 구간이라 전체 비율에 섞이면 오해가 된다.
+        # 그래서 split 을 나눠서 본다.
+        return pd.DataFrame(
+            {
+                "year_month": pd.to_datetime(
+                    ["2019-06-01", "2024-06-01", "2025-03-01", "2025-09-01"]
+                ),
+                "module_c_supply_risk": [0.0, 0.5, 0.4, 0.3],
+                # train 구간(2020-01~2024-12)에서만 0 이다.
+                "module_c_demand_risk": [0.0, 0.0, 0.2, 0.1],
+            }
+        )
+
+    def test_coverage_is_reported_per_split(self):
+        coverage = external_signal_coverage_by_split(
+            self._table(), ["module_c_supply_risk", "module_c_demand_risk"]
+        )
+        self.assertEqual(
+            coverage["train"]["signals"]["module_c_demand_risk"]["nonzero_ratio"], 0.0
+        )
+        self.assertEqual(
+            coverage["validation"]["signals"]["module_c_demand_risk"]["nonzero_ratio"], 1.0
+        )
+
+    def test_contract_fails_when_train_coverage_is_zero(self):
+        """검증 구간에만 신호가 있으면 전체 비율은 그럴듯해도 계약 위반이다."""
+        coverage = external_signal_coverage_by_split(
+            self._table(), ["module_c_supply_risk", "module_c_demand_risk"]
+        )
+        with self.assertRaises(ExternalSignalContractError) as caught:
+            enforce_external_signal_contract(
+                coverage,
+                required_signals=["module_c_supply_risk", "module_c_demand_risk"],
+                minimum_train_coverage=0.01,
+            )
+        self.assertIn("module_c_demand_risk", str(caught.exception))
+
+    def test_contract_passes_when_train_coverage_is_met(self):
+        coverage = external_signal_coverage_by_split(
+            self._table(), ["module_c_supply_risk", "module_c_demand_risk"]
+        )
+        enforce_external_signal_contract(
+            coverage,
+            required_signals=["module_c_supply_risk"],
+            minimum_train_coverage=0.01,
+        )
+
+    def test_default_mode_does_not_enforce(self):
+        """기본/연구 모드는 경고만 하고 Model A fallback 을 허용한다."""
+        with patch.dict(os.environ, {"REQUIRE_EXTERNAL_SIGNALS": ""}, clear=False):
+            self.assertNotIn(
+                os.getenv("REQUIRE_EXTERNAL_SIGNALS", "").strip().lower(),
+                {"1", "true", "yes"},
+            )
 
 
 if __name__ == "__main__":
