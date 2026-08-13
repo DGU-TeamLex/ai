@@ -108,8 +108,38 @@ def main() -> None:
     print(f"\n최신 스냅샷 {latest:%Y-%m} · {len(snapshot):,}품목 "
           f"(위험 중앙 {risk.median():.4f} / 최대 {risk.max():.4f})")
 
-    # 위험 → 분위수 → 리드타임
-    quantile = QUANTILE_BASE + risk * (QUANTILE_MAX - QUANTILE_BASE)
+    # 절대 척도가 아니라 백분위 순위를 쓴다.
+    #
+    # module_c_supply_risk 는 세 신호(supply_news 0.45 / material_news 0.20 /
+    # market_price 0.35)의 가중합인데 실측 최대가 0.479 다. 이유는 두 가지다.
+    #   1. market_price_risk 는 가중치 0.35 인데 값이 최대 0.105 에서 막힌다.
+    #      기여 상한이 0.037 이라 사실상 상수 0 이다.
+    #   2. 세 신호가 같은 행에서 동시에 p90 이상인 비율이 0.0000% 다.
+    #      상관이 -0.223 ~ +0.460 이라 가중평균하면 범위가 구조적으로 눌린다.
+    #
+    # 그래서 절대값을 그대로 쓰면 risk 가 1 근처에 못 가고 분위수가 p59 에서
+    # 멈춘다. 실측 리드타임은 p50~p80 이 전부 30일이라 이 구간에서는 어떤
+    # 위험 변화도 리드타임을 못 움직인다.
+    #
+    # 정책이 물어야 할 것은 "절대 몇 점인가" 가 아니라 "다른 품목 대비 얼마나
+    # 위험한가" 다. 절대 척도는 신호 결합 방식에 따라 임의로 정해지지만 순위는
+    # 그렇지 않다. 위험이 전부 0 인 퇴화 상황에서는 순위가 무의미하므로 그때는
+    # 전 품목을 base 로 둔다.
+    if float(risk.max()) <= 0.0:
+        risk_rank = pd.Series(0.0, index=risk.index)
+    else:
+        risk_rank = risk.rank(pct=True, method="average")
+        # 위험 0 인 품목은 순위를 매기지 않는다. 절반이 0 이면 순위 0.25 를
+        # 받아 근거 없이 리드타임이 올라간다.
+        risk_rank = risk_rank.where(risk > 0, 0.0)
+        positive = risk > 0
+        if positive.any():
+            risk_rank.loc[positive] = risk.loc[positive].rank(pct=True, method="average")
+    print(f"  위험>0 {int((risk > 0).sum()):,}품목 ({float((risk > 0).mean()):.1%}) "
+          f"— 순위 기반 매핑 적용")
+
+    # 위험 순위 → 분위수 → 리드타임
+    quantile = QUANTILE_BASE + risk_rank * (QUANTILE_MAX - QUANTILE_BASE)
     effective_lead = pd.Series(
         np.quantile(lead.to_numpy(), quantile.to_numpy()), index=quantile.index
     )
@@ -153,11 +183,14 @@ def main() -> None:
         print(f"{name:<24}{low:>9.1f}일{high:>11.1f}일{order.sum():>16,.0f}"
               f"{order.sum()/order_current.sum():>8.2f}x")
 
-    print("\n=== 위험 수준별 리드타임 ===")
-    print(f"{'위험':>6}{'분위수':>9}{'리드타임':>10}")
-    for value in (0.0, 0.05, 0.10, 0.15, 0.19):
+    print("\n=== 위험 순위별 리드타임 ===")
+    print(f"{'위험순위':>8}{'해당 위험값':>12}{'분위수':>9}{'리드타임':>10}")
+    positive_risk = risk[risk > 0]
+    for value in (0.0, 0.25, 0.50, 0.75, 0.90, 1.0):
         q = QUANTILE_BASE + value * (QUANTILE_MAX - QUANTILE_BASE)
-        print(f"{value:>6.2f}{f'p{q*100:.0f}':>9}{float(lead.quantile(q)):>9.1f}일")
+        raw = float(positive_risk.quantile(value)) if len(positive_risk) else 0.0
+        print(f"{value:>8.2f}{raw:>12.4f}{f'p{q*100:.0f}':>9}"
+              f"{float(lead.quantile(q)):>9.1f}일")
 
     result = pd.DataFrame(
         {

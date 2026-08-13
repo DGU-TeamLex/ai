@@ -23,7 +23,7 @@ from ..config import (
     TRADE_RISK_SCORE_PATH,
 )
 from ..material_mapping import load_approved_stock_material_mapping
-from ..utils import ensure_dirs, setup_logging, write_json
+from ..utils import guard_not_empty, ensure_dirs, setup_logging, write_json
 from .config import load_module_c_config
 from .exposure_candidates import build_module_c_exposure_candidates
 from .risk_engine import build_module_c_risk_outputs
@@ -69,6 +69,9 @@ def run_module_c_pipeline() -> None:
         trade_scores=trade_scores,
         audit_scope="latest",
     )
+    # 빈 산출로 기존 파일을 날리지 않는다(ai#20, 2026-08-13 사고).
+    guard_not_empty(scores, MODULE_C_RISK_SCORE_PATH, "module_c 위험 점수")
+    guard_not_empty(audit, MODULE_C_RISK_AUDIT_PATH, "module_c 감사")
     scores.to_csv(MODULE_C_RISK_SCORE_PATH, index=False)
     audit.to_csv(MODULE_C_RISK_AUDIT_PATH, index=False)
     alerts.to_csv(MODULE_C_ALERT_PATH, index=False)
