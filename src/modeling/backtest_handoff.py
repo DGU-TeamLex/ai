@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import BACKTEST_PREDICTION_PATH, OUTPUT_DIR, PROJECT_ROOT
+from ..utils import guard_not_empty
 
 
 DEFAULT_ROW_OUTPUT = (
@@ -122,6 +123,8 @@ def export_backtest_handoff(
 
     row_output_path.parent.mkdir(parents=True, exist_ok=True)
     segment_output_path.parent.mkdir(parents=True, exist_ok=True)
+    guard_not_empty(predictions, row_output_path, "백테스트 handoff")
+    guard_not_empty(segments, segment_output_path, "세그먼트 handoff")
     predictions.to_parquet(
         row_output_path,
         index=False,
