@@ -88,36 +88,104 @@ class MergeRiskWarningTest(unittest.TestCase):
 class TradeCacheCoverageTest(unittest.TestCase):
     """캐시가 요청한 HS 코드를 다 담고 있을 때만 수집을 건너뛰어야 한다."""
 
-    def _write_cache(self, path: Path, hs_codes: list[str]):
-        pd.DataFrame(
+    # 요청 기간을 캐시와 맞춘다. 종전에는 캐시가 2025-01 한 달뿐인데 요청 기간은
+    # 기본값 2023-01~2026-06 이었다. 그런데도 "fully cached" 로 통과한 이유는
+    # 조기 반환이 기간을 보지 않았기 때문이다 — 리뷰가 든 반례(ai#71 Blocking 1)가
+    # 통과하는 테스트로 박혀 있었다.
+    CACHE_MONTHS = ("2025-01", "2025-02")
+    PERIOD_ENV = {
+        "TRADE_START_MONTH": "2025-01",
+        "TRADE_END_MONTH": "2025-02",
+        "TRADE_COUNTRY_CODES": "CN",
+        "DATA_GO_KR_SERVICE_KEY": "test-key",
+    }
+
+    def _write_cache(
+        self,
+        path: Path,
+        hs_codes: list[str],
+        *,
+        months: tuple[str, ...] | None = None,
+        country_code: str = "ALL",
+    ):
+        months = months or self.CACHE_MONTHS
+        rows = [
             {
-                "STD_YYYYMM": ["2025-01"] * len(hs_codes),
-                "hs_code": hs_codes,
-                "country_code": ["ALL"] * len(hs_codes),
-                "country_name": ["전체"] * len(hs_codes),
-                "export_weight_kg": [1.0] * len(hs_codes),
-                "export_value_usd": [1.0] * len(hs_codes),
-                "import_weight_kg": [1.0] * len(hs_codes),
-                "import_value_usd": [1.0] * len(hs_codes),
+                "STD_YYYYMM": month,
+                "hs_code": hs_code,
+                "country_code": country_code,
+                "country_name": "전체",
+                "export_weight_kg": 1.0,
+                "export_value_usd": 1.0,
+                "import_weight_kg": 1.0,
+                "import_value_usd": 1.0,
             }
-        ).to_csv(path, index=False)
+            for month in months
+            for hs_code in hs_codes
+        ]
+        pd.DataFrame(rows).to_csv(path, index=False)
 
     def test_fully_cached_codes_skip_collection(self):
+        """기간·국가까지 완전한 캐시면 네트워크를 타지 않는다."""
+        requests: list[tuple] = []
+
+        def request_xml(url, params, timeout):
+            requests.append((url, params, timeout))
+            raise AssertionError("완전한 캐시인데 수집을 시도했다")
+
         with TemporaryDirectory() as tmp:
             total = Path(tmp) / "total.csv"
             country = Path(tmp) / "country.csv"
             self._write_cache(total, ["3902100000"])
-            self._write_cache(country, ["3902100000"])
+            self._write_cache(country, ["3902100000"], country_code="CN")
 
-            totals, _ = collect_trade_flows(
-                ["3902100000"],
-                provider="kcs",
-                total_cache_path=total,
-                country_cache_path=country,
-                refresh=False,
-            )
+            with patch.dict(os.environ, self.PERIOD_ENV, clear=False):
+                totals, _ = collect_trade_flows(
+                    ["3902100000"],
+                    provider="kcs",
+                    total_cache_path=total,
+                    country_cache_path=country,
+                    state_path=Path(tmp) / "state.json",
+                    refresh=False,
+                    request_xml=request_xml,
+                )
 
         self.assertFalse(totals.empty)
+        self.assertEqual(requests, [])
+
+    def test_period_incomplete_cache_is_not_skipped(self):
+        """HS 는 맞아도 요청 기간을 못 채우면 수집으로 내려가야 한다.
+
+        리뷰가 든 반례다 — total cache 에 2025-01 한 행만 있고 요청은
+        2025-01~2025-02 인 경우, 종전 조기 반환은 네트워크 없이 성공했다.
+        """
+        requests: list[tuple] = []
+
+        def request_xml(url, params, timeout):
+            requests.append((url, params, timeout))
+            return b"<response><header><resultCode>00</resultCode></header><body/></response>"
+
+        with TemporaryDirectory() as tmp:
+            total = Path(tmp) / "total.csv"
+            country = Path(tmp) / "country.csv"
+            self._write_cache(total, ["3902100000"], months=("2025-01",))
+            self._write_cache(country, ["3902100000"], months=("2025-01",), country_code="CN")
+
+            with patch.dict(os.environ, self.PERIOD_ENV, clear=False):
+                collect_trade_flows(
+                    ["3902100000"],
+                    provider="kcs",
+                    total_cache_path=total,
+                    country_cache_path=country,
+                    state_path=Path(tmp) / "state.json",
+                    refresh=False,
+                    request_xml=request_xml,
+                )
+
+        self.assertGreater(
+            len(requests), 0,
+            "기간이 모자란 캐시를 완결로 처리했다",
+        )
 
     def test_newly_requested_code_is_not_silently_skipped(self):
         """캐시에 없는 코드를 요청하면 캐시를 그대로 반환해서는 안 된다."""
