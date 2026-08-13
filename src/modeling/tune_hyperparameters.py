@@ -128,7 +128,7 @@ def _prepare_folds(variant: str) -> tuple[list[dict], list[str], str, float]:
         missing = _missing_external_signal(fold["train"], options)
         if missing is not None:
             raise ValueError(
-                f"Cannot tune variant {variant}: fold {fold.get('name', '?')} "
+                f"Cannot tune variant {variant}: fold {fold['spec']['fold']} "
                 f"training rows have {missing}"
             )
     feature_cols = select_feature_columns(

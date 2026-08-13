@@ -175,34 +175,69 @@ class EffectiveParamRoundTripTests(unittest.TestCase):
         self.assertEqual(original, rebuilt)
 
     def test_baseline_and_tuned_share_fixed_params(self):
-        """baseline 과 tuned 가 같은 고정값을 써야 비교가 성립한다."""
+        """baseline 과 tuned 가 같은 고정값을 써야 비교가 성립한다.
+
+        `subsample_freq` 는 예외다 — 운영 baseline(`production_lgbm_params`)은 이 키를
+        지정하지 않아 LightGBM 기본값 0(subsample 비활성)이고, tuned 쪽은 의도적으로
+        1을 넣어 subsample 을 활성화한다. 이건 파라미터 탐색이 아니라 baseline 자체의
+        동작 변경이라 두 쪽이 달라야 정상이다(ai#60 리뷰 2번 논의).
+        """
         base = tuning._baseline_params("regression")
         tuned = tuning.build_estimator_params({"learning_rate": 0.1}, "regression", 900)
-        for key in ("subsample_freq", "histogram_pool_size", "force_col_wise",
+        for key in ("histogram_pool_size", "force_col_wise",
                     "n_jobs", "random_state", "verbosity", "objective"):
             self.assertEqual(base[key], tuned[key], f"{key} 가 baseline 과 tuned 에서 다르다")
+        self.assertNotIn("subsample_freq", base, "운영 baseline은 subsample_freq를 지정하지 않아야 한다")
+        self.assertEqual(tuned["subsample_freq"], 1, "tuned 쪽은 subsample_freq=1을 명시해야 한다")
 
 
 class ExternalSignalGateScopeTests(unittest.TestCase):
-    """게이트가 fold 의 train 행만 보는지 (ai#60 리뷰 지적 2)."""
+    """게이트가 fold 의 train 행만 보는지 (ai#60 리뷰 지적 2).
 
-    def test_gate_checks_training_rows_not_whole_table(self):
-        """학습 구간엔 신호가 없고 validation 에만 있으면 통과하면 안 된다."""
-        calls = []
+    이전 버전은 `_prepare_folds()` 를 호출하지 않고 `_missing_external_signal()` 을
+    직접 불러 "train 행수로 호출됐다"만 확인했다. 그건 게이트 스코프가 아니라
+    호출 인자를 재확인하는 것이라 실제 회귀(전체 테이블로 검사하는 버그)를 못 잡는다.
+    이 테스트는 `_prepare_folds()` 를 실제로 호출해 그 결과(예외 여부)로 검증한다.
+    """
 
-        def fake_missing(frame, options):
-            calls.append(len(frame))
-            return None
+    def test_prepare_folds_rejects_when_signal_only_in_validation_windows(self):
+        """뉴스 신호가 검증 구간(2025-04~06)에만 있고 모든 fold 의 train 구간엔 없으면
+        (fold train_end 가 2025-03 을 넘지 않으므로 어느 fold 도 그 구간을 학습에 못 씀)
+        게이트가 fail-closed 로 막아야 한다. 전체 테이블만 봤다면 통과했을 것이다."""
+        months = (
+            list(pd.date_range("2018-01-01", "2019-12-01", freq="MS"))
+            + list(pd.date_range("2024-01-01", "2025-06-01", freq="MS"))
+        )
+        signal_only_months = set(pd.date_range("2025-04-01", "2025-06-01", freq="MS"))
+        rows = []
+        for series in range(4):
+            for month in months:
+                has_signal = month in signal_only_months
+                rows.append(
+                    {
+                        "year_month": month,
+                        "target_usage": float(series + month.month),
+                        "lag_1": float(series + 1),
+                        "rolling_mean_3": float(series + 2),
+                        "historical_training_eligible": True,
+                        "disease_news_risk": 1.0 if has_signal else 0.0,
+                        "supply_news_risk": 0.0,
+                        "material_news_risk": 0.0,
+                        "total_news_risk": 1.0 if has_signal else 0.0,
+                    }
+                )
+        table = pd.DataFrame(rows)
 
-        folds = [
-            {"name": "f1", "train": pd.DataFrame({"a": [1, 2, 3]}),
-             "valid": pd.DataFrame({"a": [4, 5]})},
-        ]
-        with patch.object(tuning, "_missing_external_signal", side_effect=fake_missing):
-            for fold in folds:
-                tuning._missing_external_signal(fold["train"], {})
-        # 전체 테이블(5행)이 아니라 train(3행)으로 호출돼야 한다.
-        self.assertEqual(calls, [3])
+        with patch.object(tuning, "_load_feature_table", return_value=table):
+            with self.assertRaises(ValueError) as ctx:
+                tuning._prepare_folds("stock_model_b_news")
+
+        # 전체 테이블에는 신호가 있으므로(2025-04~06), 게이트가 거기서 통과했다면
+        # 예외가 아예 안 났을 것이다. train 만 봤기 때문에 막힌 것이고, 메시지에
+        # fold 이름도 '?' 가 아니라 실제 값(2024_q3 등)이 찍혀야 한다(ai#60 리뷰 지적 4).
+        message = str(ctx.exception)
+        self.assertIn("news", message.lower())
+        self.assertNotIn("fold ?", message)
 
 
 if __name__ == "__main__":
