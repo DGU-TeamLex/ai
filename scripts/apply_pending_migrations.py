@@ -103,16 +103,21 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # dry-run 은 접속하지 않으므로 DSN 을 요구하지 않는다. 무엇이 적용될지
+    # 보려고 프로덕션 DSN 을 들고 와야 하면 확인 자체가 번거로워진다.
+    if args.dry_run:
+        print(f"=== 적용될 문장 {len(STATEMENTS)}개 (실행하지 않음) ===")
+        for statement in STATEMENTS:
+            print(f"  {statement};")
+        print(f"\n=== 적용 후 확인할 컬럼 {len(VERIFY)}개 ===")
+        for table, column in VERIFY:
+            print(f"  {table}.{column}")
+        return 0
+
     dsn = os.environ.get("DATABASE_URL", "").strip()
     if not dsn:
         print("DATABASE_URL 환경변수가 필요하다.", file=sys.stderr)
         return 2
-
-    if args.dry_run:
-        print("=== 적용될 문장 (실행하지 않음) ===")
-        for statement in STATEMENTS:
-            print(f"  {statement};")
-        return 0
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
