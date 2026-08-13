@@ -33,7 +33,13 @@ class ExpandingMeanDtypeTest(unittest.TestCase):
     그 행이 세그먼트의 첫 행이면 누적 관측수가 0 이 되는데, 이때
     `.replace(0, pd.NA)` 를 쓰면 int 컬럼이 object 로 바뀌어
     이어지는 astype("float32") 가 NAType 에서 TypeError 를 낸다.
-    실제 원장 261만 행에서 1건 발생해 파이프라인 전체가 중단됐다.
+
+    실제 원장(2024~25 16건·2018~19 3건, 합 19건)의 음수 출고 대부분은
+    월별 signed 집계에서 같은 달 양수 출고와 상계돼 사라지고, 실제로 월별
+    feature table 에 signed 음수로 남는 건 1건(K3;34/USE0004197/2025-07)뿐이며
+    그 행도 세그먼트 첫 행이 아니다(sehyeon03 리뷰, ai#61). 즉 이 시나리오가
+    실제 원장에서 재현된 크래시는 아니고, 세그먼트 첫 행이 통째로 무효
+    관측(음수만 있는 달)일 때를 대비한 방어 수정이다.
     """
 
     def test_negative_consumption_at_segment_start_does_not_crash(self):
