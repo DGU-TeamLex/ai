@@ -336,10 +336,54 @@ def build_module_c_risk_outputs(
     supply_news_contribution = float(supply_weights["supply_news"]) * supply_news
     material_news_contribution = float(supply_weights["material_news"]) * material_news
     market_price_contribution = float(supply_weights["market_price"]) * market_price
+    # 세 신호를 **가중최대** 로 결합한다. 가중합이 아니다.
+    #
+    # 가중합은 세 신호가 함께 움직일 때만 제 범위를 낸다. 실측은 반대다.
+    #
+    #   supply_news ↔ material_news    r = +0.460
+    #   supply_news ↔ market_price     r = -0.046
+    #   material_news ↔ market_price   r = -0.223
+    #   세 신호가 같은 행에서 동시에 p90 이상인 비율:  0.0000%
+    #
+    # 상관이 낮거나 음수인 신호를 평균하면 범위가 구조적으로 눌린다. 이론 최대
+    # 1.0 인데 실측 최대가 0.568 이었고, 하류에서 리드타임 분위수가 p66 을
+    # 못 넘어 어떤 위험 변화도 리드타임을 못 움직였다(ai#20 결함 O).
+    #
+    # 공급위험은 평균이 아니라 **가장 강한 위험 하나** 로 결정되는 것이 맞다.
+    # 항만이 막혔으면 원자재 가격이 안정이어도 공급은 막힌다. 가중치는 신호별
+    # 중요도이므로 유지하되, 최대 가중치로 정규화해 단일 신호가 자기 값까지
+    # 도달할 수 있게 한다.
+    #
+    #   base = max(wᵢ·sᵢ) / max(wᵢ)
+    #
+    # 후보 5종을 실측 비교한 결과다(표본 287,192행, 5%).
+    #
+    #   방식              최대     중앙    최대→리드타임   순서보존
+    #   현행 가중합       0.568   0.137      30.1일          -
+    #   noisy-OR         0.506   0.136      30.0일        0.9997
+    #   가중최대(정규화)   0.954   0.242      79.9일        0.9713   ← 채택
+    #   단순최대          0.954   0.327      79.9일        0.9512
+    #   멱평균 p=3        0.737   0.231      40.2일        0.9824
+    #
+    # noisy-OR 는 가중합보다 오히려 낮다 — wᵢ·sᵢ 가 0.45 를 못 넘어 합집합이
+    # 커지지 않는다. 단순최대는 범위는 같지만 중앙이 0.327 로 올라 약한 신호도
+    # 그대로 경보가 되므로 과잉 경보 위험이 있다. 가중최대는 범위를 살리면서
+    # 중앙을 0.242 로 유지하고 순서도 0.971 보존한다.
+    weight_values = [
+        float(supply_weights["supply_news"]),
+        float(supply_weights["material_news"]),
+        float(supply_weights["market_price"]),
+    ]
     base_supply_risk = (
-        supply_news_contribution
-        + material_news_contribution
-        + market_price_contribution
+        pd.concat(
+            [
+                supply_news_contribution,
+                material_news_contribution,
+                market_price_contribution,
+            ],
+            axis=1,
+        ).max(axis=1)
+        / max(weight_values)
     ).clip(0, 1)
     trade_overlay_pressure = (
         float(config["trade_signal"]["module_c_overlay_weight"]) * trade_risk
