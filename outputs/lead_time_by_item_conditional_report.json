@@ -1,0 +1,13 @@
+{
+  "samples": 30815,
+  "items": 246,
+  "grand_quantiles": {
+    "0.5": 30.0,
+    "0.75": 30.0,
+    "0.9": 60.0
+  },
+  "credibility_k": 0.41704440724647557,
+  "policy_quantile": 0.75,
+  "differs_by_more_than_5_days": 157,
+  "review_status": "pending"
+}
