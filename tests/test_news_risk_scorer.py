@@ -455,5 +455,86 @@ class NewsCollectorTest(unittest.TestCase):
         self.assertTrue(audit.empty)
 
 
+class SyntheticNewsGuardTest(unittest.TestCase):
+    """합성 뉴스가 운영 점수 경로로 들어가는 것을 막는다 (ai#22).
+
+    실제로 `data/raw/news/news_history.csv` 라는 실데이터 같은 이름의 파일이
+    example.test URL 을 가진 합성 96행이었고, 그것이 피처테이블 뉴스 신호
+    전부를 차지한 채 조용히 통과했다. 그 상태로 A/B 를 돌려 "뉴스를 넣으면
+    WAPE 가 나빠진다" 는 결론을 낼 뻔했다.
+    """
+
+    def _write(self, directory: str, rows: list[dict]) -> Path:
+        path = Path(directory) / "news.csv"
+        pd.DataFrame(rows).to_csv(path, index=False)
+        return path
+
+    @staticmethod
+    def _row(url: str, source: str = "major_news_agency") -> dict:
+        return {
+            "date": "2024-01-10",
+            "title": "원자재 공급 차질",
+            "summary": "공급 차질이 우려된다.",
+            "source": source,
+            "country": "Korea",
+            "url": url,
+        }
+
+    def test_placeholder_urls_are_rejected_by_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._write(
+                directory,
+                [self._row(f"https://example.test/{index}") for index in range(10)],
+            )
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+                with self.assertRaises(ValueError) as caught:
+                    collect_news(provider="csv", data_path=path)
+
+        self.assertIn("NEWS_ALLOW_SYNTHETIC", str(caught.exception))
+
+    def test_explicit_opt_in_allows_synthetic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._write(
+                directory,
+                [self._row(f"https://example.test/{index}") for index in range(10)],
+            )
+            with patch.dict(os.environ, {"NEWS_ALLOW_SYNTHETIC": "true"}):
+                news = collect_news(provider="csv", data_path=path)
+
+        self.assertEqual(len(news), 10)
+
+    def test_real_urls_pass_through(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._write(
+                directory,
+                [self._row(f"https://www.yna.co.kr/view/{index}") for index in range(10)],
+            )
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+                news = collect_news(provider="csv", data_path=path)
+
+        self.assertEqual(len(news), 10)
+
+    def test_minority_placeholder_urls_do_not_block(self):
+        """일부 기사에 URL 이 없거나 자리표시자여도 전체를 막지는 않는다."""
+        rows = [self._row(f"https://www.yna.co.kr/view/{index}") for index in range(9)]
+        rows.append(self._row("https://example.test/1"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._write(directory, rows)
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+                news = collect_news(provider="csv", data_path=path)
+
+        self.assertEqual(len(news), 10)
+
+    def test_sample_provider_is_also_guarded(self):
+        """sample provider 도 운영 산출물을 만든다. 같은 게이트를 통과해야 한다."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+            with self.assertRaises(ValueError):
+                collect_news(provider="sample")
+
+
 if __name__ == "__main__":
     unittest.main()

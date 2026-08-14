@@ -163,6 +163,73 @@ GDELT_NGRAM_TITLE_TOPIC_PATTERNS = {
 GDELT_NGRAM_RISK_PATTERN = _keyword_pattern(GDELT_NGRAM_RISK_KEYWORDS)
 
 
+# 자리표시자 URL 스킴/도메인. 실제 기사라면 여기 걸릴 수 없다.
+SYNTHETIC_URL_MARKERS = (
+    "sample://",
+    "test://",
+    "example.test",
+    "example.com",
+    "example.org",
+    "localhost",
+)
+SYNTHETIC_SOURCE_MARKERS = ("sample", "synthetic", "dummy", "fixture")
+# 합성 판정 임계. 일부 기사에 URL 이 없어 Unknown 인 경우까지 막지 않도록
+# "대다수가 자리표시자" 일 때만 차단한다.
+SYNTHETIC_RATIO_THRESHOLD = 0.8
+
+
+def _synthetic_share(news: pd.DataFrame) -> float:
+    """자리표시자 URL/출처 비율. 0.0~1.0."""
+    if news.empty:
+        return 0.0
+    flagged = pd.Series(False, index=news.index)
+    if "url" in news.columns:
+        url = news["url"].astype("string").fillna("").str.lower()
+        for marker in SYNTHETIC_URL_MARKERS:
+            flagged |= url.str.contains(marker, regex=False)
+    if "source" in news.columns:
+        source = news["source"].astype("string").fillna("").str.lower().str.strip()
+        flagged |= source.isin(SYNTHETIC_SOURCE_MARKERS)
+    return float(flagged.mean())
+
+
+def _guard_synthetic_news(news: pd.DataFrame, origin: str) -> pd.DataFrame:
+    """합성/샘플 뉴스가 운영 점수 경로로 들어가는 것을 막는다 (ai#22).
+
+    fail-closed 로 둔 이유가 있다. `data/raw/news/news_history.csv` 라는 실데이터
+    같은 이름의 파일이 사실은 `example.test` URL 을 가진 합성 96행이었는데,
+    그것이 피처테이블 뉴스 신호 **전부**를 차지한 채 조용히 통과했다. 그 상태로
+    A/B 를 돌려 "뉴스를 넣으면 WAPE 가 나빠진다" 는 결론을 낼 뻔했다.
+    실제로는 뉴스 신호를 평가한 적이 없었다.
+
+    파이프라인 동작 확인 목적이면 NEWS_ALLOW_SYNTHETIC=true 로 명시적으로 켠다.
+    켜면 경고를 남기므로 산출물의 출처가 로그에 드러난다.
+    """
+    share = _synthetic_share(news)
+    if share < SYNTHETIC_RATIO_THRESHOLD:
+        return news
+
+    allowed = os.getenv("NEWS_ALLOW_SYNTHETIC", "false").strip().lower() == "true"
+    if allowed:
+        LOGGER.warning(
+            "합성 뉴스를 사용한다 (%s): %s행 중 %.0f%% 가 자리표시자 URL/출처. "
+            "NEWS_ALLOW_SYNTHETIC=true 로 허용됨. 이 산출물은 모델 성능 판단에 "
+            "쓰면 안 된다.",
+            origin,
+            f"{len(news):,}",
+            share * 100,
+        )
+        return news
+
+    raise ValueError(
+        f"합성/샘플 뉴스가 운영 점수 경로로 들어오려 한다 ({origin}). "
+        f"{len(news):,}행 중 {share:.0%} 가 자리표시자 URL/출처다"
+        f"(예: {SYNTHETIC_URL_MARKERS[:3]}). "
+        "실제 뉴스를 넣거나, 파이프라인 동작 확인이 목적이면 "
+        "NEWS_ALLOW_SYNTHETIC=true 를 명시할 것."
+    )
+
+
 SAMPLE_NEWS = [
     {
         "date": date(2025, 1, 15).isoformat(),
@@ -628,12 +695,18 @@ def collect_news(provider: str | None = None, data_path: str | Path | None = Non
     if selected_provider in {"disabled", "none"}:
         return pd.DataFrame(columns=NEWS_COLUMNS)
     if selected_provider == "sample":
-        return _normalize_news(pd.DataFrame(SAMPLE_NEWS))
+        return _guard_synthetic_news(
+            _normalize_news(pd.DataFrame(SAMPLE_NEWS)),
+            origin="NEWS_PROVIDER=sample",
+        )
     if selected_provider == "csv":
         selected_path = data_path or os.getenv("NEWS_DATA_PATH")
         if not selected_path:
             raise ValueError("NEWS_DATA_PATH is required when NEWS_PROVIDER=csv")
-        return load_news_csv(Path(selected_path))
+        return _guard_synthetic_news(
+            load_news_csv(Path(selected_path)),
+            origin=f"NEWS_DATA_PATH={selected_path}",
+        )
     if selected_provider == "gdelt":
         start_date = os.getenv("NEWS_START_DATE")
         end_date = os.getenv("NEWS_END_DATE")
