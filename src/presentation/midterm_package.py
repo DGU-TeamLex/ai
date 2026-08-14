@@ -16,7 +16,7 @@ from ..config import (
 )
 from ..modeling.inventory_policy import add_inventory_recommendations
 from ..module_c.config import load_module_c_config
-from ..module_c.risk_engine import build_module_c_risk_outputs
+from ..module_c.risk_engine import build_module_c_risk_outputs, combine_supply_signals
 
 
 DEFAULT_OUTPUT_DIR = OUTPUT_DIR / "midterm_2026-07-23"
@@ -294,10 +294,14 @@ def build_weight_selection_output(config: dict | None = None) -> pd.DataFrame:
     result["weight_supply_news"] = float(supply_weights["supply_news"])
     result["weight_material_news"] = float(supply_weights["material_news"])
     result["weight_market_price"] = float(supply_weights["market_price"])
-    expected_supply = (
-        result["module_c_supply_news_risk"] * result["weight_supply_news"]
-        + result["module_c_material_news_risk"] * result["weight_material_news"]
-        + result["module_c_market_price_risk"] * result["weight_market_price"]
+    # 수식을 여기서 다시 쓰지 않는다. risk_engine 의 단일 정의를 그대로 호출한다.
+    # 종전에는 가중합을 이 파일이 따로 갖고 있어서, risk_engine 이 가중최대로
+    # 바뀌자 "supply-weight formula mismatch" 로 검증이 터졌다(ai#20 결함 O).
+    expected_supply = combine_supply_signals(
+        result["module_c_supply_news_risk"],
+        result["module_c_material_news_risk"],
+        result["module_c_market_price_risk"],
+        supply_weights,
     )
     result["supply_weight_formula_error"] = (
         result["module_c_supply_risk"] - expected_supply

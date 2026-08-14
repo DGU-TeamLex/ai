@@ -49,6 +49,28 @@ def local_candidate(
     }
 
 
+def material_candidate(key: str, representative_id: str) -> dict:
+    institution, item_code = key.split("::")
+    return {
+        "local_item_key": key,
+        "institution_code": institution,
+        "item_code": item_code,
+        "representative_item_id": representative_id,
+        "representative_name": "주사기",
+        "item_family_id": "DISPOSABLE_SYRINGE",
+        "raw_material_meta_code": "POLYPROPYLENE_PP",
+        "raw_material_risk_meta_code": "PETROCHEMICAL_SHOCK",
+        "demand_risk_meta_code": "",
+        "material_confidence": "identified",
+        "material_evidence_tier": "family_rule_candidate",
+        "material_evidence_reference": "https://example.test/pp",
+        "material_review_status": "needs_review",
+        "classification_material_family_conflict": False,
+        "market_factor_count": 2,
+        "supply_risk_policy_needs_review": False,
+    }
+
+
 class ItemBulkApprovalTest(unittest.TestCase):
     def test_all_rows_are_approved_but_incomplete_candidate_stays_inactive(self):
         local = pd.DataFrame(
@@ -218,6 +240,63 @@ class ItemBulkApprovalTest(unittest.TestCase):
             operational.iloc[0]["raw_material_meta_code"],
             "POLYPROPYLENE_PP",
         )
+
+    def test_history_only_candidates_are_dropped_and_counted(self):
+        candidates = pd.DataFrame(
+            [
+                material_candidate("I1::A", "R1"),
+                # Present in the historical auxiliary ledger only, so it never
+                # appears in the operational monthly stock.
+                material_candidate("I1::HIST", "R2"),
+            ]
+        )
+        monthly = pd.DataFrame(
+            [
+                {
+                    "year_month": "2025-12-01",
+                    "institution_code": "I1",
+                    "department": "D",
+                    "item_code": "A",
+                    "stock_item_key": "I1::D::A",
+                }
+            ]
+        )
+
+        mapping, report = build_bulk_material_mapping(
+            candidates,
+            monthly,
+            POLICY,
+            "2026-07-28T00:00:00+00:00",
+        )
+
+        self.assertEqual(len(mapping), 1)
+        self.assertEqual(mapping.iloc[0]["stock_item_key"], "I1::D::A")
+        self.assertEqual(report["unresolved_stock_key_candidate_rows"], 1)
+        self.assertEqual(report["unresolved_stock_key_local_item_count"], 1)
+        self.assertEqual(report["resolved_candidate_rows"], 1)
+        self.assertEqual(report["input_candidate_rows"], 2)
+
+    def test_no_resolvable_candidate_still_fails_loudly(self):
+        candidates = pd.DataFrame([material_candidate("I1::HIST", "R1")])
+        monthly = pd.DataFrame(
+            [
+                {
+                    "year_month": "2025-12-01",
+                    "institution_code": "I1",
+                    "department": "D",
+                    "item_code": "A",
+                    "stock_item_key": "I1::D::A",
+                }
+            ]
+        )
+
+        with self.assertRaises(ValueError):
+            build_bulk_material_mapping(
+                candidates,
+                monthly,
+                POLICY,
+                "2026-07-28T00:00:00+00:00",
+            )
 
 
 if __name__ == "__main__":

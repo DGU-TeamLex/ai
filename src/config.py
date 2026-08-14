@@ -1,8 +1,84 @@
 import json
+import os
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+class DotenvSyntaxError(ValueError):
+    """`.env` 에 해석할 수 없는 줄이 있다."""
+
+
+# 지원 문법 (직접 만든 파서다. python-dotenv 가 아니다)
+#
+#   지원                          예시
+#     KEY=value                   NEWS_PROVIDER=gdelt
+#     KEY=                        빈 값. 미설정과 같게 취급된다
+#     KEY="value" / KEY='value'   양끝 같은 따옴표 한 겹만 벗긴다
+#     # 주석                      줄 전체 주석만. 값 뒤 인라인 주석은 값의 일부다
+#     앞뒤 공백                    key 와 value 양쪽 모두 strip 한다
+#
+#   미지원 — 아래는 값의 일부로 그대로 들어간다
+#     export KEY=value            "export KEY" 가 키 이름이 되므로 오류로 잡는다
+#     KEY=a\nb                    escape sequence 해석 없음
+#     KEY=${OTHER}                변수 치환 없음
+#     여러 줄 값                    줄바꿈으로 끊긴다
+#     KEY=a # 주석                 " a # 주석" 이 값이다
+#
+# 잘못된 줄을 조용히 넘기지 않는다. `.env` 오타 하나로 provider 가 꺼진 채
+# 신호가 0 이 되는 것이 이 PR 이 막으려는 실패이므로, 파서가 같은 실패를
+# 만들면 안 된다(ai#71).
+_VALID_KEY = __import__("re").compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def load_dotenv(path: Path = PROJECT_ROOT / ".env") -> list[str]:
+    """프로젝트 루트의 `.env` 를 os.environ 에 채운다.
+
+    문서(운영 가이드 21.1)는 `.env` 에 키를 넣으라고만 안내하는데, 지금까지는
+    이를 읽는 코드가 없어 파일을 만들어도 `NEWS_PROVIDER`/`TRADE_PROVIDER`/
+    API 키가 전부 미설정으로 남았다. 그 결과 모듈 C 신호가 조용히 0 이 됐다.
+
+    이미 설정된 환경변수는 덮어쓰지 않는다(CI·쉘 지정이 우선).
+    외부 의존성을 추가하지 않기 위해 표준 라이브러리만 쓴다.
+
+    해석할 수 없는 줄이 있으면 `DotenvSyntaxError` 를 낸다. 지원 문법은 위
+    주석에 적어 뒀다.
+    """
+    if not path.exists():
+        return []
+    loaded = []
+    problems = []
+    for number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            problems.append(f"  {number}행: '=' 가 없다 — {raw_line!r}")
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not _VALID_KEY.match(key):
+            problems.append(
+                f"  {number}행: 키 이름이 올바르지 않다({key!r}). "
+                f"영문자·숫자·밑줄만 쓰고 'export' 접두사는 빼라"
+            )
+            continue
+        if key in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ[key] = value
+        loaded.append(key)
+    if problems:
+        raise DotenvSyntaxError(
+            f"{path} 를 해석할 수 없다:\n" + "\n".join(problems)
+        )
+    return loaded
+
+
+DOTENV_LOADED_KEYS = load_dotenv()
 
 RAW_STOCK_DIR = PROJECT_ROOT / "raw_stock"
 RAW_STOCK_FILE_PATTERN = "*.DAT"
@@ -400,6 +476,21 @@ MODEL_VARIANTS = {
         "use_commodity": True,
         "use_module_c": False,
         "objective": "tweedie",
+    },
+    # 원자재 단독. 뉴스를 빼고 원자재 신호만 본다.
+    #
+    # 지금 외부 신호 중 **실데이터가 확보된 것은 원자재뿐**이다
+    # (Alpha Vantage 2015-01~, data/external/market/commodity_prices.csv).
+    # 뉴스는 GDELT DOC API 가 최근 3개월만 서빙해 2024~25 학습·검증 구간을
+    # 채울 수 없다(실측: 2024-01 요청 시 응답 250건 전부 창 밖).
+    #
+    # 기존 B(뉴스) · C(뉴스+원자재) 는 뉴스 성분 때문에 지금 평가할 수 없다.
+    # 이 변형이 있어야 실데이터가 있는 신호를 오염 없이 A 와 비교할 수 있다.
+    "stock_model_e_commodity_only": {
+        "use_news": False,
+        "use_commodity": True,
+        "use_module_c": False,
+        "objective": "regression_l1",
     },
     "stock_model_d_module_c": {
         "use_news": False,

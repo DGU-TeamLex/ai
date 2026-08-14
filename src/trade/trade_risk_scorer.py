@@ -1226,6 +1226,16 @@ def run_trade_risk_scoring(
         TRADE_RISK_AUDIT_PATH,
         len(audit),
     )
+    status = str(report.get("operational_status", ""))
+    if status.startswith("blocked"):
+        # 차단 상태에서도 리포트는 정상 저장되므로, 로그가 없으면 배치가
+        # 성공한 것처럼 보인다. 무역 신호가 0 인 이유를 반드시 드러낸다.
+        LOGGER.warning(
+            "Trade risk scoring is blocked (%s): 0 rows scored. "
+            "Check TRADE_PROVIDER (current=%s), the HSK workbook, and the KCS cache.",
+            status,
+            selected_provider,
+        )
     return report
 
 

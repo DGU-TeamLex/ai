@@ -202,6 +202,10 @@ pip install -r requirements.txt
 
 ## Batch Run
 
+새 기기에서 처음 돌리거나 다른 기기에서 이어받는다면
+[`docs/PIPELINE_RUNBOOK.md`](docs/PIPELINE_RUNBOOK.md) 를 먼저 본다.
+아래 순서에서 빠뜨리기 쉬운 지점과 각 단계의 확인 명령을 담고 있다.
+
 전체 배치:
 
 ```bash
@@ -213,6 +217,10 @@ python -m src.main
 ```bash
 python -m src.preprocessing
 python -m src.item_integrated_pipeline --with-excel --sample-size 1000
+# 빠뜨리면 config 가 seed 경로(78행 택소노미)로 떨어져 분류 커버리지가
+# 0.94% 가 된다. 에러가 나지 않으므로 docs/PIPELINE_RUNBOOK.md 0절의
+# 확인 명령으로 전환 여부를 봐야 한다.
+python -m src.item_bulk_approval --apply
 python -m src.news.news_risk_scorer
 python -m src.commodity.commodity_risk_scorer
 python -m src.trade.hsk_reference

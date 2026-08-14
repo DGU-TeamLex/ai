@@ -510,14 +510,23 @@ def build_bulk_material_mapping(
         validate="many_to_many",
         indicator=True,
     )
+    # Candidates come from item normalization, which also covers the historical
+    # auxiliary ledger. Items that never appear in the operational monthly stock
+    # have no stock_item_key to attach to, so they are dropped and counted here
+    # instead of aborting the run.
     unmatched = expanded["_merge"].ne("both")
-    if unmatched.any():
-        examples = expanded.loc[
-            unmatched, ["institution_code", "item_code"]
-        ].head(5)
+    unresolved_rows = int(unmatched.sum())
+    unresolved_local_items = (
+        int(expanded.loc[unmatched, "local_item_key"].nunique())
+        if unresolved_rows
+        else 0
+    )
+    expanded = (
+        expanded.loc[~unmatched].drop(columns="_merge").reset_index(drop=True)
+    )
+    if expanded.empty:
         raise ValueError(
-            "Bulk material candidates could not resolve stock keys: "
-            f"{examples.to_dict(orient='records')}"
+            "No bulk material candidate resolved to an operational stock key"
         )
 
     code = _text(expanded["raw_material_meta_code"])
@@ -647,6 +656,9 @@ def build_bulk_material_mapping(
             candidates["local_item_key"].nunique()
         ),
         "approved_candidate_rows": int(len(candidates)),
+        "unresolved_stock_key_candidate_rows": unresolved_rows,
+        "unresolved_stock_key_local_item_count": unresolved_local_items,
+        "resolved_candidate_rows": int(len(expanded)),
         "approved_stock_mapping_rows": int(len(mapping)),
         "approved_stock_item_count": int(mapping["stock_item_key"].nunique()),
         "operational_eligible_mapping_rows": int(
