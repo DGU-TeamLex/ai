@@ -1,0 +1,54 @@
+{
+  "min_months": 12,
+  "candidates": {
+    "기관x품목 (현행)": {
+      "groups": 409196,
+      "median_months": 6.0,
+      "share_ge_12_months": 0.3271146345516574,
+      "median_cv": 0.7616101364871664,
+      "cv_iqr": 0.48957435164450613
+    },
+    "품목": {
+      "groups": 17155,
+      "median_months": 32.0,
+      "share_ge_12_months": 0.7063246866802682,
+      "median_cv": 1.3614963125232484,
+      "cv_iqr": 1.9309872935227899
+    },
+    "기관x subtype": {
+      "groups": 45122,
+      "median_months": 21.0,
+      "share_ge_12_months": 0.6664154957670316,
+      "median_cv": 1.0453453163169135,
+      "cv_iqr": 0.6371825637166265
+    },
+    "subtype": {
+      "groups": 37,
+      "median_months": 5659.0,
+      "share_ge_12_months": 1.0,
+      "median_cv": 3.633193864552636,
+      "cv_iqr": 2.5832306572507364
+    },
+    "기관x family": {
+      "groups": 186175,
+      "median_months": 14.0,
+      "share_ge_12_months": 0.5649684436685913,
+      "median_cv": 0.7980038143761372,
+      "cv_iqr": 0.507762604945762
+    },
+    "family": {
+      "groups": 736,
+      "median_months": 166.0,
+      "share_ge_12_months": 0.8301630434782609,
+      "median_cv": 1.4720433714812264,
+      "cv_iqr": 1.0568095814469651
+    },
+    "group": {
+      "groups": 14,
+      "median_months": 60717.0,
+      "share_ge_12_months": 1.0,
+      "median_cv": 5.472882325740745,
+      "cv_iqr": 4.7866928513649505
+    }
+  }
+}
