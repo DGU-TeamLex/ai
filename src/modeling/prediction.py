@@ -441,10 +441,16 @@ def _build_prediction_frame(
         - origin_month.dt.month
     )
     output["is_stale_data"] = output["data_age_months"].gt(1)
+    # lead_time_days_col 을 넘기지 않으면 _resolve_lead_time 이 항상 NaN 을 보고
+    # 전 행에 fallback 15일을 적용한다. 정책 파일은 method="stockout_duration_p25"
+    # 즉 품목별 추정을 쓰겠다고 선언하고 있으므로, 상류가 품목별 값을 실어 보내면
+    # 그것을 존중해야 한다. 컬럼이 없으면 종전과 동일하게 fallback 이 적용된다.
     return add_inventory_recommendations(
         output,
         prediction_col="predicted_usage",
         current_stock_col="current_stock",
+        lead_time_days_col="lead_time_days",
+        review_period_days_col="review_period_days",
     )
 
 

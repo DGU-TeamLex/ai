@@ -419,7 +419,25 @@ VALID_START = "2025-01"
 VALID_END = "2025-06"
 TEST_START = "2025-07"
 
+# 롤링 원점(rolling-origin) 검증. 각 fold 는 자기 train_end 이후만 평가하므로
+# 미래 정보 누출이 없다. fold 폭은 3개월로 통일하고, 검증 총구간을 6개월(2 fold)에서
+# 12개월(4 fold)로 넓혔다 — fold 수가 적으면 WAPE 차이가 특정 분기의 계절성에
+# 좌우되어 튜닝 결과가 그 분기에 과적합된다(Bergmeir & Benitez 2012,
+# "On the use of cross-validation for time series predictor evaluation",
+# Information Sciences 191:192-213).
 VALIDATION_FOLDS = [
+    {
+        "fold": "2024_q3",
+        "train_end": "2024-06",
+        "valid_start": "2024-07",
+        "valid_end": "2024-09",
+    },
+    {
+        "fold": "2024_q4",
+        "train_end": "2024-09",
+        "valid_start": "2024-10",
+        "valid_end": "2024-12",
+    },
     {
         "fold": "2025_q1",
         "train_end": "2024-12",
@@ -458,6 +476,21 @@ MODEL_VARIANTS = {
         "use_commodity": True,
         "use_module_c": False,
         "objective": "tweedie",
+    },
+    # 원자재 단독. 뉴스를 빼고 원자재 신호만 본다.
+    #
+    # 지금 외부 신호 중 **실데이터가 확보된 것은 원자재뿐**이다
+    # (Alpha Vantage 2015-01~, data/external/market/commodity_prices.csv).
+    # 뉴스는 GDELT DOC API 가 최근 3개월만 서빙해 2024~25 학습·검증 구간을
+    # 채울 수 없다(실측: 2024-01 요청 시 응답 250건 전부 창 밖).
+    #
+    # 기존 B(뉴스) · C(뉴스+원자재) 는 뉴스 성분 때문에 지금 평가할 수 없다.
+    # 이 변형이 있어야 실데이터가 있는 신호를 오염 없이 A 와 비교할 수 있다.
+    "stock_model_e_commodity_only": {
+        "use_news": False,
+        "use_commodity": True,
+        "use_module_c": False,
+        "objective": "regression_l1",
     },
     "stock_model_d_module_c": {
         "use_news": False,

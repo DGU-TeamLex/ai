@@ -95,7 +95,7 @@ def create_features(monthly_stock: pd.DataFrame) -> pd.DataFrame:
     valid_observations = df["demand_qty"].notna().astype("int16").groupby(df["series_segment_id"]).cumsum()
     cumulative_demand = df["demand_qty"].fillna(0).groupby(df["series_segment_id"]).cumsum()
     df["use_expanding_mean"] = (
-        cumulative_demand / valid_observations.replace(0, pd.NA)
+        cumulative_demand / valid_observations.where(valid_observations.ne(0))
     ).astype("float32")
 
     zero_indicator = df["demand_qty"].eq(0).astype("float32").where(df["demand_qty"].notna())
