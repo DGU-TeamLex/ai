@@ -508,8 +508,8 @@ def merge_shards() -> int:
         LOGGER.info("합칠 샤드가 없다.")
         return 0
 
-    seen: set[str] = set()
-    lines: list[str] = []
+    # identity -> (필드수, 줄). 필드가 많은 판본을 남긴다.
+    seen: dict[str, tuple[int, str]] = {}
     damaged = 0
     for path in [RAW_PATH, *shard_files]:
         if not path.exists():
@@ -530,16 +530,22 @@ def merge_shards() -> int:
                 f"{record.get('dlvrReqNo')}|{record.get('rprsntDtilPrdctClsfcNo')}"
                 f"|{record.get('dlvrReqRcptDate')}"
             )
-            if identity in seen:
+            # 같은 건이 여러 판본으로 있으면 **필드가 많은 쪽을 남긴다.**
+            #
+            # 종전에는 먼저 읽은 것이 이겼고, 본 파일을 먼저 읽으므로 항상 옛
+            # 판본이 남았다. KEEP_FIELDS 를 17 → 30 으로 늘려 재수집했는데
+            # 병합 후 신규 필드 보유가 0.5% 에 그친 것이 이 때문이다.
+            existing = seen.get(identity)
+            if existing is not None and len(record) <= existing[0]:
                 continue
-            seen.add(identity)
-            lines.append(line.rstrip("\r") + "\n")
+            seen[identity] = (len(record), line.rstrip("\r") + "\n")
 
     if damaged:
         LOGGER.warning(
             "손상된 줄 %s개를 건너뛰었다. 해당 샤드를 재수집하는 편이 낫다.", damaged
         )
 
+    lines = [line for _, line in seen.values()]
     RAW_PATH.write_text("".join(lines), encoding="utf-8")
 
     # 완료 개월도 합친다.
