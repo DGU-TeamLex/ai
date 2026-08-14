@@ -1,0 +1,99 @@
+{
+  "A_baseline": {
+    "n_features": 47,
+    "WAPE": 38.7154396169512,
+    "BIAS": -12.439765587826336
+  },
+  "B_동시점 위험": {
+    "n_features": 53,
+    "WAPE": 38.672914330034494,
+    "BIAS": -12.497914032846872,
+    "delta_pp": -0.0425
+  },
+  "C_시차 위험": {
+    "n_features": 71,
+    "WAPE": 38.628462756490556,
+    "BIAS": -12.551332795621942,
+    "delta_pp": -0.087
+  },
+  "D_척도 변환": {
+    "n_features": 65,
+    "WAPE": 38.662355533790645,
+    "BIAS": -12.894070960550515,
+    "delta_pp": -0.0531
+  },
+  "residual_correlation": [
+    {
+      "feature": "material_return_30d_lag_1",
+      "mean_spearman": 0.009925,
+      "max_abs": 0.0308,
+      "min_p": 0.0
+    },
+    {
+      "feature": "material_return_30d_lag_3",
+      "mean_spearman": -0.009975,
+      "max_abs": 0.0292,
+      "min_p": 0.0
+    },
+    {
+      "feature": "module_c_trade_risk",
+      "mean_spearman": 0.004825,
+      "max_abs": 0.0285,
+      "min_p": 0.0
+    },
+    {
+      "feature": "material_return_30d_lag_2",
+      "mean_spearman": 0.020274999999999998,
+      "max_abs": 0.0276,
+      "min_p": 0.0
+    },
+    {
+      "feature": "module_c_market_price_risk",
+      "mean_spearman": 0.005900000000000001,
+      "max_abs": 0.0262,
+      "min_p": 0.0
+    },
+    {
+      "feature": "commodity_risk",
+      "mean_spearman": 0.005900000000000001,
+      "max_abs": 0.0262,
+      "min_p": 0.0
+    },
+    {
+      "feature": "module_c_supply_risk",
+      "mean_spearman": 0.0042,
+      "max_abs": 0.0259,
+      "min_p": 0.0
+    },
+    {
+      "feature": "material_volatility_30d",
+      "mean_spearman": 0.0069,
+      "max_abs": 0.0234,
+      "min_p": 0.0
+    },
+    {
+      "feature": "commodity_risk_lag_1",
+      "mean_spearman": 0.0009500000000000003,
+      "max_abs": 0.0216,
+      "min_p": 0.0
+    },
+    {
+      "feature": "commodity_risk_lag_3",
+      "mean_spearman": -0.0039250000000000005,
+      "max_abs": 0.0206,
+      "min_p": 0.0
+    },
+    {
+      "feature": "commodity_risk_lag_2",
+      "mean_spearman": -0.0017749999999999997,
+      "max_abs": 0.0185,
+      "min_p": 0.0
+    },
+    {
+      "feature": "material_return_30d",
+      "mean_spearman": 0.0015,
+      "max_abs": 0.0109,
+      "min_p": 0.0
+    }
+  ]
+}

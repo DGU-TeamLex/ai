@@ -1,0 +1,66 @@
+# Literature-informed initial weights for news-based risk scoring.
+# These values are starting points, not fixed academic constants.
+
+event_type_weight:
+  infectious_disease_outbreak: 1.00
+  war_or_armed_conflict: 1.00
+  export_restriction_or_sanction: 1.00
+  port_or_logistics_disruption: 0.80
+  factory_shutdown: 0.85
+  raw_material_shortage_or_price_spike: 0.70
+  policy_regulation_uncertainty: 0.55
+  general_economic_uncertainty: 0.30
+
+source_weight:
+  official_government_or_international_org: 1.00
+  expert_monitoring_network: 0.90
+  major_news_agency: 0.75
+  industry_media: 0.65
+  local_media: 0.50
+  social_media_or_blog: 0.25
+  unknown: 0.50
+
+severity_weight:
+  critical: 1.00
+  high: 0.80
+  medium: 0.50
+  low: 0.20
+
+item_relevance_weight:
+  direct_item_match: 1.00
+  item_group_match: 0.80
+  material_match: 0.60
+  healthcare_supply_generic: 0.35
+  general_macro_risk: 0.15
+
+recency_half_life_days:
+  war_or_armed_conflict: 60
+  export_restriction_or_sanction: 60
+  infectious_disease_outbreak: 30
+  factory_shutdown: 30
+  port_or_logistics_disruption: 21
+  raw_material_shortage_or_price_spike: 21
+  policy_regulation_uncertainty: 45
+  general_economic_uncertainty: 30
+
+defaults:
+  source_type: unknown
+  severity: medium
+  item_relevance: general_macro_risk
+  exposure_weight: 0.60
+  recency_half_life_days: 30
+  novelty_duplicate_count: 0
+
+risk_bucket:
+  infectious_disease_outbreak: disease_news_risk
+  war_or_armed_conflict: supply_news_risk
+  export_restriction_or_sanction: supply_news_risk
+  port_or_logistics_disruption: supply_news_risk
+  factory_shutdown: supply_news_risk
+  policy_regulation_uncertainty: supply_news_risk
+  general_economic_uncertainty: supply_news_risk
+  raw_material_shortage_or_price_spike: material_news_risk
+
+risk_aggregation:
+  monthly_transform: "1 - exp(-sum(article_score))"
+  novelty_method: "1 / sqrt(1 + duplicate_count_same_event)"

@@ -19,11 +19,18 @@ env/
 
 # Raw and generated data
 device/
+raw_stock/
+regulazation/
+pdf/
 data/raw/
+data/external/
 data/processed/
 data/sample/
 outputs/
 models/
+/관세청_HS부호_20260101.xlsx
+pipelines/item_material/output_full/
+pipelines/item_material/research/
 
 # Keep editable mapping seed files
 !data/mapping/
@@ -34,6 +41,65 @@ models/
 !data/handoff/*.parquet
 !data/handoff/*.md
 
+# ── 외부 공개 데이터 캐시 (data/EXTERNAL_DATA.md 참조) ──────────────────
+#
+# 아래는 전부 공공 API·공개 아카이브에서 받은 것이라 공유에 제약이 없다.
+# 원장(raw_stock/)과 성격이 다르다 — 그건 한국사회보장정보원 제공 자료다.
+#
+# 커밋하는 이유는 크기(합계 35MB)가 아니라 재수집 비용이다.
+#   조달청  524 요청 / 서비스키당 하루 1,000 쿼터  → 팀원마다 받으면 며칠
+#   GDELT   15분 단위 아카이브 순회               → 수 시간
+# 캐시가 있으면 API 키 없이도 전 파이프라인이 돌아간다.
+# git 은 디렉토리가 제외돼 있으면 그 안을 아예 보지 않는다. 그래서 디렉토리를
+# 먼저 열고(`!dir/`), 안의 모든 것을 다시 닫은 뒤(`dir/*`), 필요한 파일만
+# 하나씩 연다. 이 순서를 지키지 않으면 의도보다 훨씬 많이 딸려 들어온다.
+!data/external/
+data/external/*
+!data/external/market/
+data/external/market/*
+!data/external/market/commodity_prices.csv
+!data/external/trade/
+data/external/trade/*
+!data/external/trade/kcs_trade_total_monthly.csv
+!data/external/trade/kcs_trade_country_monthly.csv
+!data/external/trade/kcs_trade_collection_state.json
+
+!data/raw/
+data/raw/*
+!data/raw/news/
+data/raw/news/*
+!data/raw/news/gdelt_supply_disruption_news.csv
+!data/raw/news/gdelt_archive_history.csv
+
+!data/processed/
+data/processed/*
+!data/processed/procurement_delivery_requests.jsonl
+!data/processed/procurement_collection_progress.json
+
+# ── 분석 산출물 중 작은 것 (검토·재현용) ────────────────────────────────
+#
+# outputs/ 전체는 9.9GB 라 통째로는 못 넣는다. 대형 중간 산출물(위험점수 원본
+# 2.1GB, 감사 2.5GB, 백테스트 685MB)은 코드로 재현되므로 제외하고, 결론이
+# 담긴 작은 표·리포트만 넣는다. 팀원이 코드를 돌리지 않고도 결과를 볼 수 있어야 한다.
+!outputs/
+outputs/*
+!outputs/*.json
+!outputs/procurement_lead_time_by_item.csv
+!outputs/quantile_lead_time_recommendation.csv
+!outputs/material_hs_mapping_candidates.csv
+!outputs/adaptive_lead_time_recommendation.csv
+!outputs/hs_trade_risk_features.csv
+!outputs/news_price_volatility_test.csv
+!outputs/stock_evaluation_report.csv
+!outputs/stock_evaluation_by_segment.csv
+!outputs/stock_model_cv_report.csv
+!outputs/stock_model_validation_report.csv
+!outputs/trade_weight_calibration_policy.csv
+!outputs/trade_weight_calibration_observations.csv
+# 숨김 백업(.news_scores_before_rescale.csv 등)은 제외한다.
+outputs/.*
+
 # Local notebooks and system files
 .ipynb_checkpoints/
 .DS_Store
+*.pdf

@@ -1,0 +1,156 @@
+{
+  "version": "supply-risk-level-v1.3-periodic-review",
+  "policy_status": "provisional_zero_preserving_demand_and_capped_lead_time",
+  "source_report": "docs/report_공급위험레벨_안전재고_과적재.md",
+  "levels": {
+    "NORMAL": {
+      "rank": 0,
+      "z_value": 1.28,
+      "lead_time_multiplier": 1.0
+    },
+    "CAUTION": {
+      "rank": 1,
+      "z_value": 1.65,
+      "lead_time_multiplier": 1.1
+    },
+    "WARNING": {
+      "rank": 2,
+      "z_value": 2.05,
+      "lead_time_multiplier": 1.25
+    },
+    "CRITICAL": {
+      "rank": 3,
+      "z_value": 2.33,
+      "lead_time_multiplier": 1.5
+    }
+  },
+  "code_rules": [
+    {
+      "supply_risk_meta_code": "GENERAL_LOW_RISK",
+      "risk_axis": "supply",
+      "baseline_level": "NORMAL",
+      "rationale": "특이 공급위험 신호가 없는 기본군"
+    },
+    {
+      "supply_risk_meta_code": "SINGLE_USE_HIGH_TURNOVER",
+      "risk_axis": "supply",
+      "baseline_level": "NORMAL",
+      "rationale": "고회전 범용 소모품이며 회전율 자체는 공급취약성 근거가 아님"
+    },
+    {
+      "supply_risk_meta_code": "BASIC_INFUSION_HIGH_VOLUME",
+      "risk_axis": "supply",
+      "baseline_level": "CAUTION",
+      "rationale": "대량 수요와 국내 공급집중 가능성을 반영한 잠정값"
+    },
+    {
+      "supply_risk_meta_code": "COMMODITY_PRICE_VOLATILE",
+      "risk_axis": "supply",
+      "baseline_level": "CAUTION",
+      "rationale": "가격변동 노출은 있으나 곧바로 가용성 위기로 간주하지 않음"
+    },
+    {
+      "supply_risk_meta_code": "COLD_CHAIN_DEPENDENT",
+      "risk_axis": "supply",
+      "baseline_level": "CAUTION",
+      "rationale": "온도유지 물류 제약을 반영"
+    },
+    {
+      "supply_risk_meta_code": "PROPRIETARY_DEVICE_LOCKIN",
+      "risk_axis": "supply",
+      "baseline_level": "WARNING",
+      "rationale": "전용기기 호환 잠김과 대체공급 제한"
+    },
+    {
+      "supply_risk_meta_code": "GENERIC_API_IMPORT_DEPENDENCY",
+      "risk_axis": "supply",
+      "baseline_level": "WARNING",
+      "rationale": "제네릭 원료 수입의존과 제한적인 대체조달"
+    },
+    {
+      "supply_risk_meta_code": "ANTIBIOTIC_API_IMPORT",
+      "risk_axis": "supply",
+      "baseline_level": "WARNING",
+      "rationale": "항생제 원료 수입의존; CRITICAL은 별도 승인조건 필요"
+    },
+    {
+      "supply_risk_meta_code": "PANDEMIC_SURGE_SENSITIVE",
+      "risk_axis": "demand",
+      "baseline_level": "NORMAL",
+      "rationale": "감염병 수요급증 코드는 공급 기준레벨에서 제외"
+    },
+    {
+      "supply_risk_meta_code": "NOT_APPLICABLE",
+      "risk_axis": "none",
+      "baseline_level": "NORMAL",
+      "rationale": "공급위험 정책 비대상"
+    }
+  ],
+  "legacy_code_aliases": {
+    "API_IMPORT_DEPENDENCY_CN_IN": "GENERIC_API_IMPORT_DEPENDENCY",
+    "AGRI_COMMODITY_PRICE_VOLATILITY": "COMMODITY_PRICE_VOLATILE",
+    "COTTON_COMMODITY_PRICE_VOLATILITY": "COMMODITY_PRICE_VOLATILE"
+  },
+  "dynamic_event_codes": [
+    "MIDEAST_NAPHTHA_PETROCHEM_SHOCK",
+    "PULP_TIMBER_SUPPLY_DISRUPTION"
+  ],
+  "unknown_code_policy": {
+    "baseline_level": "NORMAL",
+    "needs_review": true
+  },
+  "critical_override": {
+    "result_level": "CRITICAL",
+    "required_true_fields": [
+      "is_national_essential",
+      "is_single_import_source",
+      "is_non_substitutable"
+    ],
+    "required_review_status_field": "critical_override_review_status",
+    "required_review_status": "approved"
+  },
+  "demand_parameter_floors": {
+    "mean_daily_usage": 0.0,
+    "daily_demand_stddev": 0.0
+  },
+  "lead_time_estimation": {
+    "method": "stockout_duration_p25",
+    "minimum_days": 1.0,
+    "fallback_days": 15.0,
+    "maximum_days": 120.0,
+    "estimator_status": "item_p25_with_15d_fallback_and_120d_cap"
+  },
+  "inventory_status": {
+    "watch_reorder_point_multiplier": 1.2,
+    "target_cover_days": 1.0
+  },
+  "review_policy": {
+    "review_mode": "periodic",
+    "decision_basis": "보건기관은 재고 소진 시 수시 발주가 아니라 정기 검토 후 발주한다. 따라서 보호기간은 리드타임 L 이 아니라 검토주기 R 을 더한 R+L 이고, 목표재고는 mu*(R+L)+SS 다. backend 의 연속검토 형태(SS=z*sigma*sqrt(L), ROP=mu*L+SS)를 대체한다.",
+    "decided_at": "2026-08-10",
+    "decided_in": "DGU-TeamLex/ai#54",
+    "review_period_days": {
+      "status": "default_only_not_constant",
+      "default_days": 30.0,
+      "minimum_days": 1.0,
+      "maximum_days": 434.0,
+      "per_item_table": "data/mapping/review_period_by_item.csv",
+      "override_column": "review_period_days",
+      "wired_into_pipeline": false,
+      "measurement": "원장 입고 간격 423,573건(품목x기관)에서 품목별 중앙값을 산출하고 Buhlmann-Straub 신뢰도(k=3.2)로 전체 중앙값 102일 쪽으로 수축했다. 분할표본 안정성 Spearman rho=0.530 (p=1.8e-231).",
+      "measured_distribution_days": {
+        "p10": 31.0,
+        "p50": 91.0,
+        "p90": 141.0,
+        "min": 1.0,
+        "max": 434.0,
+        "share_within_21_to_40_days": 0.076
+      },
+      "why_not_constant": "기본값 30일 부근(21~40일)에 드는 품목은 7.6% 뿐이고 주력 의약품은 93~140일이다. R 을 상수로 두면 회전이 빠른 품목은 과다발주, 분기 조달 품목은 재고 소진이라 방향이 반대여서 평균으로 상쇄되지 않는다. 담당자가 화면에서 조정할 수 있어야 한다.",
+      "measured_at": "2026-08-12",
+      "measured_in": "DGU-TeamLex/ai#54"
+    },
+    "protection_interval_note": "R+L 은 현행 45일(R=30, L=15)에서 실측 129일(R=99 가중평균, L=30)로 2.87배가 된다. 목표재고 예산이 걸린 변경이라 배선 전 발주처 확인이 필요하다.",
+    "supersedes": "backend 의 연속검토 가정(SS=z*sigma*sqrt(L), ROP=mu*L+SS)"
+  }
+}

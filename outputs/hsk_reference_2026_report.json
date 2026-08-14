@@ -1,0 +1,32 @@
+{
+  "reference_version": "hsk-2026-01-01",
+  "source_path": "C:\\Users\\user\\TeamLex-ai\\data\\external\\trade\\reference\\관세청_HS부호_20260101.xlsx",
+  "source_sha256": "020661f75ac044be0eec049013b074be77ca8fb6d13f8283666f1f3e594054e5",
+  "rows": 12469,
+  "trade_leaf_rows": 11327,
+  "hierarchy_rows": 1142,
+  "code_digit_counts": {
+    "7": 52,
+    "8": 918,
+    "9": 172,
+    "10": 11327
+  },
+  "verified_connection_codes": [
+    {
+      "hs_code": "3902100000",
+      "item_name_ko": "폴리프로필렌",
+      "item_name_en": "Polypropylene"
+    },
+    {
+      "hs_code": "3902300000",
+      "item_name_ko": "프로필렌 공중합체",
+      "item_name_en": "Propylene copolymers"
+    },
+    {
+      "hs_code": "9018310000",
+      "item_name_ko": "주사기(바늘이 부착되었는지에 상관없다)",
+      "item_name_en": "Syringes, with or without needles"
+    }
+  ],
+  "output_path": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\trade\\hsk_reference_2026.parquet"
+}

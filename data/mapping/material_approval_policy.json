@@ -1,0 +1,30 @@
+{
+  "version": "material-approval-pilot-v1.0",
+  "status": "experimental_branch_only",
+  "reviewer": "codex_policy_review_experiment",
+  "source": "approved_classification_plus_authoritative_material_evidence",
+  "rules": [
+    {
+      "rule_id": "DISPOSABLE_SYRINGE_PP_V1",
+      "item_family_id": "DISPOSABLE_SYRINGE",
+      "item_subtype_id": "SYRINGE_USAGE_BASED",
+      "raw_material_meta_code": "POLYPROPYLENE_PP",
+      "allowed_evidence_tiers": [
+        "family_rule_candidate"
+      ],
+      "relation_type": "direct_component",
+      "usage_part": "barrel_and_plunger",
+      "related_material": "polypropylene (PP)",
+      "mapping_weight": 0.70,
+      "mapping_confidence": "medium",
+      "exposure_score": 0.70,
+      "evidence_references": [
+        "https://supply.unicef.org/s0782413.html",
+        "https://www.accessdata.fda.gov/cdrh_docs/pdf19/K190002.pdf",
+        "https://extranet.who.int/prequal/sites/default/files/imd_products/47fd4600-3bfb-4a03-a058-0c4196d09328_0.pdf",
+        "https://www1.eere.energy.gov/manufacturing/resources/chemicals/pdfs/profile_chap3.pdf"
+      ],
+      "weight_basis": "Family-level official specifications support PP as a common barrel/plunger material, but product-level BOM and resin share are unavailable; both mapping and exposure are conservatively capped at 0.70."
+    }
+  ]
+}

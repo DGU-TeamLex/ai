@@ -1,0 +1,26 @@
+{
+  "version": "standard-item-history-v1.0",
+  "mapping_rows": 585279,
+  "current_local_items": 409519,
+  "historical_local_items": 175760,
+  "historical_training_eligible_items": 146757,
+  "historical_training_eligible_pct": 83.49852071005918,
+  "standard_item_count": 125557,
+  "semantic_definition_mapping_rows": 556276,
+  "match_method_counts": {
+    "current_semantic_definition": 324711,
+    "historical_strict_semantic": 94305,
+    "current_representative_name": 84808,
+    "historical_strict_name": 49502,
+    "historical_name_fallback": 29003,
+    "historical_core_name": 1736,
+    "historical_core_semantic": 1214
+  },
+  "historical_unmatched_items_excluded_from_training": 29003,
+  "guardrails": [
+    "Physical stock series remain institution-department-local-code based.",
+    "A 2019 to 2024 gap starts a new lag segment.",
+    "Historical-only names are retained for audit but excluded from model fitting.",
+    "Core-name matching is allowed only when it resolves to one standard item key."
+  ]
+}

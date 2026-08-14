@@ -1,0 +1,294 @@
+{
+  "variant": "stock_model_a_usage_only",
+  "tuned_n_estimators": 1000,
+  "by_demand_pattern": [
+    {
+      "demand_pattern": "smooth",
+      "rows": 362892,
+      "actual_sum": 77843504.3010577,
+      "base_WAPE": 33.831979763064275,
+      "tuned_WAPE": 32.09995588069087,
+      "d_WAPE": -1.7320238823734044,
+      "base_BIAS": -9.41057067066183,
+      "tuned_BIAS": -8.359881781810653,
+      "d_BIAS": 1.0506888888511767
+    },
+    {
+      "demand_pattern": "erratic",
+      "rows": 142611,
+      "actual_sum": 13500204.71605327,
+      "base_WAPE": 62.130659842060176,
+      "tuned_WAPE": 59.363107341370515,
+      "d_WAPE": -2.7675525006896606,
+      "base_BIAS": -10.854310843456851,
+      "tuned_BIAS": -12.338609660948418,
+      "d_BIAS": -1.4842988174915668
+    },
+    {
+      "demand_pattern": "intermittent",
+      "rows": 25613,
+      "actual_sum": 1939361.8419986032,
+      "base_WAPE": 56.150139005981345,
+      "tuned_WAPE": 52.87842498415129,
+      "d_WAPE": -3.271714021830057,
+      "base_BIAS": -20.16602736173878,
+      "tuned_BIAS": -15.423161295983093,
+      "d_BIAS": 4.742866065755688
+    },
+    {
+      "demand_pattern": "lumpy",
+      "rows": 12367,
+      "actual_sum": 935898.383001579,
+      "base_WAPE": 80.9991106445948,
+      "tuned_WAPE": 76.02607539473766,
+      "d_WAPE": -4.9730352498571335,
+      "base_BIAS": -27.462889198480653,
+      "tuned_BIAS": -23.935105429018773,
+      "d_BIAS": 3.5277837694618803
+    },
+    {
+      "demand_pattern": "insufficient_history",
+      "rows": 14058,
+      "actual_sum": 819369.3400004506,
+      "base_WAPE": 65.07660686393112,
+      "tuned_WAPE": 61.846433634471985,
+      "d_WAPE": -3.230173229459133,
+      "base_BIAS": -24.32506740983106,
+      "tuned_BIAS": -16.650746857085903,
+      "d_BIAS": 7.674320552745158
+    },
+    {
+      "demand_pattern": "all_zero",
+      "rows": 146880,
+      "actual_sum": 2157.019999999553,
+      "base_WAPE": 508.2174277481698,
+      "tuned_WAPE": 563.5699523221462,
+      "d_WAPE": 55.352524573976325,
+      "base_BIAS": 0.048557745756769216,
+      "tuned_BIAS": 0.057320975575911565,
+      "d_BIAS": 0.008763229819142349
+    }
+  ],
+  "by_item_family_top20": [
+    {
+      "item_family": "AMLODIPINE",
+      "rows": 16873,
+      "actual_sum": 9092481.599998474,
+      "base_WAPE": 30.559511419402263,
+      "tuned_WAPE": 29.014366285765604,
+      "d_WAPE": -1.5451451336366588,
+      "base_BIAS": -29.93523434483786,
+      "tuned_BIAS": -25.646347231069317,
+      "d_BIAS": 4.288887113768542
+    },
+    {
+      "item_family": "VITAMIN_B_COMPLEX",
+      "rows": 12800,
+      "actual_sum": 4804670.5,
+      "base_WAPE": 38.52443149833959,
+      "tuned_WAPE": 33.353205711838264,
+      "d_WAPE": -5.171225786501324,
+      "base_BIAS": -61.827415581937764,
+      "tuned_BIAS": -37.440199841492706,
+      "d_BIAS": 24.387215740445058
+    },
+    {
+      "item_family": "ACETAMINOPHEN",
+      "rows": 20621,
+      "actual_sum": 3673785.9500183165,
+      "base_WAPE": 40.244613834419596,
+      "tuned_WAPE": 38.83393702830871,
+      "d_WAPE": -1.4106768061108852,
+      "base_BIAS": 3.2596501727721563,
+      "tuned_BIAS": -1.4295496527592833,
+      "d_BIAS": -4.689199825531439
+    },
+    {
+      "item_family": "IBUPROFEN",
+      "rows": 15535,
+      "actual_sum": 3335860.980000317,
+      "base_WAPE": 37.49217614708339,
+      "tuned_WAPE": 35.962402894117325,
+      "d_WAPE": -1.5297732529660664,
+      "base_BIAS": 6.662839081169253,
+      "tuned_BIAS": 0.5211317898663936,
+      "d_BIAS": -6.141707291302859
+    },
+    {
+      "item_family": "ATORVASTATIN",
+      "rows": 8424,
+      "actual_sum": 3224151.5,
+      "base_WAPE": 33.81542062764704,
+      "tuned_WAPE": 31.756855545908184,
+      "d_WAPE": -2.058565081738859,
+      "base_BIAS": -41.3619335349491,
+      "tuned_BIAS": -31.85409122601934,
+      "d_BIAS": 9.507842308929764
+    },
+    {
+      "item_family": "LEVODROPROPIZINE",
+      "rows": 13475,
+      "actual_sum": 3099465.5500003174,
+      "base_WAPE": 49.93101564551948,
+      "tuned_WAPE": 46.802134853369864,
+      "d_WAPE": -3.128880792149616,
+      "base_BIAS": 23.873015932354164,
+      "tuned_BIAS": 16.11715777237293,
+      "d_BIAS": -7.7558581599812335
+    },
+    {
+      "item_family": "TELMISARTAN_AMLODIPINE",
+      "rows": 9492,
+      "actual_sum": 2979876.5,
+      "base_WAPE": 41.1768469207575,
+      "tuned_WAPE": 38.38432287264701,
+      "d_WAPE": -2.7925240481104865,
+      "base_BIAS": -31.86421005281212,
+      "tuned_BIAS": -26.373214188805825,
+      "d_BIAS": 5.490995864006294
+    },
+    {
+      "item_family": "FAMOTIDINE",
+      "rows": 9699,
+      "actual_sum": 2395037.340000868,
+      "base_WAPE": 36.39485894838367,
+      "tuned_WAPE": 34.96778380566842,
+      "d_WAPE": -1.4270751427152533,
+      "base_BIAS": -17.38670581972534,
+      "tuned_BIAS": -17.58748598152017,
+      "d_BIAS": -0.2007801617948317
+    },
+    {
+      "item_family": "CHLORPHENIRAMINE",
+      "rows": 16365,
+      "actual_sum": 2328415.1500053406,
+      "base_WAPE": 37.99747439406445,
+      "tuned_WAPE": 36.492358488390664,
+      "d_WAPE": -1.505115905673783,
+      "base_BIAS": 2.609313741058121,
+      "tuned_BIAS": 0.6183061645209004,
+      "d_BIAS": -1.9910075765372204
+    },
+    {
+      "item_family": "CARBOCISTEINE",
+      "rows": 9220,
+      "actual_sum": 2147034.5,
+      "base_WAPE": 41.91293183696867,
+      "tuned_WAPE": 39.193131277399864,
+      "d_WAPE": -2.719800559568803,
+      "base_BIAS": 42.47851110915546,
+      "tuned_BIAS": 35.19348024528346,
+      "d_BIAS": -7.285030863872002
+    },
+    {
+      "item_family": "EPERISONE",
+      "rows": 9576,
+      "actual_sum": 2144293.5,
+      "base_WAPE": 34.665026719457295,
+      "tuned_WAPE": 33.8540933791697,
+      "d_WAPE": -0.8109333402875976,
+      "base_BIAS": -23.554183501602576,
+      "tuned_BIAS": -22.067681962922016,
+      "d_BIAS": 1.4865015386805602
+    },
+    {
+      "item_family": "HYDROCHLOROTHIAZIDE",
+      "rows": 10223,
+      "actual_sum": 2129094.0500030518,
+      "base_WAPE": 28.074964070863512,
+      "tuned_WAPE": 26.300126088650938,
+      "d_WAPE": -1.7748379822125742,
+      "base_BIAS": -1.5660048276443943,
+      "tuned_BIAS": -4.9491212858954166,
+      "d_BIAS": -3.3831164582510223
+    },
+    {
+      "item_family": "LOSARTAN",
+      "rows": 6793,
+      "actual_sum": 2068353.5,
+      "base_WAPE": 32.44600541261161,
+      "tuned_WAPE": 30.520879161886068,
+      "d_WAPE": -1.925126250725544,
+      "base_BIAS": -22.617167803554114,
+      "tuned_BIAS": -20.078840025650244,
+      "d_BIAS": 2.53832777790387
+    },
+    {
+      "item_family": "ALMAGATE",
+      "rows": 13243,
+      "actual_sum": 2000715.9999999776,
+      "base_WAPE": 39.422140651805606,
+      "tuned_WAPE": 38.460071099618645,
+      "d_WAPE": -0.9620695521869607,
+      "base_BIAS": -11.106695442659952,
+      "tuned_BIAS": -11.476010289180145,
+      "d_BIAS": -0.36931484652019364
+    },
+    {
+      "item_family": "MUGWORT_EXTRACT",
+      "rows": 6524,
+      "actual_sum": 1885090.0,
+      "base_WAPE": 35.66779151961409,
+      "tuned_WAPE": 34.45527263751262,
+      "d_WAPE": -1.2125188821014703,
+      "base_BIAS": -5.780580225969701,
+      "tuned_BIAS": -4.011149021612214,
+      "d_BIAS": 1.7694312043574874
+    },
+    {
+      "item_family": "DIGESTIVE_ENZYME",
+      "rows": 14312,
+      "actual_sum": 1841875.9000000954,
+      "base_WAPE": 42.23204320539266,
+      "tuned_WAPE": 41.41341598976498,
+      "d_WAPE": -0.8186272156276786,
+      "base_BIAS": -6.191997406773377,
+      "tuned_BIAS": -9.020573338461338,
+      "d_BIAS": -2.8285759316879604
+    },
+    {
+      "item_family": "METFORMIN",
+      "rows": 6299,
+      "actual_sum": 1829332.0,
+      "base_WAPE": 40.22581453084756,
+      "tuned_WAPE": 37.89584484740553,
+      "d_WAPE": -2.3299696834420303,
+      "base_BIAS": -20.803951783068925,
+      "tuned_BIAS": -16.82750553576175,
+      "d_BIAS": 3.9764462473071767
+    },
+    {
+      "item_family": "IRON_SUPPLEMENT",
+      "rows": 3593,
+      "actual_sum": 1744279.5,
+      "base_WAPE": 42.870864201646896,
+      "tuned_WAPE": 34.868610496422804,
+      "d_WAPE": -8.002253705224092,
+      "base_BIAS": -118.84537754041864,
+      "tuned_BIAS": -59.07424608766787,
+      "d_BIAS": 59.771131452750765
+    },
+    {
+      "item_family": "UNSPECIFIED_ITEM",
+      "rows": 62642,
+      "actual_sum": 1644575.9450026501,
+      "base_WAPE": 48.12553499218453,
+      "tuned_WAPE": 46.44514767811062,
+      "d_WAPE": -1.6803873140739043,
+      "base_BIAS": -3.61951144535643,
+      "tuned_BIAS": -3.6626044691354425,
+      "d_BIAS": -0.04309302377901236
+    },
+    {
+      "item_family": "ASPIRIN",
+      "rows": 8041,
+      "actual_sum": 1475694.0,
+      "base_WAPE": 34.81722846970941,
+      "tuned_WAPE": 32.89443627800052,
+      "d_WAPE": -1.9227921917088935,
+      "base_BIAS": -9.143813773430038,
+      "tuned_BIAS": -8.17759913578927,
+      "d_BIAS": 0.9662146376407676
+    }
+  ]
+}

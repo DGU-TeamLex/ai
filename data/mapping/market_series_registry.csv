@@ -1,0 +1,10 @@
+market_factor_id,provider,series_id,interval,price_type,currency,unit,is_direct_factor,source_url,review_status
+PETROCHEMICAL_NAPHTHA,csv,NAPHTHA_CFR_JAPAN,daily,futures_or_price_assessment,USD,USD_PER_TONNE,t,https://www.iea.org/articles/oil-market-report-glossary,approved
+BRENT_CRUDE,alpha_vantage,BRENT,daily,benchmark_spot,USD,USD_PER_BARREL,t,https://www.alphavantage.co/documentation/,approved
+WTI_CRUDE,alpha_vantage,WTI,daily,benchmark_spot,USD,USD_PER_BARREL,t,https://www.alphavantage.co/documentation/,approved
+NATURAL_GAS,alpha_vantage,NATURAL_GAS,daily,benchmark_spot,USD,USD_PER_MMBTU,t,https://www.alphavantage.co/documentation/,approved
+ALUMINUM,alpha_vantage,ALUMINUM,monthly,benchmark_price,USD,USD_PER_TONNE,t,https://www.alphavantage.co/documentation/,approved
+COPPER,alpha_vantage,COPPER,monthly,benchmark_price,USD,USD_PER_TONNE,t,https://www.alphavantage.co/documentation/,approved
+COTTON,alpha_vantage,COTTON,monthly,benchmark_price,USD,INDEX_OR_PROVIDER_UNIT,t,https://www.alphavantage.co/documentation/,approved
+CORN,alpha_vantage,CORN,monthly,benchmark_price,USD,INDEX_OR_PROVIDER_UNIT,t,https://www.alphavantage.co/documentation/,approved
+SUGAR,alpha_vantage,SUGAR,monthly,benchmark_price,USD,INDEX_OR_PROVIDER_UNIT,t,https://www.alphavantage.co/documentation/,approved

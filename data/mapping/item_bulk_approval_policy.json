@@ -1,0 +1,26 @@
+{
+  "version": "item-bulk-approval-v1.1",
+  "status": "user_requested_bulk_candidate_acceptance",
+  "reviewer": "teamlex_project_owner",
+  "classification": {
+    "approve_all_local_item_candidates": true,
+    "activate_complete_candidates_for_forecast": true,
+    "activate_incomplete_candidates_for_forecast": false,
+    "preserve_existing_evidence_approvals": true,
+    "incomplete_item_identity_strategy": "unique_pending_id_per_local_item"
+  },
+  "material": {
+    "approve_all_generated_candidates": true,
+    "operational_use_requires_identified_material": true,
+    "operational_use_requires_evidence": true,
+    "operational_use_requires_market_factor": false,
+    "operational_use_blocks_family_conflict": true,
+    "operational_use_blocks_supply_policy_review": true
+  },
+  "safety": {
+    "approval_means_candidate_acceptance_not_external_fact_verification": true,
+    "automatic_order_requires_existing_evidence_approval": true,
+    "unknown_units_are_not_forecastable": true,
+    "module_c_quality_gate_remains_enabled": true
+  }
+}

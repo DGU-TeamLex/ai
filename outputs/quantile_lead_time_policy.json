@@ -1,0 +1,23 @@
+{
+  "method": "quantile_of_observed_lead_time",
+  "quantile_base": 0.5,
+  "quantile_max": 0.95,
+  "lead_time_samples": 31898,
+  "lead_time_quantiles": {
+    "p50": 30.0,
+    "p60": 30.0,
+    "p70": 30.0,
+    "p75": 30.0,
+    "p80": 31.0,
+    "p90": 60.0,
+    "p95": 94.0
+  },
+  "snapshot_month": "2025-12",
+  "items": 102660,
+  "order_totals": {
+    "current_policy": 2791094.323900883,
+    "mean_multiplier": 14660105.3824827,
+    "quantile_based": 11548719.498753833
+  },
+  "rationale": "월별 median 은 30일 고정(표준편차 0.00)이고 p75 가 위험에 반응한다(trade_risk lag 1개월 r=+0.445). 평균 배수는 정상 발주까지 늘려위험 0 에서도 실측 median 대비 33% 과대추정한다."
+}

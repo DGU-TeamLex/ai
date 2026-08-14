@@ -1,0 +1,698 @@
+keyword	family_id	display	basis	evidence
+Mission Cholesterol	LIPID_TEST_STRIP	Mission 콜레스테롤 검사	general_knowledge_unverified	콜레스테롤 측정
+Multi sample needle	BLOOD_COLLECTION_NEEDLE	멀티샘플 채혈니들	general_knowledge_unverified	진공채혈용 니들
+LDL-Cholesterol	CLINICAL_CHEMISTRY_TEST	LDL콜레스테롤 검사 시약	general_knowledge_unverified	임상화학 지질검사
+Capillary tube	BLOOD_COLLECTION_TUBE	Capillary tube(모세관 채혈관)	general_knowledge_unverified	채혈 소모품
+T.Cholesterol	CLINICAL_CHEMISTRY_TEST	총콜레스테롤 검사 시약	general_knowledge_unverified	임상화학 지질검사
+일양바이오아토르바스타틴	ATORVASTATIN	아토르바스타틴(이상지질혈증)	web_search_2026_07_15	제품명에 아토르바스타틴칼슘10mg 명시
+T.Bilirubin	CLINICAL_CHEMISTRY_TEST	총빌리루빈 검사시약	general_knowledge_unverified	임상화학 검사
+이노엔0.9%생리식염	SODIUM_CHLORIDE	이노엔 0.9% 생리식염주사액	general_knowledge_unverified	0.9% NaCl 수액
+steri-strip	WOUND_CLOSURE_STRIP	스테리스트립(상처봉합 테이프)	general_knowledge_unverified	창상봉합
+Cell clean	CLINICAL_CHEMISTRY_TEST	셀클린(혈구분석기 세정액)	general_knowledge_unverified	Sysmex CELLCLEAN
+티지피글리메피리드	GLIMEPIRIDE	글리메피리드(당뇨)	general_knowledge_unverified	제품명에 글리메피리드2mg 명시
+위더스글리메피리드	GLIMEPIRIDE	글리메피리드(당뇨)	general_knowledge_unverified	제품명에 글리메피리드2mg 명시
+헤모글로빈측정스틱	HEMOGLOBIN_TEST_STRIP	헤모글로빈 측정스틱	general_knowledge_unverified	혈색소 측정
+제로이드 인텐시브	SKINCARE_COSMETIC_TOPICAL	제로이드 인텐시브 크림	general_knowledge_unverified	더마 보습크림
+제뉴원글리메피리드	GLIMEPIRIDE	글리메피리드(당뇨)	general_knowledge_unverified	제품명에 글리메피리드2mg 명시
+유니온레보설피리드	LEVOSULPIRIDE	레보설피리드(기능성소화불량)	web_search_2026_07_15	제품명에 레보설피리드 명시
+경남데일리디츄어블	MULTIVITAMIN_MINERAL	데일리디츄어블정(츄어블 종합비타민)	general_knowledge_unverified	종합비타민
+EDTA Tube	BLOOD_COLLECTION_TUBE	EDTA Tube(채혈관)	general_knowledge_unverified	채혈관
+BST strip	BLOOD_GLUCOSE_TEST_STRIP	BST strip(혈당측정지)	general_knowledge_unverified	혈당검사 소모품
+cell pack	CLINICAL_CHEMISTRY_TEST	셀팩 혈구분석 희석액	general_knowledge_unverified	Sysmex CELLPACK 혈액분석 희석액
+고지혈증 측정스틱	LIPID_TEST_STRIP	고지혈증 측정 스틱	general_knowledge_unverified	지질측정 스트립
+Urocolor	URINE_TEST_STRIP	Urocolor 요검사 스트립	general_knowledge_unverified	소변 검사 스트립
+헤모글로빈검사지	HEMOGLOBIN_TEST_STRIP	헤모글로빈 검사지	general_knowledge_unverified	Hb 측정 검사지
+세비엠에이치씨티	OLMESARTAN_AMLODIPINE_HCTZ	올메사르탄/암로디핀/HCT(고혈압)	general_knowledge_unverified	세비카HCT 삼제 암로/올메40/HCT12.5
+세자르플러스에프	LOSARTAN_HCTZ	로사르탄/HCT(고혈압)	web_search_2026_07_15	삼익 세자르플러스에프=로사르탄+HCT
+센티렉스어드밴스	MULTIVITAMIN_MINERAL	종합비타민미네랄	web_search_2026_07_15	GSK 센티렉스어드밴스정=멀티비타민미네랄
+씨엠지모사프리드	MOSAPRIDE	모사프리드시트르산염(위장운동촉진제)	web_search_2026_07_15	제품명에 모사프리드시트르산염수화물 명시
+영풍독시사이클린	DOXYCYCLINE	영풍 독시사이클린정	general_knowledge_unverified	명칭에 독시사이클린 명시
+대한아스코르브산	ASCORBIC_ACID	대한 아스코르브산주사액(비타민C)	general_knowledge_unverified	비타민C 주사
+아토베리어 크림	SKINCARE_COSMETIC_TOPICAL	아토베리어 크림(보습)	general_knowledge_unverified	보습 크림
+CELLPACK	CLINICAL_CHEMISTRY_TEST	셀팩(혈구분석 희석액)	general_knowledge_unverified	Sysmex diluent
+Syphilis	CLINICAL_CHEMISTRY_TEST	매독 검사 시약	general_knowledge_unverified	매독 혈청검사 항목
+Blue tip	LAB_PIPETTE_TIP	블루팁(피펫팁)	general_knowledge_unverified	실험용 피펫 팁
+HDL-Chol	CLINICAL_CHEMISTRY_TEST	HDL콜레스테롤 검사 시약	general_knowledge_unverified	임상화학 지질검사
+아스코르브산주사	ASCORBIC_ACID	아스코르브산주사액(비타민C)	general_knowledge_unverified	비타민C 주사제
+일회용 검진가운	APPAREL_TEXTILE	일회용 검진가운	general_knowledge_unverified	비의약품 검진복
+vacuette	BLOOD_COLLECTION_TUBE	바쿠에트 채혈관	general_knowledge_unverified	Vacuette 진공채혈관
+중성지방 스틱	LIPID_TEST_STRIP	중성지방 측정스틱	general_knowledge_unverified	중성지방 측정
+스펙트라 유축	ELECTRONIC_DEVICE_COMPONENT	스펙트라 유축기	general_knowledge_unverified	전동 유축기
+염산테르비나핀	TERBINAFINE	염산테르비나핀크림	general_knowledge_unverified	테르비나핀 항진균
+알리코세파클러	CEFACLOR	알리코세파클러캅셀(세파클러)	general_knowledge_unverified	세파클러 항생제
+헤모글로빈스틱	HEMOGLOBIN_TEST_STRIP	헤모글로빈 검사 스틱	general_knowledge_unverified	Hb 측정 스트립
+신풍겐타마이신	GENTAMICIN	겐타마이신 황산염(외용 항생제)	general_knowledge_unverified	제품명에 겐타마이신황산염크림 명시
+신일베타메타손	BETAMETHASONE	베타메타손(부신피질호르몬제)	web_search_2026_07_15	제품명에 베타메타손 명시(신일)
+코사로탄플러스	LOSARTAN_HCTZ	로사르탄+HCTZ(고혈압)	general_knowledge_unverified	코사로탄=로사르탄, 플러스=HCTZ
+생리식염주사액	SODIUM_CHLORIDE	생리식염주사액	general_knowledge_unverified	0.9% NaCl 수액
+위더스아테놀올	ATENOLOL	위더스 아테놀올정	general_knowledge_unverified	명칭에 아테놀올 명시
+알보젠돔페리돈	DOMPERIDONE	알보젠 돔페리돈정	general_knowledge_unverified	명칭에 돔페리돈 명시
+카네스졸플러스	CLOTRIMAZOLE	카네스졸플러스크림(클로트리마졸+히드로코르티손)	web_search_2026_07_15	항진균+스테로이드 복합
+텔로살탄플러스	TELMISARTAN_HCTZ	텔로살탄플러스정(텔미사르탄+HCTZ)	general_knowledge_unverified	ARB+이뇨제
+니트로글리세린	NITROGLYCERIN	니트로글리세린설하정	general_knowledge_unverified	설하정
+텔미트렌플러스	TELMISARTAN_HCTZ	텔미트렌플러스정(텔미사르탄+HCTZ)	general_knowledge_unverified	ARB+이뇨제
+Rubella	CLINICAL_CHEMISTRY_TEST	Rubella(풍진 항체검사)	general_knowledge_unverified	임상검사 항목
+Albumin	CLINICAL_CHEMISTRY_TEST	알부민 검사	general_knowledge_unverified	혈청 알부민
+아스코르브산주	ASCORBIC_ACID	아스코르브산주사액(비타민C)	general_knowledge_unverified	비타민C 주사
+리피도프로파일	LIPID_TEST_STRIP	지질검사(lipid profile)	general_knowledge_unverified	콜레스테롤/중성지방 검사
+HemoCue	HEMOGLOBIN_TEST_STRIP	헤모큐 Hb301(혈색소 측정)	general_knowledge_unverified	혈색소 측정
+대한에피네프린	EPINEPHRINE	대한에피네프린주사액	general_knowledge_unverified	에피네프린 앰플
+Glucose	CLINICAL_CHEMISTRY_TEST	글루코스 검사 시약	general_knowledge_unverified	임상화학 혈당검사 시약
+CERAD-K	NON_INGREDIENT_SPEC	CERAD-K 신경심리평가집	general_knowledge_unverified	치매 평가도구(비의약품)
+일회용 검진복	APPAREL_TEXTILE	일회용 검진복	general_knowledge_unverified	비의약품 검진복
+세자르플러스	LOSARTAN_HCTZ	로사르탄+히드로클로로티아지드(고혈압 복합제)	web_search_2026_07_15	세자르플러스정=로사르탄칼륨50/HCTZ12.5, health.kr A11APPPPP0229
+프라임오메가	OMEGA3_FATTY_ACID	오메가-3-산에틸에스테르(고지혈/영양)	general_knowledge_unverified	제품명에 오메가-3-산에틸에스테르90 명기
+로잘핀플러스	LOSARTAN_HCTZ	로사르탄+HCTZ(고혈압)	general_knowledge_unverified	로살+플러스(HCTZ) 패턴
+프라바페닉스	PRAVASTATIN_FENOFIBRATE	프라바스타틴+페노피브레이트(이상지질혈증)	general_knowledge_unverified	Pravafenix 복합제, 유영제약
+바레탄플러스	VALSARTAN_HCTZ	발사르탄+HCTZ(고혈압)	general_knowledge_unverified	발탄80+플러스(HCTZ12.5), 씨티씨바이오
+모르핀염산염	MORPHINE	모르핀염산염수화물주사	general_knowledge_unverified	모르핀 주사제
+고지혈증스틱	LIPID_TEST_STRIP	고지혈증 스틱	general_knowledge_unverified	지질 측정 스트립
+빈혈측정스틱	HEMOGLOBIN_TEST_STRIP	빈혈 측정스틱	general_knowledge_unverified	혈색소 측정
+영유아정장제	PROBIOTICS	영유아 정장제(유산균)	general_knowledge_unverified	정장생균/유산균
+온누리상품권	PROMO_MATERIAL	온누리상품권(비의료)	general_knowledge_unverified	지역 상품권
+Hemo Q	HEMOGLOBIN_TEST_STRIP	Hemo Q 헤모글로빈 검사	general_knowledge_unverified	Hb 측정 검사
+일화세파클러	CEFACLOR	일화세파클러캅셀(세파클러)	general_knowledge_unverified	세파클러 항생제
+포도당주사액	GLUCOSE	포도당주사액(포도당)	general_knowledge_unverified	5% 덱스트로스 수액
+신일비사코딜	BISACODYL	비사코딜(자극성 완하제)	general_knowledge_unverified	제품명에 비사코딜5mg 명시
+미르토플러스	TELMISARTAN_HCTZ	텔미사르탄/HCT(고혈압)	web_search_2026_07_15	health.kr 미르토플러스40/12.5=텔미사르탄+HCTZ
+콤비글라이즈	SAXAGLIPTIN_METFORMIN	삭사글립틴/메트포르민	general_knowledge_unverified	Kombiglyze XR=삭사글립틴5+메트포르민1000 서방
+안티피라세미	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통, 세미)	general_knowledge_unverified	안티피라 세미(저용량)=트라마돌/아세트아미노펜
+Lanset	LANSOPRAZOLE	란소프라졸(PPI)	web_search_2026_07_15	란소프라졸30mg, health.kr
+바사탄플러스	VALSARTAN_HCTZ	발사르탄+HCTZ(고혈압 복합제)	general_knowledge_unverified	바사탄=valsartan, plus80/12.5=HCTZ
+코스카이엑스	LOSARTAN_AMLODIPINE	로사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	코스카=코자(losartan), 5/50
+대웅아테놀올	ATENOLOL	아테놀올(베타차단제)	web_search_2026_07_15	제품명에 아테놀올 명시(대웅25mg)
+본디칼플러스	CALCIUM_VITAMIN_D	칼슘+비타민D(칼슘보충제)	general_knowledge_unverified	본디칼=bone+cal, 칼슘·비타민D 복합
+코로자플러스	LOSARTAN_HCTZ	로사르탄+HCTZ(고혈압 복합제)	general_knowledge_unverified	코자플러스 계열=로사르탄/HCTZ
+칸데칸플러스	CANDESARTAN_HCTZ	칸데사르탄+HCTZ(고혈압 복합제)	general_knowledge_unverified	칸데칸=candesartan, plus16/12.5=HCTZ
+리노에바티스	COLD_COMBO_ANTIHISTAMINE_DECONGESTANT	슈도에페드린+에바스틴(항히스타민 비염약)	web_search_2026_07_15	슈도에페드린120+에바스틴10, 메디카코리아
+텔미토플러스	TELMISARTAN_HCTZ	텔미사르탄+HCTZ(고혈압)	general_knowledge_unverified	텔미+플러스40/12.5=HCTZ, 일성신약
+케펨플라스타	KETOPROFEN	케토프로펜 첩부제(NSAID 파스)	general_knowledge_unverified	케펨플라스타=케토프로펜 첩부제(케펜텍/케토톱 계열)
+대한생리식염	SODIUM_CHLORIDE	대한 생리식염주사액(0.9% 염화나트륨)	general_knowledge_unverified	0.9% NaCl 수액
+중외생리식염	SODIUM_CHLORIDE	중외 0.9% 생리식염주사액	general_knowledge_unverified	0.9% NaCl 수액
+제일생리식염	SODIUM_CHLORIDE	제일제약 생리식염주사액	general_knowledge_unverified	0.9% NaCl 수액
+아스코르브산	ASCORBIC_ACID	아스코르브산주사액(비타민C)	general_knowledge_unverified	비타민C 주사
+삼진디아제팜	DIAZEPAM	삼진 디아제팜주	general_knowledge_unverified	명칭에 디아제팜 명시
+신풍트라마돌	TRAMADOL	신풍 트라마돌염산염주	general_knowledge_unverified	명칭에 트라마돌 명시
+빈혈검사스틱	HEMOGLOBIN_TEST_STRIP	빈혈검사스틱	general_knowledge_unverified	헤모글로빈 측정지
+하원세티리진	CETIRIZINE	하원세티리진정(세티리진)	general_knowledge_unverified	항히스타민
+케이엠시프겔	METHYL_SALICYLATE	케이엠시프겔(생약 국소진통 겔)	web_search_2026_07_15	생약 국소진통
+펜클리어맥스	TRAMADOL_ACETAMINOPHEN	펜클리어맥스정(트라마돌+아세트아미노펜)	web_search_2026_07_15	진통제
+소독스프레이	ALCOHOL_ETHANOL_CHEMICAL	소독 스프레이	general_knowledge_unverified	피부/표면 소독제
+소변검사키트	URINE_TEST_STRIP	소변검사 키트	general_knowledge_unverified	요검사 스트립
+아로나민골드	VITAMIN_B_COMPLEX	아로나민골드(비타민B복합)	general_knowledge_unverified	종합비타민B
+대웅아테놀롤	ATENOLOL	대웅아테놀롤정(아테놀롤)	general_knowledge_unverified	베타차단제
+미션토탈콜레	LIPID_TEST_STRIP	미션토탈콜레(지질 스트립)	general_knowledge_unverified	Mission 지질측정 스트립
+스모프리피드	FAT_EMULSION	스모프리피드주(지방유제)	general_knowledge_unverified	SMOFlipid 정맥영양 지방유제
+신생아디데이	PROMO_MATERIAL	신생아 D-day 달력(판촉물)	general_knowledge_unverified	비의약품 판촉물
+텔미스타엑스	TELMISARTAN_AMLODIPINE	텔미스타엑스정(텔미사르탄/암로디핀)	general_knowledge_unverified	ARB+CCB 복합
+비타바이탈씨	ASCORBIC_ACID	비타바이탈씨과립(비타민C)	general_knowledge_unverified	비타민C 과립
+아스트릭스	ASPIRIN	아스피린장용(항혈전제)	general_knowledge_unverified	보령 아스트릭스캡슐100mg=저용량 아스피린
+세레콕시브	CELECOXIB	세레콕시브(COX-2 억제 소염진통제)	general_knowledge_unverified	조아세레콕시브캡슐200mg=성분명 표기
+아나프록스	NAPROXEN	나프록센(소염진통제)	general_knowledge_unverified	종근당 아나프록스=나프록센
+큐라민골드	MULTIVITAMIN_MINERAL	종합비타민·미네랄 영양제	general_knowledge_unverified	골드정 종합영양제 패턴
+마이니철분	IRON_SUPPLEMENT	철분제	general_knowledge_unverified	명칭에 철분 명시
+하이드로핀	FELODIPINE	펠로디핀(고혈압·협심증)	web_search_2026_07_15	펠로디핀 SR, 미래제약
+프레시민트	MOUTHWASH_ANTISEPTIC	프레시민트 구강청결제	general_knowledge_unverified	구강청결제
+올케어크림	SKINCARE_COSMETIC_TOPICAL	올케어크림(보습크림)	general_knowledge_unverified	보습 외용크림
+한방습포제	HANBANG_MIXED_HERBAL_EXTRACT	한방습포제	general_knowledge_unverified	한방 외용 습포
+오가닉내의	APPAREL_TEXTILE	오가닉 내의	general_knowledge_unverified	의류/섬유
+클라미디아	CLINICAL_CHEMISTRY_TEST	클라미디아 검사	general_knowledge_unverified	클라미디아 진단검사
+소경활혈탕	HANBANG_MIXED_HERBAL_EXTRACT	소경활혈탕(한방 처방)	general_knowledge_unverified	한방 탕제
+전기찜질기	ELECTRONIC_DEVICE_COMPONENT	전기 찜질기	general_knowledge_unverified	전기 온열 기기
+리피도케어	LIPID_TEST_STRIP	리피도케어(총콜레스테롤 검사)	general_knowledge_unverified	지질 측정
+혈압계용지	NON_INGREDIENT_SPEC	혈압계 기록용지	general_knowledge_unverified	혈압계 소모 용지
+제놀푸로탑	FLURBIPROFEN	제놀푸로탑플라스타(플루르비프로펜)	web_search_2026_07_15	플루르비프로펜 첩부제
+보중익기탕	HANBANG_MIXED_HERBAL_EXTRACT	보중익기탕(단미엑스산)	general_knowledge_unverified	한방 엑스산
+소변kit	URINE_TEST_STRIP	소변 검사 키트	general_knowledge_unverified	요검사 스트립
+엔에스주사	SODIUM_CHLORIDE	NS주사액(생리식염수)	general_knowledge_unverified	NS=0.9% 생리식염수
+로페라미드	LOPERAMIDE	로페라미드염산염캡슐(로페라미드)	general_knowledge_unverified	지사제
+제일파프쿨	METHYL_SALICYLATE	제일파프 쿨(냉감 파스)	general_knowledge_unverified	멘톨/살리실산메틸 첩부
+빈혈검사지	HEMOGLOBIN_TEST_STRIP	빈혈 측정 검사지	general_knowledge_unverified	Hb 측정 검사지
+제스판골드	DIGESTIVE_ENZYME	소화효소 복합(소화제)	web_search_2026_07_15	doctornow 제스판골드정 소화효소 복합제
+메가폴민정	METFORMIN	메트포르민(당뇨병약)	web_search_2026_07_15	한미 메가폴민=메트포르민염산염
+에이엠살탄	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀(고혈압)	web_search_2026_07_15	nedrug 에이엠살탄정40/5=텔미사르탄+암로디핀
+그리메피드	GLIMEPIRIDE	글리메피리드(당뇨병약)	general_knowledge_unverified	그리메피~=glimepiride 명명패턴
+아스트라셋	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통제)	web_search_2026_07_15	신텍스 아스트라셋정=아세트아미노펜325/트라마돌37.5
+하이그로톤	CHLORTHALIDONE	클로르탈리돈(이뇨제)	general_knowledge_unverified	Hygroton=클로르탈리돈 티아지드계 이뇨제
+듀오락스정	BISACODYL	비사코딜(자극성 변비약)	general_knowledge_unverified	Dulcolax 유사 비사코딜계
+메디락에스	PROBIOTICS	정장생균제(유산균)	general_knowledge_unverified	메디락=프로바이오틱스 정장제
+칸타플러스	CANDESARTAN_HCTZ	칸데사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	16/12.5 칸데사르탄+HCTZ
+버물리에스	INSECT_BITE_TOPICAL_UNCONFIRMED	국소 항소양제(벌레물림)	general_knowledge_unverified	버물리에스액=디펜히드라민/멘톨 등 벌레물림 진양액
+테리글메트	TENELIGLIPTIN_METFORMIN	테네리글립틴/메트포르민	web_search_2026_07_15	신풍 테리글메트서방정=테네리글립틴+메트포르민
+안티피라정	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통)	web_search_2026_07_15	health.kr 안티피라정=트라마돌37.5+아세트아미노펜325
+코바로살탄	VALSARTAN_HCTZ	발사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	160/12.5=발사르탄160+HCTZ
+셀미플러스	TELMISARTAN_HCTZ	텔미사르탄+HCTZ(고혈압 복합제)	general_knowledge_unverified	셀미(telmisartan)+plus 80/12.5
+글루코파지	METFORMIN	메트포르민(당뇨)	web_search_2026_07_15	한국머크 글루코파지=Glucophage 메트포르민 오리지널
+뉴아토르젯	ATORVASTATIN_EZETIMIBE	아토르바스타틴+에제티미브(이상지질혈증)	general_knowledge_unverified	아토젯 계열 10/10
+레바미피드	REBAMIPIDE	레바미피드(위점막보호제)	general_knowledge_unverified	제품명에 레바미피드 명시, 알피코프
+렉스파지큐	VALSARTAN_AMLODIPINE	발사르탄+암로디핀(고혈압 복합제)	web_search_2026_07_15	영풍 렉스파지큐=암로디핀/발사르탄(5/80·5/160)
+테디엠메트	TENELIGLIPTIN_METFORMIN	테네리글립틴+메트포르민(당뇨 복합제)	web_search_2026_07_15	동화 테디엠메트서방=테네리글립틴/메트포르민
+에스글리토	EMPAGLIFLOZIN_LINAGLIPTIN	엠파글리플로진+리나글립틴(당뇨 복합제)	web_search_2026_07_15	베링거 에스글리토10/5=엠파글리플로진/리나글립틴
+토피라맥스	TOPIRAMATE	토피라메이트(항전간제/편두통)	general_knowledge_unverified	토피라맥스=토피라메이트25mg 대표 브랜드
+에피네프린	EPINEPHRINE	에피네프린주사액	general_knowledge_unverified	명칭에 에피네프린 명시
+고운자임맘	MULTIVITAMIN_MINERAL	고운자임맘정(임산부 종합영양제)	web_search_2026_07_15	엽산·철분·비타민D 등 임산부 종합영양제
+쎄레스톤지	BETAMETHASONE_GENTAMICIN	쎄레스톤지크림(베타메타손+겐타마이신)	general_knowledge_unverified	Celestone-G
+엘린플러스	CLOTRIMAZOLE	엘린플러스크림(클로트리마졸+히드로코르티손)	web_search_2026_07_15	항진균+스테로이드 복합
+소변검사지	URINE_TEST_STRIP	소변검사지(요검사 스트립)	general_knowledge_unverified	요검사 시험지
+구루메포민	METFORMIN	구루메포민정(메트포르민)	general_knowledge_unverified	당뇨약
+다이아제타	DIGESTIVE_ENZYME	다이아제타산제(소화효소 산제)	general_knowledge_unverified	디아스타제계 소화효소
+미션울트라	CONDOM	미션울트라(초박형 콘돔)	web_search_2026_07_15	콘돔
+다이제스트	DIGESTIVE_ENZYME	다이제스트정(복합 소화효소제)	general_knowledge_unverified	소화효소제
+다이제스칸	DIGESTIVE_ENZYME	다이제스칸정(복합 소화효소제)	general_knowledge_unverified	소화효소제
+한방동의고	METHYL_SALICYLATE	한방동의고카타플라스마(생약 소염진통 첩부제)	web_search_2026_07_15	생약 파스
+드레싱포셉	WOUND_DRESSING	드레싱포셉키트(창상처치 소모품)	general_knowledge_unverified	상처치료 소모품
+위너프페리	PARENTERAL_NUTRITION	위너프페리주(말초 정맥영양)	general_knowledge_unverified	3챔버 정맥영양
+니코파인드	NICOTINE_REPLACEMENT	니코파인드(금연 니코틴보조제)	general_knowledge_unverified	금연보조
+칼라민로션	CALAMINE	칼라민로션	general_knowledge_unverified	피부보호·진양
+메디프로텍	WOUND_DRESSING_FILM	메디프로텍 창상피복재	general_knowledge_unverified	투명필름 드레싱
+천왕보심단	HANBANG_MIXED_HERBAL_EXTRACT	천왕보심단(한방)	general_knowledge_unverified	한약 처방
+아토베리어	SKINCARE_COSMETIC_TOPICAL	아토베리어 로션(보습)	general_knowledge_unverified	보습 로션
+불화나트륨	FLUORIDE_DENTAL	불화나트륨(불소)	general_knowledge_unverified	충치예방 불소
+위생방수지	HYGIENE_TISSUE	위생 방수지	general_knowledge_unverified	위생소모품
+구미강활탕	HANBANG_MIXED_HERBAL_EXTRACT	구미강활탕(단미엑스산)	general_knowledge_unverified	한방 엑스산
+slide	LAB_SLIDE_GLASS	슬라이드글라스	general_knowledge_unverified	현미경 슬라이드
+킴와이프스	LAB_WIPE	킴와이프스(실험용 와이퍼)	general_knowledge_unverified	Kimwipes
+식염포도당	DEXTROSE_SALINE	포도당생리식염수	general_knowledge_unverified	포도당+식염 수액
+콤비플렉스	PARENTERAL_NUTRITION	콤비플렉스MCT페리주(TPN)	general_knowledge_unverified	3챔버 영양수액
+브로멜라인	BROMELAIN	브로멜라인장용정(소염효소)	general_knowledge_unverified	소염효소제
+맨담한방고	METHYL_SALICYLATE	맨담한방고(살리실산메틸 첩부제)	general_knowledge_unverified	한방 소염진통
+니코틴패치	NICOTINE_REPLACEMENT	니코틴패치(경피)	general_knowledge_unverified	금연 니코틴 경피패치
+전자혈압계	ELECTRONIC_DEVICE_COMPONENT	전자혈압계	general_knowledge_unverified	의료기기 혈압측정기
+한풍팔물탕	HANBANG_MIXED_HERBAL_EXTRACT	한풍팔물탕(단미엑스산)	general_knowledge_unverified	한약 엑스산제
+가미귀비탕	HANBANG_MIXED_HERBAL_EXTRACT	가미귀비탕(한약)	general_knowledge_unverified	한약 처방
+아기오과립	PSYLLIUM_HUSK	아기오과립(차전자피)	general_knowledge_unverified	팽창성 완하제
+노바스핀	AMLODIPINE	암로디핀(칼슘길항제 혈압강하제)	web_search_2026_07_15	노바스핀정5mg=암로디핀베실산염, nedrug 200700439
+세자르정	LOSARTAN	로사르탄칼륨(ARB 혈압강하제)	web_search_2026_07_15	세자르정50mg=로사르탄칼륨, druginfo pid=44487
+메트로정	METRONIDAZOLE	메트로니다졸(항생/항원충제)	general_knowledge_unverified	메트로정500mg 표준 메트로니다졸 제네릭 명명
+듀얼아미	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀(고혈압 복합제)	general_knowledge_unverified	아미+40/5 규격=텔미사르탄40/암로디핀5 복합제 패턴
+레프로진	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	레프로진정=레보드로프로피진60mg, 위더스제약/health.kr
+암로텔미	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀(고혈압 복합제)	general_knowledge_unverified	암로+텔미+40/5 규격 복합제 명명
+티티아민	VITAMIN_B_COMPLEX	푸르설티아민+비타민B군(종합비타민)	web_search_2026_07_15	티티아민정=푸르설티아민/리보플라빈 등 B군, munyak 200400067
+바로스크	AMLODIPINE	암로디핀(칼슘길항제 혈압강하제)	web_search_2026_07_15	바로스크정5mg=현대약품 CCB(노바스크 제네릭)
+프레나정	METHYLPREDNISOLONE	메틸프레드니솔론(부신피질호르몬제)	web_search_2026_07_15	프레나정=메틸프레드니솔론4mg, nedrug 200300814
+엑소페린	EPERISONE	에페리손염산염(근이완제)	web_search_2026_07_15	엑소페린정=에페리손염산염50mg, 한미약품 A11AHHHHH0352
+튜비스투	RIFAMPICIN_ISONIAZID	리팜피신+이소니아지드(결핵 복합제)	web_search_2026_07_15	튜비스투정150/300=이소니아지드150/리팜피신300, doctornow
+울트라핀	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통제)	web_search_2026_07_15	울트라핀정=트라마돌염산염+아세트아미노펜, health.kr 2015060300178
+투투스타	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀(트윈스타 제네릭)	general_knowledge_unverified	40/5 규격 텔미사르탄/암로디핀 복합제 패턴
+레드로프	레보드로프로피진	레보드로프로피진(진해시럽)	web_search_2026_07_15	레드로프시럽=레보드로프로피진6mg/mL, nedrug 200102289
+아트락트	CHLORPHENESIN_CARBAMATE	클로르페네신카르바메이트(근이완제)	web_search_2026_07_15	아트락트정=클로르페네신카르바메이트, nedrug 199602015
+알리코프	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	알리코프정=레보드로프로피진60mg, nedrug 200700459
+카민산정	CHLORPHENESIN_CARBAMATE	클로르페네신카르바메이트(근이완제)	web_search_2026_07_15	카민산정250mg=클로르페네신카르바메이트, health.kr A11A2240B0090
+메가트리	OMEGA3_FATTY_ACID	오메가-3-산에틸에스테르(고지혈/영양)	general_knowledge_unverified	제품명에 오메가-3-산에틸에스테르90 명기
+비타메진	VITAMIN_B_COMPLEX	벤포티아민 등 비타민B군(활성비타민)	general_knowledge_unverified	비타메진캡슐50mg=이노엔 활성비타민B복합제
+케어타민	VITAMIN_UNSPECIFIED	종합비타민(추정)	unresolved	타민 어미+제형으로 종합비타민 추정, 특정 제품 미확인
+파모시드	FAMOTIDINE	파모티딘(H2차단 위산분비억제제)	general_knowledge_unverified	파모+20mg=파모티딘 표준 명명/용량
+에도스텐	ERDOSTEINE	에르도스테인(진해거담제)	general_knowledge_unverified	에도스텐=에르도스테인 제네릭 명명 패턴
+아임마미	IRON_SUPPLEMENT	철분보충제(임부용)	general_knowledge_unverified	아임마미 철분=임부 철분보충제
+레보텐션	AMLODIPINE	에스암로디핀베실산염(혈압강하제)	web_search_2026_07_15	레보텐션정2.5mg=S-암로디핀베실산염, 안국약품 munyak 200606326
+그루타제	DIGESTIVE_ENZYME	판크레아틴+셀룰라제+우담즙+디메티콘(소화효소제)	web_search_2026_07_15	그루타제정=판크레아틴175/셀룰라제/우담즙/디메티콘, glpharma
+판코타제	DIGESTIVE_ENZYME	판크레아틴(소화효소제)	web_search_2026_07_15	판코타제정=판크레아틴 소화효소제, health.kr 2009071505699
+아스타펜	ACETAMINOPHEN	아세트아미노펜(해열진통제)	web_search_2026_07_15	아스타펜정325mg=아세트아미노펜제피세립325mg, munyak 199601338
+알레세틴	LEVOCETIRIZINE	레보세티리진(항히스타민제)	general_knowledge_unverified	알레+세틴+5mg=레보세티리진 표준 명명/용량
+제미글로	GEMIGLIPTIN	제미글립틴(DPP-4 억제 당뇨병약)	web_search_2026_07_15	제품명에 제미글립틴타르타르산염 명기(50mg)
+오로살탄	VALSARTAN_AMLODIPINE	발사르탄+암로디핀(고혈압 복합제)	web_search_2026_07_15	오로살탄정5/80=발사르탄80+암로디핀오로트산염, health.kr
+암브렉트	AMBROXOL	암브록솔염산염(진해거담제)	general_knowledge_unverified	암브=암브록솔 제네릭 명명 패턴(동화약품)
+액티페린	IRON_SUPPLEMENT	철분제(빈혈치료 보충제)	general_knowledge_unverified	액티페린(Actiferrin)=철분 보충제 대표 브랜드
+엑스로탄	VALSARTAN_AMLODIPINE	발사르탄+암로디핀(엑스포지 제네릭)	web_search_2026_07_15	엑스로탄정5/80=암로디핀5+발사르탄80
+리포덱스	RIFAMPICIN	리팜피신(결핵/수막염 치료제)	web_search_2026_07_15	리포덱스정600mg=리팜피신, 종근당 A11A0120A0400
+에제로수	ROSUVASTATIN_EZETIMIBE	에제티미브+로수바스타틴(이상지질혈증)	general_knowledge_unverified	에제(에제티미브)+로수(로수바스타틴)+10/5 규격
+기모타부	ANTIINFLAMMATORY_ENZYME	소염효소제(트립신/키모트립신 계열)	general_knowledge_unverified	기모타부정(Kimotab)=소염효소제, health.kr A11ABBBBB1015
+테미스타	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀(고혈압 복합제)	general_knowledge_unverified	테미(텔미사르탄)+40/5 규격 복합제 패턴
+아놀렉스	ATENOLOL	아테놀올(베타차단 혈압강하제)	web_search_2026_07_15	아놀렉스정50mg=아테놀올, health.kr A11A2340A0114
+다이투스	AMBROXOL	암브록솔염산염(진해거담제)	web_search_2026_07_15	다이투스정=암브록솔염산염, health.kr A11A2780A0144
+에이트라	TRAMADOL_ACETAMINOPHEN	트라마돌+아세트아미노펜(진통제)	web_search_2026_07_15	아세트아미노펜325+트라마돌37.5, 코오롱제약
+케이페리	EPERISONE	에페리손(근이완제)	web_search_2026_07_15	에페리손염산염50mg, 한국콜마
+레보발사	VALSARTAN_AMLODIPINE	레보암로디핀+발사르탄(고혈압)	general_knowledge_unverified	2.5/80 레보암로+발사르탄 패턴
+오프라캡	OMEPRAZOLE	오메프라졸(PPI 위산분비억제)	web_search_2026_07_15	오메프라졸20mg, 위더스제약
+프로피진	레보드로프로피진	레보드로프로피진(진해제)	general_knowledge_unverified	-프로피진=레보드로프로피진 계열, 태극제약
+코미시럽	COUGH_COLD_COMBO	페닐레프린+클로르페니라민(감기·비염시럽)	web_search_2026_07_15	페닐레프린+클로르페니라민, 코오롱제약
+노이로민	ST_JOHNS_WORT_EXTRACT	세인트존스워트 엑스(식물성 항우울제)	web_search_2026_07_15	세인트존스워트건조엑스300mg, 유유제약
+에페릭손	EPERISONE	에페리손(근이완제)	general_knowledge_unverified	에페리손 표기 변형, 일화
+유나스크	AMLODIPINE	암로디핀(고혈압)	web_search_2026_07_15	암로디핀베실산염, 한국유나이티드
+마이칼디	CALCIUM_VITAMIN_D	칼슘+비타민D+엽산+B12(칼슘보충제)	web_search_2026_07_15	시트르산칼슘+콜레칼시페롤+B12+폴산, 명문제약
+레프로스	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	레보드로프로피진, 뉴젠팜
+헤모나민	IRON_SUPPLEMENT	철분제(빈혈)	general_knowledge_unverified	헤모=철분 조혈제, 마더스제약
+나미야지	BETAMETHASONE_CLOTRIMAZOLE_GENTAMICIN	베타메타손+클로트리마졸+겐타마이신(피부복합크림)	web_search_2026_07_15	수출명 Beclogen Cream
+에제페노	EZETIMIBE_FENOFIBRATE	에제티미브+페노피브레이트(이상지질혈증)	web_search_2026_07_15	에제티미브10+페노피브레이트160, 현대약품
+타렌스탑	ANTIDIARRHEAL_COMBO	베르베린+비스무트+스코폴리아(지사·정장제)	web_search_2026_07_15	베르베린+비스무트+UDCA+스코폴리아, 한국파비스
+텔민스타	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압)	general_knowledge_unverified	40/5 텔미/암로디핀 패턴
+알츠코린	CHOLINE_ALFOSCERATE	콜린알포세레이트(뇌기능개선)	general_knowledge_unverified	알츠+코린(choline), 신풍제약
+아베린엠	GLIMEPIRIDE_METFORMIN	글리메피리드+메트포르민(당뇨)	general_knowledge_unverified	2/500+엠(메트포르민), 휴온스
+아토암로	AMLODIPINE_ATORVASTATIN	암로디핀+아토르바스타틴(고혈압·이상지질)	general_knowledge_unverified	아토+암로 5/10 패턴, 메디카코리아
+레인보우	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	레보드로프로피진60mg, 삼익제약
+피오글리	PIOGLITAZONE	피오글리타존(당뇨)	general_knowledge_unverified	피오글리타존, 성원애드콕
+뮤코펙트	AMBROXOL	암브록솔(거담제)	general_knowledge_unverified	베링거 Mucopect=암브록솔 오리지널
+헤모큐수	IRON_SUPPLEMENT	철분제(액상 수액제)	general_knowledge_unverified	헤모=철분 조혈제
+레보세잘	LEVOCETIRIZINE	레보세티리진(항히스타민)	general_knowledge_unverified	레보세+잘(Xyzal)5mg, 동광제약
+아크라손	BETAMETHASONE_CLOTRIMAZOLE_GENTAMICIN	아크라손크림(복합외용)	web_search_2026_07_15	스테로이드+항진균+항생
+B형간염	HEPATITIS_B_VACCINE	B형간염 백신	general_knowledge_unverified	B형간염 예방접종제
+헤파비아	AMINO_ACID_SOLUTION	헤파비아주(간질환용 아미노산 수액)	general_knowledge_unverified	간성 아미노산 수액
+무피로신	MUPIROCIN	무피로신연고	general_knowledge_unverified	국소항생제
+유글렉스	GLIMEPIRIDE	유글렉스정(글리메피리드)	web_search_2026_07_15	당뇨약
+당귀수산	HANBANG_MIXED_HERBAL_EXTRACT	당귀수산(한방 처방)	general_knowledge_unverified	한방 탕제
+디아솔액	GLUCOSE	디아솔액(포도당 함유 투석/관류액)	web_search_2026_07_15	포도당 함유 관류액
+채혈핀촉	LANCET	채혈핀촉(란셋)	general_knowledge_unverified	채혈용 란셋
+프로텍홈	INSECT_REPELLENT	프로텍홈(가정용 살충제)	web_search_2026_07_15	디노테퓨란 가정용 살충제
+아스퀘어	AMLODIPINE_ATORVASTATIN	아스퀘어정(암로디핀+아토르바스타틴)	web_search_2026_07_15	고혈압/이상지질 복합제
+당테스트	BLOOD_GLUCOSE_TEST_STRIP	당테스트(혈당 검사)	general_knowledge_unverified	혈당 측정 스트립
+티라목스	AMOXICILLIN	티라목스정(아목시실린)	web_search_2026_07_15	아목시실린 항생제
+멘소래담	METHYL_SALICYLATE	멘소래담(멘톨/캄파 외용진통)	general_knowledge_unverified	국소 진통소염
+유니펙탄	ERDOSTEINE	유니펙탄캡슐(에르도스테인)	web_search_2026_07_15	에르도스테인300mg
+손발싸개	APPAREL_TEXTILE	손·발싸개	general_knowledge_unverified	의류/섬유
+빈혈검사	HEMOGLOBIN_TEST_STRIP	빈혈(Hb)검사 스틱	general_knowledge_unverified	빈혈=Hb 검사용 스트립
+액티비원	THIAMINE_B1	액티비원주(푸르설티아민, 비타민B1)	web_search_2026_07_15	푸르설티아민 주사
+칼시맥스	CALCIUM_VITAMIN_D	칼시맥스정(칼슘보충제)	general_knowledge_unverified	칼슘 보충제
+닥터라민	AMINO_ACID_SOLUTION	닥터라민주(아미노산 수액)	general_knowledge_unverified	아미노산 정맥영양
+맥문동탕	HANBANG_MIXED_HERBAL_EXTRACT	맥문동탕(한약 엑스제)	general_knowledge_unverified	한방 탕제
+에버라민	AMINO_ACID_SOLUTION	에버라민주(아미노산 수액)	general_knowledge_unverified	아미노산 정맥영양
+아세라노	TRAMADOL_ACETAMINOPHEN	아세라노정(트라마돌/아세트아미노펜)	web_search_2026_07_15	복합진통제
+Tdap	INFLUENZA_VACCINE	Tdap 혼합백신(파상풍-디프-백일해)	general_knowledge_unverified	Tdap 혼합백신
+퍼슨쿨링	INSECT_BITE_TOPICAL_UNCONFIRMED	퍼슨 쿨링겔(멘톨 냉감겔)	general_knowledge_unverified	냉감 겔
+스틸녹스	ZOLPIDEM	스틸녹스정(졸피뎀)	general_knowledge_unverified	수면제
+미다졸람	MIDAZOLAM	미다졸람주사	general_knowledge_unverified	미다졸람 주사
+한방습포	HANBANG_MIXED_HERBAL_EXTRACT	한방습포제	general_knowledge_unverified	한방 외용 습포
+일본뇌염	INFLUENZA_VACCINE	일본뇌염 백신	general_knowledge_unverified	일본뇌염 백신
+록소드펜	LOXOPROFEN	록소드펜정(록소프로펜)	general_knowledge_unverified	록소프로펜 소염진통제
+임펙타민	VITAMIN_B_COMPLEX	임펙타민파워정(종합비타민B군)	general_knowledge_unverified	비타민B군 복합제
+니코에이	NICOTINE_REPLACEMENT	니코에이(니코틴 패치)	general_knowledge_unverified	금연 니코틴 패치
+아로나민	VITAMIN_B_COMPLEX	아로나민(비타민B군 복합)	general_knowledge_unverified	종합비타민B군
+니코사인	NICOTINE_REPLACEMENT	니코사인(금연 니코틴)	general_knowledge_unverified	금연 니코틴 제제
+핸드타월	HYGIENE_TISSUE	핸드타월(위생 티슈)	general_knowledge_unverified	위생용 타월
+교통카드	PROMO_MATERIAL	교통카드(비의료)	general_knowledge_unverified	지급용 교통카드
+세파졸린	CEFAZOLIN	세파졸린주사(세파졸린)	general_knowledge_unverified	세파졸린 항생제
+류펜프리	DICLOFENAC	류펜프리 플라스타(디클로페낙)	web_search_2026_07_15	디클로페낙 첩부제
+아세크로	ACECLOFENAC	아세크로정(아세클로페낙)	general_knowledge_unverified	아세클로페낙 소염진통
+박트리안	MUPIROCIN	박트리안연고(무피로신)	web_search_2026_07_15	무피로신 항생연고
+글루메트	METFORMIN	글루메트정(메트포르민)	general_knowledge_unverified	메트포르민 당뇨약
+파라마셋	TRAMADOL_ACETAMINOPHEN	파라마셋정(트라마돌/아세트아미노펜)	web_search_2026_07_15	복합진통제
+뮤코스텐	ACETYLCYSTEINE	아세틸시스테인(진해거담제)	web_search_2026_07_15	아세틸시스테인200mg, nedrug 198901021
+울트라셋	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통제)	general_knowledge_unverified	얀센 울트라셋=트라마돌37.5/아세트아미노펜325
+메가폴민	METFORMIN	메트포르민 서방정(당뇨병약)	web_search_2026_07_15	한미 메가폴민=메트포르민염산염
+자연알파	NUTRITIONAL_SUPPLEMENT_GENERIC	건강기능식품(추정)	unresolved	제품명상 건기식 추정
+아코라마	ACYCLOVIR	아시클로버(항바이러스제)	web_search_2026_07_15	아코라마캅셀200mg=아시클로버200mg
+텔로디핀	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀(고혈압)	general_knowledge_unverified	텔로=텔미사르탄, 디핀=암로디핀 40/5
+글리메릴	GLIMEPIRIDE	글리메피리드(당뇨병약)	general_knowledge_unverified	글리메~=glimepiride 명명패턴
+베실살탄	LOSARTAN_AMLODIPINE	암로디핀/로사르탄(고혈압)	web_search_2026_07_15	health.kr 베실살탄정5/50=암로디핀5+로사르탄50
+베데스타	BETAMETHASONE_CLOTRIMAZOLE_GENTAMICIN	베타메타손/클로트리마졸/겐타마이신(외용 복합제)	web_search_2026_07_15	넬슨 베데스타크림
+싸이클론	INSECT_REPELLENT	외용 유제(살충/방역 추정)	unresolved	유제(외용 에멀젼) 살충제 추정
+포리부틴	TRIMEBUTINE	트리메부틴(기능성 위장관운동 조절제)	general_knowledge_unverified	삼일 포리부틴=Polybutin 트리메부틴말레산염
+푸리타제	DIGESTIVE_ENZYME	판크레아틴 복합 소화효소제	web_search_2026_07_15	health.kr 푸리타제정 판크레아틴/셀룰라제/우담즙/디메티콘
+아목사펜	AMOXICILLIN	아목시실린(페니실린계 항생제)	general_knowledge_unverified	아목사펜250mg=amoxicillin 명명패턴
+하이탑핀	AMLODIPINE	S-암로디핀(고혈압)	web_search_2026_07_15	신풍 하이탑핀정=에스암로디핀니코틴산염
+슈다페드	PSEUDOEPHEDRINE	슈도에페드린(비충혈제거제)	general_knowledge_unverified	슈다페드=Sudafed 슈도에페드린
+리포액틴	ATORVASTATIN	아토르바스타틴(이상지질혈증)	web_search_2026_07_15	안국 리포액틴=아토르바스타틴
+글라디엠	GLIMEPIRIDE	글리메피리드(당뇨병약)	web_search_2026_07_15	유한 글라디엠정1mg=글리메피리드
+바크라폰	BACLOFEN	바클로펜(중추성 근이완제)	general_knowledge_unverified	바크라폰=baclofen 음차
+바이제타	ROSUVASTATIN_EZETIMIBE	스타틴/에제티미브(이상지질혈증)	unresolved	제타=에제티미브, 스타틴 종류 미확정
+로사디핀	LOSARTAN_AMLODIPINE	로사르탄/암로디핀(고혈압)	general_knowledge_unverified	로사=로사르탄, 디핀=암로디핀 5/50
+디오디핀	VALSARTAN_AMLODIPINE	발사르탄/암로디핀(고혈압)	web_search_2026_07_15	알리코 디오디핀정=발사르탄+암로디핀
+반질연고	UREA_TOPICAL	요소(피부연화제)	web_search_2026_07_15	요소200mg/g 피부연화제, health.kr
+메이킨큐	BISACODYL	비사코딜(자극성 변비약)	general_knowledge_unverified	명인 메이킨=장용 자극성 하제
+아르바정	ATORVASTATIN	아토르바스타틴(이상지질혈증)	web_search_2026_07_15	nedrug 아르바정=아토르바스타틴칼슘삼수화물
+쿨링덴트	DENTAL_HYGIENE_CONSUMER	구강청량/치과 케어(비의약)	general_knowledge_unverified	쿨링 구강케어 제품
+듀얼살탄	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀	general_knowledge_unverified	40/5, 텔미사르탄+암로디핀
+아라스틴	AZELASTINE	아젤라스틴(항히스타민)	web_search_2026_07_15	nedrug 아라스틴정=아젤라스틴염산염1mg
+아모사르	LOSARTAN_AMLODIPINE	로사르탄/암로디핀	general_knowledge_unverified	5/50=암로디핀5+로사르탄50
+텔미로핀	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀	general_knowledge_unverified	40/5 텔미=텔미사르탄+암로디핀
+글루폴민	GLIMEPIRIDE_METFORMIN	글리메피리드/메트포르민	general_knowledge_unverified	2/500=글리메피리드2+메트포르민500
+바소조신	TERAZOSIN	테라조신(전립선/고혈압)	web_search_2026_07_15	일화 바소조신정2mg=테라조신염산염
+메가토스	VITAMIN_C	비타민C(고함량)	general_knowledge_unverified	메가토스씨=고용량 비타민C
+텔로디탄	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀	general_knowledge_unverified	40/5 텔로디탄=텔미사르탄+암로디핀
+레드로진	레보드로프로피진	레보드로프로피진(진해)	web_search_2026_07_15	씨엠지 레드로진정=레보드로프로피진
+하이로텐	LOSARTAN_AMLODIPINE	로사르탄/암로디핀	general_knowledge_unverified	5/50=암로디핀5+로사르탄50
+씨티리진	CETIRIZINE	세티리진(항히스타민)	general_knowledge_unverified	씨티리진=세티리진 제네릭
+콤비포지	VALSARTAN_AMLODIPINE	발사르탄/암로디핀	general_knowledge_unverified	5/160=암로디핀5+발사르탄160
+엘티리진	LEVOCETIRIZINE	레보세티리진(항히스타민)	general_knowledge_unverified	엘(L)티리진=레보세티리진
+로디비카	OLMESARTAN_AMLODIPINE	올메사르탄/S-암로디핀	web_search_2026_07_15	health.kr 로디비카정2.5/20=에스암로디핀+올메사르탄메독소밀
+드로피진	레보드로프로피진	레보드로프로피진(진해)	web_search_2026_07_15	코오롱 드로피진시럽=레보드로프로피진
+발사르텔	VALSARTAN_HCTZ	발사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	80/12.5 발사르텔=발사르탄+HCTZ
+알마겐트	ALMAGATE	알마게이트(제산제)	web_search_2026_07_15	알마게이트500mg, munyak 199703379
+아트로반	ATORVASTATIN	아토르바스타틴(이상지질혈증)	web_search_2026_07_15	경동 아트로반정=아토르바스타틴10mg
+텔미실산	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	텔미=telmisartan, 40/5
+글루피드	GLIMEPIRIDE	글리메피리드(당뇨)	web_search_2026_07_15	일화 글루피드정=글리메피리드, health.kr
+크라맥스	AMOXICILLIN_CLAVULANATE	아목시실린+클라불란산(항생제)	web_search_2026_07_15	아목시실린250+클라불란산, munyak 199400695
+헤모이지	IRON_SUPPLEMENT	헤모이지정(철분제)	general_knowledge_unverified	철분 보충제
+바로다운	ROSUVASTATIN_EZETIMIBE	로수바스타틴+에제티미브(이상지질혈증)	web_search_2026_07_15	로수바스타틴+에제티미브, doctornow
+레브로콜	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	한미 레브로콜정=레보드로프로피진60mg
+텔사로핀	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	텔=telmisartan, 40/5
+아트놀셋	TRAMADOL_ACETAMINOPHEN	트라마돌+아세트아미노펜(진통제)	web_search_2026_07_15	트라마돌37.5+아세트아미노펜325, doctornow
+푸로스타	FINASTERIDE	피나스테리드(전립선비대증)	web_search_2026_07_15	영풍 푸로스타정=피나스테리드, health.kr
+다이비스	METFORMIN	메트포르민 서방정(당뇨)	general_knowledge_unverified	XR500mg=metformin서방, 다이비스=diabetes
+아토미브	ATORVASTATIN_EZETIMIBE	아토르바스타틴+에제티미브(이상지질혈증)	general_knowledge_unverified	아토+미브 10/10
+크리메릴	GLIMEPIRIDE	글리메피리드(당뇨)	general_knowledge_unverified	신풍, 메릴=glimepiride, 2mg
+베르사체	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	web_search_2026_07_15	삼익 베르사체정40/5=암로디핀5+텔미사르탄40
+노이시린	ANTACID	제산제(수산화마그네슘·알루미늄 복합)	general_knowledge_unverified	일양 노이시린에이=제산복합제
+텔미트윈	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	텔미+twin, 40/5
+레바코드	REBAMIPIDE	레바미피드(위점막보호제)	web_search_2026_07_15	삼익 레바코드정=레바미피드100mg
+임펙트윈	ROSUVASTATIN_EZETIMIBE	스타틴+에제티미브(이상지질혈증 추정)	unresolved	10/20 스타틴/에제티미브 복합 추정, 정확 스타틴 미확인
+프로피나	FINASTERIDE	피나스테리드(전립선비대증)	web_search_2026_07_15	신풍 프로피나정=피나스테리드5mg
+유니트린	TRIMEBUTINE	트리메부틴말레산염(소화기능이상)	general_knowledge_unverified	유니온 유니트린=트리메부틴말레산염
+아로디핀	AMLODIPINE	암로디핀(고혈압)	general_knowledge_unverified	일화, 디핀=amlodipine 패턴
+리피스톱	ATORVASTATIN	아토르바스타틴(이상지질혈증)	web_search_2026_07_15	일동, 무수아토르바스타틴칼슘 명시
+세비살탄	OLMESARTAN_AMLODIPINE	올메사르탄+암로디핀(고혈압 복합제)	web_search_2026_07_15	동아 세비살탄5/20=암로디핀5/올메사르탄20
+인코라민	VITAMIN_B_COMPLEX	활성비타민B군 복합 종합비타민	web_search_2026_07_15	종근당 인코라민=활성비타민B+A/C/E+미네랄
+암로딕스	AMLODIPINE	S-암로디핀(고혈압)	general_knowledge_unverified	에스암로=S-암로디핀베실산염2.5mg, 광동
+바이스탑	ANTIDIARRHEAL_COMBO	베르베린·비스무트 복합(지사정장제)	web_search_2026_07_15	베르베린+비스무트+UDCA+스코폴리아, doctornow
+자누메트	SITAGLIPTIN_METFORMIN	시타글립틴+메트포르민(당뇨 복합제)	general_knowledge_unverified	자누메트=MSD 시타글립틴/메트포르민50/500
+미카테르	TELMISARTAN_HCTZ	텔미사르탄+HCTZ(고혈압)	general_knowledge_unverified	미카=텔미사르탄, 플러스40/12.5=HCTZ
+트윈베타	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	web_search_2026_07_15	대웅바이오 트윈베타80/5=텔미사르탄80/암로디핀5
+반질크림	UREA_TOPICAL	우레아 크림(피부연화제)	web_search_2026_07_15	삼공 반질크림=우레아 고함량 피부연화
+겐트리손	BETAMETHASONE_CLOTRIMAZOLE_GENTAMICIN	베타메타손+클로트리마졸+겐타마이신(복합 연고)	web_search_2026_07_15	신풍 겐트리손=스테로이드+항진균+항생제 복합외용
+트윈다운	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	40/5=텔미사르탄40/암로디핀5
+글로스타	ATORVASTATIN	아토르바스타틴(이상지질혈증)	web_search_2026_07_15	제품명에 무수아토르바스타틴칼슘10mg 명시
+유니코프	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	유니메드 유니코프정=레보드로프로피진60mg
+레이셀코	CELECOXIB	레일라(생약)+세레콕시브(관절염 복합제)	web_search_2026_07_15	알리코 레이셀코=12종 생약엑스+세레콕시브
+페인리스	TRAMADOL_ACETAMINOPHEN	트라마돌+아세트아미노펜(진통제)	general_knowledge_unverified	페인리스 세미=울트라셋 계열
+시그나틴	CIMETIDINE	시메티딘(H2차단 위산분비억제제)	web_search_2026_07_15	동화 시그나틴=시메티딘, health.kr
+텔미로탄	TELMISARTAN	텔미사르탄(ARB 고혈압)	general_knowledge_unverified	텔미로탄=텔미사르탄40mg 단일제, 씨엠지
+듀이스타	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압 복합제)	web_search_2026_07_15	일양바이오팜 듀이스타40/5=텔미사르탄/암로디핀
+메가파워	MULTIVITAMIN_MINERAL	종합비타민미네랄	web_search_2026_07_15	유한 메가파워정=비타민A/D/E/C/B군+미네랄
+위엔자임	DIGESTIVE_ENZYME	소화효소 복합(소화제)	general_knowledge_unverified	엔자임=소화효소제, 노바엠헬스케어
+베아잘탄	LOSARTAN_AMLODIPINE	암로디핀+로사르탄(고혈압 복합제)	general_knowledge_unverified	잘탄=로사르탄, 5/50=암로디핀5/로사르탄50
+알도스텐	ERDOSTEINE	에르도스테인(점액용해 거담제)	web_search_2026_07_15	일동 알도스텐300=에르도스테인300mg
+바이시브	ROSUVASTATIN_EZETIMIBE	에제티미브+심바스타틴(이상지질혈증)	web_search_2026_07_15	셀트리온 바이시브10/20=에제티미브10/심바스타틴20
+울트라뉴	TRAMADOL_ACETAMINOPHEN	트라마돌+아세트아미노펜(진통제)	general_knowledge_unverified	울트라뉴 세미=울트라셋 계열, 시어스제약
+실크론지	BETAMETHASONE	베타메타손+겐타마이신(복합 스테로이드 연고)	web_search_2026_07_15	동광 실크론지=베타메타손디프로피오네이트+겐타마이신
+베시케어	SOLIFENACIN	솔리페나신(과민성방광 치료제)	general_knowledge_unverified	베시케어=아스텔라스 솔리페나신5mg 대표 브랜드
+로바스타	ROSUVASTATIN	로수바스타틴(이상지질혈증)	web_search_2026_07_15	제품명에 로수바스타틴칼슘 명시, 유나이티드10mg
+뉴스타젯	ROSUVASTATIN_EZETIMIBE	로수바스타틴+에제티미브(이상지질혈증)	web_search_2026_07_15	삼진 뉴스타젯알10/5=에제티미브10/로수바스타틴5
+파인스겔	DICLOFENAC	파인스겔(디클로페낙 외용겔)	general_knowledge_unverified	외용 소염진통겔
+크라목신	AMOXICILLIN_CLAVULANATE	크라목신정(아목시실린+클라불란산)	general_knowledge_unverified	복합 항생제
+헤모포민	IRON_SUPPLEMENT	헤모포민에스정(철분제)	general_knowledge_unverified	철분 보충제
+네오세틴	LEVOCETIRIZINE	네오세틴정(레보세티리진)	web_search_2026_07_15	레보세티리진 5mg
+하이스탈	DIGESTIVE_ENZYME	하이스탈정(복합 소화효소·제산제)	web_search_2026_07_15	복합소화제
+브로다제	BROMELAIN	브로다제장용정(브로멜라인)	general_knowledge_unverified	소염효소 장용정
+아미카신	AMIKACIN	아미카신황산염주	general_knowledge_unverified	명칭에 아미카신 명시
+케토파인	KETOPROFEN	케토파인겔(케토프로펜 외용겔)	general_knowledge_unverified	외용 소염진통겔
+센티렉스	MULTIVITAMIN_MINERAL	센티렉스(종합비타민)	web_search_2026_07_15	종합비타민 영양제
+액티비씨	MULTIVITAMIN_MINERAL	액티비씨정(종합비타민미네랄)	general_knowledge_unverified	종합비타민
+로션세트	PROMO_MATERIAL	로션세트(사은/증정품)	general_knowledge_unverified	비의약품
+액티프롤	UNKNOWN_INGREDIENT	액티프롤정(성분 미확인)	unresolved	검색으로 성분 확인 불가
+썬팩타민	MULTIVITAMIN_MINERAL	썬팩타민연질캡슐(종합비타민)	web_search_2026_07_15	종합비타민 B군+D
+다우제큐	DIGESTIVE_ENZYME	다우제큐정(소화효소+담즙산)	web_search_2026_07_15	건위소화제
+에소피드	ESOMEPRAZOLE	에소피드정(에소메프라졸+탄산수소나트륨)	general_knowledge_unverified	PPI
+아르믹스	AMINO_ACID_SOLUTION	아르믹스주(종합 아미노산 수액)	web_search_2026_07_15	복합 아미노산 주사
+티디백신	INFLUENZA_VACCINE	녹십자티디백신(파상풍-디프테리아)	general_knowledge_unverified	Td 혼합백신
+레보세린	LEVOCETIRIZINE	레보세린정(레보세티리진)	web_search_2026_07_15	항히스타민
+화이투벤	COUGH_COLD_COMBO	화이투벤씨플러스캡슐(종합감기약)	web_search_2026_07_15	아세트아미노펜+항히스타민 복합
+오로페롤	TOCOPHEROL_ACETATE	오로페롤연질캅셀(비타민E)	general_knowledge_unverified	비타민E
+아이비돈	POVIDONE_IODINE	아이비돈점안액(포비돈요오드)	general_knowledge_unverified	포비돈요오드 점안
+마오릭스	CHLORPHENESIN_CARBAMATE	마오릭스정(클로르페네신카르바메이트)	web_search_2026_07_15	근이완제
+혈중지질	LIPID_TEST_STRIP	혈중지질 검사지	general_knowledge_unverified	지질 측정지
+글로실린	AMOXICILLIN_CLAVULANATE	글로실린정(아목시실린+클라불란산)	general_knowledge_unverified	복합 항생제
+코디프로	COUGH_COLD_COMBO	코디프로시럽(디히드로코데인 복합 진해거담)	web_search_2026_07_15	진해거담 복합
+오구목스	AMOXICILLIN_CLAVULANATE	오구목스정(아목시실린+클라불란산)	general_knowledge_unverified	복합 항생제
+알레그라	FEXOFENADINE	알레그라정(펙소페나딘)	general_knowledge_unverified	항히스타민
+에르도스	ERDOSTEINE	에르도스캡슐(에르도스테인)	general_knowledge_unverified	거담
+한파대응	PROMO_MATERIAL	한파대응 물품(비의약)	general_knowledge_unverified	비의약 물품
+키친타올	HYGIENE_TISSUE	키친타올(비의약 소모품)	general_knowledge_unverified	위생 티슈
+깔개매트	PROMO_MATERIAL	깔개매트(비의약 소모품)	general_knowledge_unverified	비의약품
+구강세트	DENTAL_HYGIENE_CONSUMER	구강세트(구강관리 소모품)	general_knowledge_unverified	구강위생
+스토마정	MUGWORT_EXTRACT	스토마정(애엽 연조엑스)	web_search_2026_07_15	위점막보호 생약
+베스자임	DIGESTIVE_ENZYME	베스자임정(소화효소복합)	general_knowledge_unverified	소화효소제
+수액셋트	IV_ADMIN_SET	수액세트(IV set)	general_knowledge_unverified	수액 투여 기구
+쿨스카프	APPAREL_TEXTILE	쿨스카프(냉감 스카프)	general_knowledge_unverified	비의료 의류
+천지인환	HANBANG_MIXED_HERBAL_EXTRACT	천지인환(한방 환제)	general_knowledge_unverified	한약
+아모렉스	CEFACLOR	아모렉스정(세파클러)	web_search_2026_07_15	세파계 항생제
+보습크림	SKINCARE_COSMETIC_TOPICAL	보습크림	general_knowledge_unverified	피부 보습제
+키네시오	KINESIOLOGY_TAPE	키네시오 테이핑	general_knowledge_unverified	근육 테이프
+헥사메딘	CHLORHEXIDINE	헥사메딘(클로르헥시딘 가글)	general_knowledge_unverified	구강소독
+판비콤프	VITAMIN_B_COMPLEX	판비콤프주(비타민B복합 주사)	web_search_2026_07_15	B복합 주사
+나비바늘	IV_ADMIN_SET	나비바늘(butterfly needle)	general_knowledge_unverified	채혈/수액 날개바늘
+모노독시	DOXYCYCLINE	모노독시엠캡슐(독시사이클린)	general_knowledge_unverified	테트라사이클린계 항생제
+생리식염	SODIUM_CHLORIDE	0.9% 생리식염주사액	general_knowledge_unverified	노멀세일라인
+타미트라	TRAMADOL_ACETAMINOPHEN	타미트라정(트라마돌+아세트아미노펜)	web_search_2026_07_15	진통제
+세파클러	CEFACLOR	세파클러캡슐(세파클러)	general_knowledge_unverified	세파계 항생제
+아세트펜	ACETAMINOPHEN	아세트펜 프리믹스주(아세트아미노펜)	general_knowledge_unverified	해열진통 주사
+콜레스텍	LIPID_TEST_STRIP	콜레스텍 LDX 지질검사	general_knowledge_unverified	Cholestech LDX 지질측정 카트리지
+제일파프	METHYL_SALICYLATE	제일파프(살리실산메틸 첩부제)	general_knowledge_unverified	파프제 소염진통
+스킨코트	SKINCARE_COSMETIC_TOPICAL	스킨코트 피부보호제	general_knowledge_unverified	피부 보호막 도포제
+아세테인	ACETYLCYSTEINE	아세테인캅셀(아세틸시스테인)	general_knowledge_unverified	거담제
+폴리덴트	DENTURE_CLEANSER	폴리덴트(틀니세정제)	general_knowledge_unverified	의치 세정제
+류마스탑	METHYL_SALICYLATE	류마스탑(소염진통 첩부제)	general_knowledge_unverified	관절통 첩부제
+자동랜싯	LANCET	자동 랜싯	general_knowledge_unverified	채혈용 란셋
+제로이드	SKINCARE_COSMETIC_TOPICAL	제로이드 로션(보습제)	general_knowledge_unverified	아토피 보습 로션
+레마이드	REBAMIPIDE	레마이드정(레바미피드)	web_search_2026_07_15	위점막보호제
+메트포민	METFORMIN	메트포민서방정(메트포르민)	general_knowledge_unverified	당뇨 비구아니드
+자스티딘	RANITIDINE	자스티딘캅셀(라니티딘)	general_knowledge_unverified	H2차단제
+TPPA	CLINICAL_CHEMISTRY_TEST	TPPA 매독 검사	general_knowledge_unverified	매독 확진 혈청검사
+그린비아	MEDICAL_NUTRITION_FORMULA	그린비아(경장영양식)	general_knowledge_unverified	경장영양
+하이트리	CLOTRIMAZOLE	하이트리크림(클로트리마졸/히드로코르티손)	web_search_2026_07_15	항진균+스테로이드 복합
+버물리겔	INSECT_BITE_TOPICAL_UNCONFIRMED	버물리겔(디펜히드라민/멘톨)	general_knowledge_unverified	벌레물림 항소양 외용제
+관절패치	METHYL_SALICYLATE	관절패치(소염진통 첩부제)	general_knowledge_unverified	관절통 첩부제
+프리나	NAPROXEN	나프록센나트륨(NSAID 소염진통제)	web_search_2026_07_15	프리나정=나프록센나트륨275mg, health.kr A11AGGGGA2978
+뮤코론	CARBOCISTEINE	L-카르보시스테인(진해거담제)	web_search_2026_07_15	뮤코론캡슐375mg=L-카르보시스테인, bukwang.co.kr
+스테린	MUGWORT_EXTRACT	애엽에탄올엑스(위점막보호제, 스티렌 제네릭)	web_search_2026_07_15	스테린정=애엽95%에탄올연조엑스, nedrug 200900695
+손페리	EPERISONE	에페리손염산염(근이완제)	web_search_2026_07_15	손페리정=에페리손염산염50mg, nedrug 200402840
+코데날	COUGH_COLD_COMBO	디히드로코데인 복합(진해거담제)	web_search_2026_07_15	코데날정=디히드로코데인/클로르페니라민/메틸에페드린/구아이페네신, nedrug 197200376
+로디엔	AMLODIPINE	에스암로디핀니코틴산염(혈압강하제)	web_search_2026_07_15	로디엔정2.5mg=S-암로디핀니코티네이트, 한림제약 개량신약
+올펜정	COUGH_COLD_COMBO	아세트아미노펜+에페드린(진통복합제)	web_search_2026_07_15	올펜정(뉴젠팜)=아세트아미노펜200mg+에페드린염산염25mg
+본디칼	CALCIUM_VITAMIN_D	칼슘+비타민D(골다공/칼슘보급)	web_search_2026_07_15	본디칼=칼슘·비타민D 보급제, nedrug 2017062900004
+솔로젠	METHYLPREDNISOLONE	메틸프레드니솔론(부신피질호르몬제)	web_search_2026_07_15	솔로젠정(뉴젠팜)=메틸프레드니솔론, health.kr A11AMMMMM2844
+카민산	CHLORPHENESIN_CARBAMATE	클로르페네신카르바메이트(근이완제)	web_search_2026_07_15	카민산정=클로르페네신카르바메이트, health.kr A11A2240B0090
+트루셋	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀/클로르탈리돈(3제 복합)	web_search_2026_07_15	트루셋정40/5/12.5=텔미사르탄40/암로디핀5/클로르탈리돈12.5, 유한양행
+엑소닌	EPERISONE	에페리손염산염(근이완제)	web_search_2026_07_15	엑소닌정=에페리손염산염50mg, SK케미칼 A11AOOOOO1101
+메디락	PROBIOTICS	유산균(정장생균제)	general_knowledge_unverified	메디락디에스장용캡슐=한미약품 대표 프로바이오틱스
+써스펜	ACETAMINOPHEN	아세트아미노펜 서방정(해열진통제)	general_knowledge_unverified	써스펜이알서방정=한미 아세트아미노펜 ER
+아발론	INSECT_REPELLENT	테메포스(모기유충 살충제, 비의약품 방역)	web_search_2026_07_15	아발론SG=테메포스 방역용 살충제(국보싸이언스)
+콜듀엣	AMLODIPINE_ATORVASTATIN	암로디핀+아토르바스타틴(고혈압/이상지질 복합)	web_search_2026_07_15	콜듀엣정5/10=암로디핀+아토르바스타틴, 풍림무약
+듀오논	ROSUVASTATIN_EZETIMIBE	로수바스타틴+에제티미브(이상지질혈증)	web_search_2026_07_15	듀오논정10/5=로수바스타틴칼슘+에제티미브, 동아에스티
+가네카	COLD_COMBO_ANTIHISTAMINE_DECONGESTANT	슈도에페드린+트리프롤리딘(코감기/알레르기)	web_search_2026_07_15	가네카정=슈도에페드린60/트리프롤리딘2.5, glpharma
+피디정	METHYLPREDNISOLONE	메틸프레드니솔론(부신피질호르몬제)	web_search_2026_07_15	피디정=메틸프레드니솔론4mg, nedrug 200102623
+디세텔	PINAVERIUM	피나베리움브로마이드(과민성대장 진경제)	general_knowledge_unverified	디세텔(Dicetel)=일양약품 피나베리움 대표 브랜드
+로파인	LOPERAMIDE	로페라미드염산염(지사제)	web_search_2026_07_15	로파인캡슐=로페라미드염산염, nedrug 197800212
+신일겔	ALUMINUM_MAGNESIUM_ANTACID	알루미늄/마그네슘/칼슘 복합제산제	web_search_2026_07_15	신일겔정=수산화알루미늄겔/탄산마그네슘/침강탄산칼슘/탄산수소나트륨, nedrug 201402369
+넥스온	ESOMEPRAZOLE	에스오메프라졸(PPI 위산분비억제제)	web_search_2026_07_15	제품명에 에스오메프라졸마그네슘이수화물 명기(20mg)
+발미탄	VALSARTAN_HCTZ	발사르탄+히드로클로로티아지드(고혈압 복합제)	web_search_2026_07_15	발사르탄80+HCTZ12.5, 한국파비스
+글레아	GLIMEPIRIDE_METFORMIN	글리메피리드+메트포르민(당뇨)	web_search_2026_07_15	글리메피리드2+메트포르민500, 위더스제약
+디큐반	VALSARTAN	발사르탄(고혈압)	web_search_2026_07_15	디큐반정80mg=발사르탄, 안국약품
+크레인	KALLIKREIN	칼리디노게나제(말초순환개선)	web_search_2026_07_15	칼리디노게나제, 일화
+폴시드	FOLIC_ACID	폴산/엽산(빈혈·엽산보급)	web_search_2026_07_15	폴산1mg, 조아제약
+토파제	DIGESTIVE_ENZYME	판크레아틴 등 복합 소화효소제	web_search_2026_07_15	판크레아틴/셀룰라제/우담즙/디메티콘, 메디카코리아
+글리타	PIOGLITAZONE	피오글리타존(당뇨)	web_search_2026_07_15	피오글리타존, 풍림무약
+라프릴	ENALAPRIL	에날라프릴(ACE억제제·고혈압)	web_search_2026_07_15	말레인산에날라프릴, 성원애드콕
+텔로핀	TELMISARTAN_AMLODIPINE	텔미사르탄+암로디핀(고혈압)	general_knowledge_unverified	40/5, 텔미/암로디핀 패턴
+암펙솔	AMBROXOL	암브록솔(거담제)	general_knowledge_unverified	암브록솔 표기 변형, 한국휴텍스
+에어탈	ACECLOFENAC	아세클로페낙(소염진통제)	general_knowledge_unverified	대웅 에어탈=아세클로페낙 오리지널
+반질올	UREA_TOPICAL	우레아(피부연화제)	web_search_2026_07_15	우레아200mg 피부연화, 삼공제약
+메솔론	METHYLPREDNISOLONE	메틸프레드니솔론(부신피질호르몬)	web_search_2026_07_15	메틸프레드니솔론4mg, 동광제약
+스텔스	MUGWORT_EXTRACT	애엽95%에탄올엑스(위염 생약제)	web_search_2026_07_15	애엽95%에탄올연조엑스, 티디에스팜
+파모터	FAMOTIDINE	파모티딘(위산분비억제)	general_knowledge_unverified	파모20mg 패턴, 한국콜마
+엘부날	ERDOSTEINE	에르도스테인(점액용해·거담제)	web_search_2026_07_15	에르도스테인300mg, 진양제약
+기넥신	GINKGO_LEAF_EXTRACT	은행엽엑스(말초·뇌혈류개선)	general_knowledge_unverified	SK케미칼 기넥신에프=은행잎추출물
+코세틴	LEVOCETIRIZINE	레보세티리진(항히스타민)	web_search_2026_07_15	레보세티리진염산염5mg, 삼익제약
+암발탄	VALSARTAN_AMLODIPINE	암로디핀+발사르탄(고혈압)	general_knowledge_unverified	암로5+발사르탄80 패턴, 진양제약
+레부날	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	레보드로프로피진, 진양제약
+로카탄	LOSARTAN	로사르탄(고혈압)	web_search_2026_07_15	로카탄정50mg=로사르탄칼륨, 휴온스
+코데농	COUGH_COLD_COMBO	디히드로코데인+클로르페니라민+메틸에페드린+카페인(진해·감기약)	web_search_2026_07_15	4성분 복합 진해거담, 동광제약
+페로틴	IRON_SUPPLEMENT	철분제(빈혈)	general_knowledge_unverified	페로=철분, 코오롱제약
+레브론	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	레보드로프로피진60mg, 넥스팜코리아
+노바핀	AMLODIPINE	암로디핀(고혈압)	general_knowledge_unverified	노바+핀(-디핀), 한국넬슨제약
+타가틴	CIMETIDINE	타가틴정(시메티딘)	web_search_2026_07_15	시메티딘 H2차단제
+그날엔	INSECT_BITE_TOPICAL_UNCONFIRMED	그날엔24플라스타(온열패치)	general_knowledge_unverified	생리통 온열패치
+에탄올	ETHANOL	에탄올(소독용)	general_knowledge_unverified	소독용 에탄올
+엘레틴	LEVOCETIRIZINE	엘레틴정(레보세티리진)	web_search_2026_07_15	항히스타민
+팔물탕	HANBANG_MIXED_HERBAL_EXTRACT	팔물탕(한방 처방)	general_knowledge_unverified	한방 탕제
+픽스롤	ADHESIVE_BANDAGE	픽스롤(고정용 반창고)	general_knowledge_unverified	의료용 고정 테이프
+쏠라C	ASCORBIC_ACID	쏠라C정(비타민C)	general_knowledge_unverified	비타민C 정제
+라보솔	AMINO_ACID_SOLUTION	라보솔주(아미노산 수액)	web_search_2026_07_15	아미노산 수액
+센트륨	MULTIVITAMIN_MINERAL	센트륨(종합비타민)	general_knowledge_unverified	종합비타민미네랄
+비타쮸	MULTIVITAMIN_MINERAL	비타쮸(츄어블 비타민)	general_knowledge_unverified	종합비타민
+엘도틴	ERDOSTEINE	엘도틴캡슐(에르도스테인)	general_knowledge_unverified	거담 점액용해제
+로시덴	PIROXICAM	로시덴겔(피록시캄 외용)	web_search_2026_07_15	외용소염진통
+케노펜	KETOPROFEN	케노펜겔(케토프로펜 외용)	general_knowledge_unverified	외용소염진통겔
+세라드	SKINCARE_COSMETIC_TOPICAL	세라드(세라마이드 보습크림)	general_knowledge_unverified	보습크림
+알비정	ALBENDAZOLE	알비정400mg(알벤다졸)	general_knowledge_unverified	구충제
+비타오	DEXPANTHENOL	비타오주(D-판테놀)	general_knowledge_unverified	D-판테놀 주사
+제스라	DIGESTIVE_ENZYME	제스라제트연질캡슐(알베린/시메티콘)	web_search_2026_07_15	alverine+simethicone
+오메가	OMEGA3_FATTY_ACID	오메가3(오메가3 지방산)	general_knowledge_unverified	오메가3 보충제
+가글액	MOUTHWASH_ANTISEPTIC	가글액(구강청결제)	general_knowledge_unverified	구강청결제
+포비딕	POVIDONE_IODINE	포비딕스틱(포비돈요오드)	general_knowledge_unverified	포비돈 요오드 소독
+비모보	NAPROXEN_ESOMEPRAZOLE	비모보정(나프록센/에스오메프라졸)	general_knowledge_unverified	복합제
+판디탈	DIGESTIVE_ENZYME	판디탈정(판크레아틴/셀룰라제)	web_search_2026_07_15	소화효소
+TSH	CLINICAL_CHEMISTRY_TEST	TSH(갑상선자극호르몬 검사)	general_knowledge_unverified	갑상선 검사 항목
+생맥산	HANBANG_MIXED_HERBAL_EXTRACT	생맥산(단미엑스산)	general_knowledge_unverified	한방 엑스산
+유리아	UREA	한미유리아(요소)	general_knowledge_unverified	요소 제제
+제스쿨	DIGESTIVE_ENZYME	판크레아틴/셀룰라제/디메티콘(소화효소제)	web_search_2026_07_15	health.kr 제스쿨정
+케펜택	KETOPROFEN	케토프로펜 첩부제(소염진통 파스)	general_knowledge_unverified	케펜택=Kefentech 케토프로펜 카타플라스마
+노바크	AMLODIPINE	암로디핀(고혈압)	general_knowledge_unverified	노바크5mg=노바스크 계열 암로디핀
+쎄로테	CETIRIZINE	세티리진(항히스타민제)	web_search_2026_07_15	nedrug 쎄로테정=세티리진염산염10mg
+낙소졸	NAPROXEN	나프록센/에스오메프라졸(소염진통+위점막보호)	general_knowledge_unverified	한미 낙소졸500/20=Vimovo 제네릭
+큐라졸	ITRACONAZOLE	큐라졸캅셀(이트라코나졸)	general_knowledge_unverified	아졸계 항진균
+그리핀	PIOGLITAZONE	피오글리타존(당뇨병약)	web_search_2026_07_15	health.kr 그리핀정=피오글리타존염산염
+노통펜	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통제)	web_search_2026_07_15	health.kr 노통펜프러스미니정=아세트아미노펜162.5/트라마돌18.75
+나렉신	NAPROXEN	나프록센(소염진통제)	general_knowledge_unverified	태극 나렉신=Naxen 나프록센
+에페신	EPERISONE	에페리손(근이완제)	general_knowledge_unverified	에페~=eperisone 근이완제
+실버웰	MULTIVITAMIN_MINERAL	종합비타민미네랄(추정)	unresolved	건기식 종합비타민 추정
+뮤렉스	EPERISONE	에페리손(근이완제)	web_search_2026_07_15	초당 뮤렉스정=에페리손염산염50mg
+비판티	TERAZOSIN	테라조신(전립선비대/고혈압)	web_search_2026_07_15	신풍 비판티정2mg=염산테라조신
+탈푸린	TALNIFLUMATE	탈니플루메이트(소염진통제)	web_search_2026_07_15	위더스 탈푸린정=탈니플루메이트370mg
+로더스	LOSARTAN	로사르탄(고혈압)	web_search_2026_07_15	health.kr 로더스정50mg=로사르탄칼륨50mg
+코로자	LOSARTAN_HCTZ	로사르탄/HCT(고혈압)	web_search_2026_07_15	테라젠 코로자플러스=로사르탄50+HCT12.5
+아르칸	MUGWORT_EXTRACT	애엽 에탄올엑스(위염 치료제)	web_search_2026_07_15	태극 아르칸정=애엽95%에탄올연조엑스
+프론드	METHYLPREDNISOLONE	메틸프레드니솔론(부신피질호르몬제)	web_search_2026_07_15	동성 프론드정=메틸프레드니솔론
+엔시드	ACETAMINOPHEN	아세트아미노펜 서방정(해열진통제)	web_search_2026_07_15	한림 엔시드이알서방정650mg=아세트아미노펜
+레보텍	레보드로프로피진	레보드로프로피진(진해제)	web_search_2026_07_15	일화 레보텍정=레보드로프로피진60mg
+엔테론	GRAPE_SEED_EXTRACT	포도씨건조엑스(정맥·림프 부전 개선제)	web_search_2026_07_15	한림 엔테론정150mg=포도씨건조엑스
+듀카브	FIMASARTAN_AMLODIPINE	피마사르탄/암로디핀(고혈압)	general_knowledge_unverified	보령 듀카브30/5=피마사르탄+암로디핀
+듀얼셋	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통제)	web_search_2026_07_15	health.kr 듀얼셋정=아세트아미노펜+트라마돌
+트라칸	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통제)	web_search_2026_07_15	성원애드콕 트라칸정=아세트아미노펜325/트라마돌37.5
+알세틴	LEVOCETIRIZINE	레보세티리진(항히스타민)	web_search_2026_07_15	nedrug 알세틴정=레보세티리진염산염
+지나틴	NIZATIDINE	니자티딘(H2차단 위산분비억제)	web_search_2026_07_15	nedrug 지나틴캡슐=니자티딘
+코데닝	COUGH_COLD_COMBO	디히드로코데인복합(진해거담)	web_search_2026_07_15	종근당 코데닝정=디히드로코데인+메틸에페드린+구아이페네신+클로르페니라민
+칸타칸	CANDESARTAN_HCTZ	칸데사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	칸타칸=칸데사르탄, 16/12.5=+HCTZ
+디발탄	VALSARTAN_HCTZ	발사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	80/12.5, 발탄=발사르탄+HCTZ
+노이겔	ANTACID	규산알루민산마그네슘(제산제)	general_knowledge_unverified	일양노이겔현탁액=규산알루민산마그네슘
+유로셋	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통)	web_search_2026_07_15	nedrug 유로셋정=트라마돌+아세트아미노펜
+진맥톤	GINKGO_LEAF_EXTRACT	은행엽건조엑스(순환개선)	web_search_2026_07_15	한국파마 진맥톤정120mg=은행엽건조엑스
+헤모맘	IRON_SUPPLEMENT	철분제(빈혈)	general_knowledge_unverified	헤모맘=빈혈용 철분보충제
+푸라콩	PIPRINHYDRINATE	피프린히드리네이트(항히스타민)	web_search_2026_07_15	nedrug 푸라콩정=피프린히드리네이트3mg
+유한짓	ISONIAZID	이소니아지드(결핵치료)	web_search_2026_07_15	유한짓정100mg=이소니아지드
+알레린	LEVOCETIRIZINE	레보세티리진(항히스타민)	web_search_2026_07_15	한국콜마 알레린정=레보세티리진염산염5mg
+뉴로탄	LOSARTAN_HCTZ	로사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	뉴로탄=로사르탄, 플러스=+HCTZ
+트라몰	TRAMADOL_ACETAMINOPHEN	트라마돌/아세트아미노펜(진통)	general_knowledge_unverified	325mg=아세트아미노펜, 트라마돌37.5/325 복합
+글로젯	ROSUVASTATIN_EZETIMIBE	로수바스타틴/에제티미브	web_search_2026_07_15	글로젯정=에제티미브10+로수바스타틴10
+미르토	TELMISARTAN_HCTZ	텔미사르탄/HCTZ(고혈압복합)	web_search_2026_07_15	위더스 미르토플러스80/12.5=텔미사르탄+HCTZ
+카비드	CALCIUM_VITAMIN_D	칼슘/비타민D3	web_search_2026_07_15	nedrug 카비드츄어블정=탄산칼슘500mg+콜레칼시페롤400IU
+탈스탑	ANTIDIARRHEAL_COMBO	지사제복합(우르소·베르베린·비스무트)	web_search_2026_07_15	nedrug 탈스탑캡슐=UDCA+스코폴리아+베르베린+차질산비스무트
+레보설	LEVOSULPIRIDE	레보설피리드(소화불량)	web_search_2026_07_15	위더스 레보설정=레보설피리드25mg
+세티진	CETIRIZINE	세티리진(항히스타민)	general_knowledge_unverified	세티진=세티리진 제네릭
+아나클	ACECLOFENAC	아세클로페낙(소염진통)	web_search_2026_07_15	nedrug 아나클정=아세클로페낙
+디핀스	TELMISARTAN_AMLODIPINE	텔미사르탄/암로디핀	general_knowledge_unverified	40/5, 40=텔미사르탄+암로디핀5
+액피오	PIOGLITAZONE	피오글리타존(당뇨)	web_search_2026_07_15	유한 액피오정30mg=피오글리타존염산염
+로자딘	LOSARTAN_HCTZ	로사르탄/HCTZ(고혈압복합)	general_knowledge_unverified	로자딘=로사르탄, 플러스=+HCTZ
+타세놀	ACETAMINOPHEN	아세트아미노펜 서방(해열진통)	general_knowledge_unverified	부광 타세놀이알서방정=아세트아미노펜ER
+코푸진	COUGH_COLD_COMBO	진해거담 복합시럽	general_knowledge_unverified	코푸시럽 계열 감기·기침 복합시럽
+아세젠	ACETAMINOPHEN	아세트아미노펜(해열진통제)	general_knowledge_unverified	뉴젠팜, 아세 접두+해열진통
+레보젠	LEVOSULPIRIDE	레보설피리드(기능성소화불량)	web_search_2026_07_15	레보설피리드25mg, health.kr A11ABBBBB2049
+발디핀	VALSARTAN_AMLODIPINE	발사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	발=valsartan, 디핀=amlodipine, 5/80
+피고셉	DDB_GARLIC_OIL	DDB+마늘유(간장질환용제)	web_search_2026_07_15	마늘유50mg+DDB25mg 간기능개선(고덱스 유사)
+올메텍	OLMESARTAN	올메사르탄(ARB 고혈압)	web_search_2026_07_15	대웅 올메텍=올메사르탄 오리지널
+록솔씨	AMBROXOL_CLENBUTEROL	암브록솔+클렌부테롤(진해거담제)	web_search_2026_07_15	삼아 록솔씨시럽=암브록솔+클렌부테롤, health.kr
+정장생	PROBIOTICS	바실루스리케니포르미스균(생균정장제)	web_search_2026_07_15	아주 정장생캅셀=Bacillus licheniformis, health.kr
+와이젯	ATORVASTATIN_EZETIMIBE	아토르바스타틴+에제티미브(이상지질혈증)	web_search_2026_07_15	아토르바스타틴10.85+에제티미브10, munyak 202100195
+네오덤	BETAMETHASONE_CLOTRIMAZOLE_GENTAMICIN	베타메타손+겐타마이신+클로트리마졸(복합 연고)	web_search_2026_07_15	태극 네오덤크림=베타메타손+겐타마이신+클로트리마졸
+모사린	MOSAPRIDE	모사프리드(위장운동촉진제)	general_knowledge_unverified	모사=mosapride 패턴
+르네신	CHLORPHENESIN_CARBAMATE	클로르페네신카르바메이트(골격근이완제)	web_search_2026_07_15	크라운 르네신정=클로르페네신카르바메이트125mg
+메치론	METHYLPREDNISOLONE	메틸프레드니솔론(부신피질호르몬제)	web_search_2026_07_15	알보젠 메치론정=메틸프레드니솔론
+람노스	PROBIOTICS	락토바실루스카제이 변종 람노수스(생균정장제)	web_search_2026_07_15	제품명에 락토바실루스 카제이 변종 람노수스 명시
+벨라제	BROMELAIN	브로멜라인(소염효소제)	web_search_2026_07_15	유니온 벨라제정45mg=브로멜라인
+노바틴	AMLODIPINE	암로디핀(고혈압)	web_search_2026_07_15	경보 노바틴정=암로디핀베실산염
+가브스	VILDAGLIPTIN	빌다글립틴(DPP-4 억제 당뇨)	general_knowledge_unverified	노바티스 Galvus=빌다글립틴50mg
+디펜쿨	DICLOFENAC	디클로페낙 첩부제(외용 소염진통)	web_search_2026_07_15	신신디펜쿨플라스타=디클로페낙 첩부제
+콘락스	PRIDINOL	프리디놀메실산염(근이완제)	web_search_2026_07_15	nedrug 콘락스정=프리디놀메실산염2mg, 일성
+콩코르	BISOPROLOL	비소프롤롤(베타차단제)	general_knowledge_unverified	콩코르=머크 비소프롤롤 대표 브랜드
+넥스틸	MUGWORT_EXTRACT	애엽에탄올연조엑스(위염 위점막보호제)	web_search_2026_07_15	애엽95%에탄올연조엑스60mg(스티렌 계열)
+글리멜	GLIMEPIRIDE	글리메피리드(당뇨 SU계)	general_knowledge_unverified	글리메=글리메피리드, 동아2mg
+에도날	ERDOSTEINE	에르도스테인(점액용해 거담제)	web_search_2026_07_15	신풍 에도날=에르도스테인300mg
+셀토젯	ATORVASTATIN_EZETIMIBE	아토르바스타틴+에제티미브(이상지질혈증)	web_search_2026_07_15	셀트리온 셀토젯10/10=아토르바스타틴/에제티미브
+코잘탄	LOSARTAN_AMLODIPINE	로사르탄+암로디핀(고혈압 복합제)	general_knowledge_unverified	코잘탄=로사르탄, 엑스5/50=암로디핀5/로사르탄50
+리바젯	ATORVASTATIN_EZETIMIBE	아토르바스타틴+에제티미브(이상지질혈증)	web_search_2026_07_15	팜젠 리바젯10/10=아토르바스타틴/에제티미브
+넥시움	ESOMEPRAZOLE	에소메프라졸(PPI)	general_knowledge_unverified	넥시움=아스트라제네카 에소메프라졸 대표 브랜드
+록스펜	LOXOPROFEN	록소프로펜(NSAID 소염진통제)	web_search_2026_07_15	신풍 록스펜=록소프로펜나트륨60mg
+울디엠	URSODEOXYCHOLIC_ACID	UDCA+DDB(간장약)	web_search_2026_07_15	마더스 울디엠=우르소데옥시콜산+DDB 간기능개선
+마로엘	MAGNESIUM_HYDROXIDE	노회·수산화마그네슘 복합(변비약)	web_search_2026_07_15	조아 마로엘=UDCA+알로에엑스+수산화마그네슘 변비약
+뷰스타	HERBAL_WEIGHT_LOSS	다엽·오르소시폰(비만 보조 생약)	web_search_2026_07_15	조아 뷰스타=다엽가루+오르소시폰가루 체중감량 보조
+엘펙트	ERDOSTEINE	에르도스테인(점액용해 거담제)	web_search_2026_07_15	국제 엘펙트=에르도스테인300mg
+모스쿨	INSECT_BITE_TOPICAL_UNCONFIRMED	외용 항소양·항히스타민액(피부 가려움)	web_search_2026_07_15	경남 모스쿨액=습진·벌레물린데 외용액
+글리메	GLIMEPIRIDE	글리메피리드(당뇨 SU계)	general_knowledge_unverified	글리메=글리메피리드, 셀트리온
+마미폴	FOLIC_ACID	엽산(엽산보충제)	general_knowledge_unverified	마미폴=엽산제(임산부용), 폴=folate
+미로틱	VITAMIN_B_COMPLEX	니코틴산아미드+피리독신(비타민B 보급)	web_search_2026_07_15	조아 미로틱=니코틴산아미드250+피리독신50
+버물리	INSECT_BITE_TOPICAL_UNCONFIRMED	버물리(벌레물림 외용 진양액)	general_knowledge_unverified	디펜히드라민+캄파+멘톨
+더마톱	PREDNICARBATE	더마톱연고(프레드니카르베이트)	general_knowledge_unverified	prednicarbate 0.25% 스테로이드 연고
+시프겔	DICLOFENAC	시프겔(디클로페낙 외용겔)	general_knowledge_unverified	외용 소염진통겔
+혈압계	ELECTRONIC_DEVICE_COMPONENT	혈압계(측정 장비)	general_knowledge_unverified	측정 기기
+에스밀	VITAMIN_D	에스밀주(에르고칼시페롤/비타민D2)	web_search_2026_07_15	비타민D 주사
+코싹엘	LEVOCETIRIZINE	코싹엘정(레보세티리진+슈도에페드린)	web_search_2026_07_15	비염 복합제
+물린디	INSECT_BITE_TOPICAL_UNCONFIRMED	물린디액(벌레물림 외용액)	general_knowledge_unverified	디펜히드라민계
+쿨링겔	INSECT_BITE_TOPICAL_UNCONFIRMED	쿨링겔(멘톨 냉감 외용겔)	general_knowledge_unverified	멘톨계 냉감겔
+아클란	AMOXICILLIN_CLAVULANATE	아클란정(아목시실린+클라불란산)	general_knowledge_unverified	복합 항생제
+레보센	LEVOCETIRIZINE	레보센정(레보세티리진)	web_search_2026_07_15	항히스타민
+파목신	AMOXICILLIN	파목신캅셀(아목시실린)	general_knowledge_unverified	아목시실린 캡슐
+라식스	FUROSEMIDE	라식스정(푸로세미드)	general_knowledge_unverified	이뇨제
+로노펜	DEXIBUPROFEN	로노펜정(덱시부프로펜)	web_search_2026_07_15	NSAID
+투어펜	FLURBIPROFEN	투어펜플라스타(플루르비프로펜 첩부제)	web_search_2026_07_15	플루르비프로펜
+록소닌	LOXOPROFEN	록소닌정(록소프로펜)	general_knowledge_unverified	Loxonin NSAID
+파자임	DIGESTIVE_ENZYME	파자임이중정(복합 소화효소제)	general_knowledge_unverified	복합소화효소
+돔프린	DOMPERIDONE	돔프린정(돔페리돈)	general_knowledge_unverified	소화관운동개선제
+카이잘	LEVOCETIRIZINE	카이잘정(레보세티리진)	web_search_2026_07_15	레보세티리진 5mg
+로마졸	BETAMETHASONE_GENTAMICIN	로마졸크림(베타메타손+겐타마이신)	general_knowledge_unverified	복합 외용제
+뮤테란	ACETYLCYSTEINE	뮤테란캅셀(아세틸시스테인)	general_knowledge_unverified	점액용해제
+디나펜	DICLOFENAC	디나펜플라스타(디클로페낙 첩부제)	general_knowledge_unverified	외용 파스
+세토펜	ACETAMINOPHEN	세토펜정(아세트아미노펜)	general_knowledge_unverified	해열진통제
+슬렌콘	CHLORPHENESIN_CARBAMATE	슬렌콘정(클로르페네신카르바메이트)	web_search_2026_07_15	중추성 근이완제
+쿨스펜	PIROXICAM	쿨스펜겔(피록시캄 외용겔)	web_search_2026_07_15	옥시캄계 외용겔
+아디팜	HYDROXYZINE	아디팜정(히드록시진)	web_search_2026_07_15	히드록시진 10mg
+바이버	ACYCLOVIR	바이버크림(아시클로버)	web_search_2026_07_15	항바이러스 외용
+티로팜	TIROPRAMIDE	티로팜정(티로프라미드)	web_search_2026_07_15	진경제
+헤몰빈	IRON_SUPPLEMENT	헤몰빈큐플러스캡슐(철분제)	general_knowledge_unverified	철분 보충제
+프레벨	BETAMETHASONE_GENTAMICIN	프레벨연고(베타메타손+겐타마이신)	general_knowledge_unverified	복합 외용제
+슈다펜	PSEUDOEPHEDRINE	슈다펜정(슈도에페드린)	web_search_2026_07_15	비충혈제거
+레티신	LEVOCETIRIZINE	레티신정(레보세티리진)	web_search_2026_07_15	항히스타민
+코스카	LOSARTAN	코스카정(로사르탄)	general_knowledge_unverified	ARB
+해소민	COUGH_COLD_COMBO	해소민에스캡슐(진해거담 복합)	web_search_2026_07_15	메칠에페드린+DXM+클로르페니라민
+바메딘	REBAMIPIDE	바메딘정(레바미피드)	web_search_2026_07_15	위점막보호
+슈락스	DIGESTIVE_ENZYME	슈락스골드장용정(복합 소화효소 장용정)	web_search_2026_07_15	판크레아틴 등 복합
+크라몬	AMOXICILLIN_CLAVULANATE	크라몬정(아목시실린+클라불란산)	general_knowledge_unverified	복합 항생제
+아로민	VITAMIN_B_COMPLEX	아로민필름코팅정(활성비타민 B군)	web_search_2026_07_15	푸르설티아민+B군
+악트본	RISEDRONATE	악트본정(리세드론산나트륨)	general_knowledge_unverified	골다공증
+티로파	TIROPRAMIDE	티로파정(티로프라미드)	web_search_2026_07_15	진경제
+핀베린	PINAVERIUM_BROMIDE	핀베린정(피나베륨브롬화물)	web_search_2026_07_15	과민성대장
+발크림	SKINCARE_COSMETIC_TOPICAL	발크림(풋크림)	general_knowledge_unverified	비의약 스킨케어
+알게나	ALMAGATE	알게나정(알마게이트)	web_search_2026_07_15	제산제
+아페손	EPERISONE	아페손정(에페리손)	web_search_2026_07_15	근이완제
+레프진	레보드로프로피진	레프진정(레보드로프로피진 추정)	unresolved	상세 미확인
+엘도인	ERDOSTEINE	엘도인캡슐(에르도스테인)	general_knowledge_unverified	거담
+에릭슨	EPERISONE	에릭슨정(에페리손)	general_knowledge_unverified	근이완제
+에페리	EPERISONE	에페리정(에페리손)	general_knowledge_unverified	근이완제
+세리텍	CETIRIZINE	세리텍정(세티리진)	web_search_2026_07_15	항히스타민
+엔딕스	BETAMETHASONE_GENTAMICIN	엔딕스크림(스테로이드 복합 외용)	general_knowledge_unverified	스테로이드연고
+모사탄	MOSAPRIDE	모사탄정(모사프리드)	web_search_2026_07_15	위장운동촉진
+스토마	MUGWORT_EXTRACT	스토마정(애엽 연조엑스 위염치료제)	web_search_2026_07_15	위점막보호 생약
+테나롤	ATENOLOL	테나롤정(아테놀롤)	web_search_2026_07_15	베타차단제
+데이밀	MEDICAL_NUTRITION_FORMULA	뉴케어 데이밀(식사대용 영양식)	web_search_2026_07_15	단백질 식사대용
+에렉신	EPERISONE	에렉신정(에페리손)	web_search_2026_07_15	근이완제
+AST	CLINICAL_CHEMISTRY_TEST	AST(간효소) 검사	general_knowledge_unverified	임상화학검사
+제통고	METHYL_SALICYLATE	제통고 카타플라스마(한방 첩부)	general_knowledge_unverified	한방 파스
+플라톱	KETOPROFEN	플라톱플라스타(케토프로펜)	web_search_2026_07_15	케토프로펜 첩부제
+메디웰	MEDICAL_NUTRITION_FORMULA	메디웰(균형영양식)	general_knowledge_unverified	경관/경구 영양식
+아기오	PSYLLIUM_HUSK	아기오과립(차전자피)	general_knowledge_unverified	팽창성 완하제
+ALT	CLINICAL_CHEMISTRY_TEST	ALT(간효소) 검사	general_knowledge_unverified	임상화학검사
+레보틸	LEVOSULPIRIDE	레보틸정(레보설피리드)	general_knowledge_unverified	명문제약 소화기 도파민길항제
+소론도	PREDNISOLONE	소론도정(프레드니솔론)	general_knowledge_unverified	부신피질호르몬제
+니코젠	NICOTINE_REPLACEMENT	니코젠 로젠즈(니코틴)	web_search_2026_07_15	금연보조 니코틴 로젠즈
+넥워머	APPAREL_TEXTILE	넥워머(의류)	general_knowledge_unverified	비의약품 의류
+유크라	AMOXICILLIN_CLAVULANATE	유크라정(아목시실린/클라불란산)	general_knowledge_unverified	페니실린 복합항생제
+PZA	PYRAZINAMIDE	피라진아미드(항결핵제)	general_knowledge_unverified	결핵 1차 약제
+이브펜	IBUPROFEN	이브펜정(이부프로펜)	general_knowledge_unverified	해열소염진통제
+다제스	DIGESTIVE_ENZYME	다제스캅셀(소화효소제)	general_knowledge_unverified	복합소화효소
+알맥스	ALMAGATE	알맥스정(알마게이트)	general_knowledge_unverified	제산제
+슈퍼셋	TRAMADOL_ACETAMINOPHEN	슈퍼셋정(트라마돌/아세트아미노펜)	web_search_2026_07_15	복합진통제
+유락신	CROTAMITON	유락신연고(크로타미톤)	web_search_2026_07_15	옴·소양증 연고
+식염수	SODIUM_CHLORIDE	식염수(염화나트륨)	general_knowledge_unverified	생리식염수
+실마진	SILVER_SULFADIAZINE	실마진크림(설파디아진은)	general_knowledge_unverified	화상용 항균크림
+리피칸	ATORVASTATIN	리피칸정(아토르바스타틴)	general_knowledge_unverified	스타틴 계열
+당스틱	BLOOD_GLUCOSE_TEST_STRIP	당스틱(혈당 검사지)	general_knowledge_unverified	혈당측정 스트립
+글루톡	GLUTATHIONE	글루톡(글루타치온)	web_search_2026_07_15	글루타치온 보충제
+채변봉	SPECIMEN_CONTAINER	채변봉(대변 채취용)	general_knowledge_unverified	검체 채취 소모품
+삐꼼	VITAMIN_B_COMPLEX	비타민B복합+C(종합비타민)	general_knowledge_unverified	삐콤/삐꼼=대표 비타민B복합제 계열
+록펜	LOXOPROFEN	록펜정(록소프로펜)	web_search_2026_07_15	록소프로펜
+철분	IRON_SUPPLEMENT	철분35(철분 보충제)	general_knowledge_unverified	철분 보충제
+콜킨	COLCHICINE	콜킨정(콜히친)	general_knowledge_unverified	콜히친 통풍약
+폴원	FOLIC_ACID	엽산 등 임신준비 영양제(추정)	unresolved	(남녀)연질캡슐, 엽산/영양보충 추정
+폴가	FOLIC_ACID	엽산(추정)	general_knowledge_unverified	폴~=엽산 계열 추정, 마더스제약
+목틴	ACETYLCYSTEINE	아세틸시스테인(진해거담제)	web_search_2026_07_15	한미 목틴캡슐200mg=아세틸시스테인
+랙스	GLIMEPIRIDE	글리메피리드(당뇨병약)	web_search_2026_07_15	nedrug 삼남 랙스정2mg=글리메피리드
+록솔	AMBROXOL	암브록솔(진해거담)	web_search_2026_07_15	삼아 록솔정30mg=암브록솔염산염
+산소	FUEL	의료용 산소(가스)	general_knowledge_unverified	산소(전업소), 의료용 산소가스
+모렘	DOMPERIDONE	돔페리돈(위장운동촉진제)	web_search_2026_07_15	위더스 모렘정=돔페리돈말레산염, health.kr
+코슈	PSEUDOEPHEDRINE	슈도에페드린(비충혈제거제)	web_search_2026_07_15	코오롱 코슈정=슈도에페드린염산염60mg
+카엘	COUGH_COLD_COMBO	아세트아미노펜+에페드린 복합(감기약)	web_search_2026_07_15	조아 카엘정=에페드린13+아세트아미노펜200+카페인10
+젠텔	ALBENDAZOLE	젠텔정400mg(알벤다졸)	general_knowledge_unverified	Zentel 구충제
+씨펜	LEVOCETIRIZINE	씨펜정(레보세티리진)	web_search_2026_07_15	항히스타민
+질경	MEDICAL_SUPPLY_MISC	일회용 질경(speculum)	general_knowledge_unverified	부인과 검사기구
+아섹	ACECLOFENAC	아섹정(아세클로페낙)	web_search_2026_07_15	NSAID
+맥씨	LEVOCETIRIZINE	맥씨정(레보세티리진)	web_search_2026_07_15	항히스타민
+디펜	DICLOFENAC	디펜겔(디클로페낙 외용)	web_search_2026_07_15	디클로페낙나트륨
+쏠라	ASCORBIC_ACID	쏠라씨(비타민C)	general_knowledge_unverified	비타민C 보충제
+Hb	HEMOGLOBIN_TEST_STRIP	Hb301 큐벳(혈색소 측정)	general_knowledge_unverified	HemoCue Hb301 혈색소 큐벳
