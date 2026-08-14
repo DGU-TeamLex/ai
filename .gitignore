@@ -87,6 +87,10 @@ outputs/*
 !outputs/procurement_lead_time_by_item.csv
 !outputs/quantile_lead_time_recommendation.csv
 !outputs/material_hs_mapping_candidates.csv
+!outputs/material_mapping_standard_axis.csv
+!outputs/material_mapping_standard_axis_conflicts.csv
+!outputs/item_criticality_abc.csv
+!outputs/item_ved_review_list.csv
 !outputs/adaptive_lead_time_recommendation.csv
 !outputs/hs_trade_risk_features.csv
 !outputs/news_price_volatility_test.csv
