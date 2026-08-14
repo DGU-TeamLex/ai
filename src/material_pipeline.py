@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -379,6 +380,60 @@ def validate_material_pipeline_output(
     }
 
 
+class BashNotFound(RuntimeError):
+    """POSIX bash 를 찾지 못했다."""
+
+
+# Git for Windows 가 설치되는 자리. 여기 있는 것이 진짜 POSIX bash 다.
+_GIT_BASH_CANDIDATES = (
+    r"C:\Program Files\Git\usr\bin\bash.exe",
+    r"C:\Program Files\Git\bin\bash.exe",
+    r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+)
+
+
+def _resolve_bash() -> str:
+    """실행할 bash 의 **전체 경로** 를 준다.
+
+    `subprocess.run(["bash", ...])` 처럼 이름만 넘기면 Windows 에서 엉뚱한 것이
+    잡힌다. `CreateProcess` 의 탐색 순서가 PATH 보다 System32 를 먼저 보기
+    때문이다. 실측하면 이렇다.
+
+        shutil.which("bash")  ->  C:\\Program Files\\Git\\usr\\bin\\bash.EXE   (PATH 기준)
+        실제 실행된 것          ->  C:\\Windows\\System32\\bash.exe            (WSL 런처)
+
+    System32 의 것은 WSL 진입점이라 배포판이 없으면 이렇게 죽는다.
+
+        WSL (9 - Relay) ERROR: CreateProcessCommon:818:
+        execvpe(/bin/bash) failed: No such file or directory
+
+    `test_material_pipeline` 3건이 이 이유로 실패하고 있었다. 스크립트가 틀린
+    것도 파이프라인이 깨진 것도 아니었다.
+
+    `BASH` 환경변수로 직접 지정할 수 있다. 지정이 없으면 Git for Windows 경로를
+    먼저 보고, 그다음 PATH 를 본다. WSL 런처는 걸러낸다.
+
+    리눅스·맥에서는 후보 경로가 없으므로 바로 `shutil.which` 로 내려가고,
+    거기 있는 bash 는 System32 검사에 걸리지 않는다.
+    """
+    override = os.environ.get("BASH", "").strip()
+    if override:
+        return override
+
+    for candidate in _GIT_BASH_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+
+    found = shutil.which("bash")
+    if found and "system32" not in found.replace("/", "\\").lower():
+        return found
+
+    raise BashNotFound(
+        "POSIX bash 를 찾지 못했다. Git for Windows 를 설치하거나 BASH 환경변수로 "
+        f"경로를 지정하라. (shutil.which 결과: {found!r})"
+    )
+
+
 def run_material_pipeline(
     input_path: Path = ITEM_PRODUCT_WORKLIST_PATH,
     output_dir: Path = ITEM_MATERIAL_OUTPUT_DIR,
@@ -406,7 +461,7 @@ def run_material_pipeline(
     env["PIPE_SKIP_EXCEL"] = "0" if with_excel else "1"
     LOGGER.info("Running combined item material candidate pipeline: %s", prepared_path)
     subprocess.run(
-        ["bash", str(run_script), str(prepared_path), str(output_dir)],
+        [_resolve_bash(), str(run_script), str(prepared_path), str(output_dir)],
         check=True,
         env=env,
     )
