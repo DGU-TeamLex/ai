@@ -331,18 +331,47 @@ class NewsCollectorTest(unittest.TestCase):
         pd.testing.assert_frame_equal(news, cached)
 
     @patch("src.news.news_collector._request_gdelt_articles")
-    def test_gdelt_combined_mode_uses_one_request_per_month(self, request_articles):
+    def test_gdelt_combined_mode_is_rejected(self, request_articles):
+        """combined 는 GDELT 가 질의 길이로 항상 거부하므로 제거했다(ai#22).
+
+        조용히 split 으로 넘기면 설정한 사람이 combined 로 돌아간다고 믿은 채
+        다른 결과를 받는다. 명시적으로 실패해야 한다.
+        """
         request_articles.return_value = []
 
-        news = collect_gdelt_news(
-            "2024-01-01",
-            "2024-01-31",
-            request_delay_seconds=0,
-            query_mode="combined",
-        )
+        with self.assertRaises(ValueError) as caught:
+            collect_gdelt_news(
+                "2024-01-01",
+                "2024-01-31",
+                request_delay_seconds=0,
+                query_mode="combined",
+            )
 
-        self.assertEqual(request_articles.call_count, 1)
-        self.assertTrue(news.empty)
+        self.assertIn("combined", str(caught.exception))
+        self.assertEqual(request_articles.call_count, 0)
+
+    @patch("src.news.news_collector.urlopen")
+    def test_query_length_rejection_is_not_retried(self, urlopen_mock):
+        """질의 길이 초과는 재시도해도 달라지지 않는다.
+
+        종전에는 GDELTTransientResponseError 로 잡혀 재시도를 그대로 소진했다.
+        """
+        from src.news.news_collector import GDELTPermanentQueryError
+
+        response = io.BytesIO(b"Your query was too short or too long.")
+        response.__enter__ = lambda self_=response: self_
+        response.__exit__ = lambda *_: False
+        urlopen_mock.return_value = response
+
+        with self.assertRaises(GDELTPermanentQueryError):
+            _request_gdelt_articles(
+                "q",
+                pd.Timestamp("2024-01-01"),
+                pd.Timestamp("2024-01-31"),
+                250,
+            )
+
+        self.assertEqual(urlopen_mock.call_count, 1)
 
     def test_english_supply_news_is_classified(self):
         analysis = analyze_news_row(

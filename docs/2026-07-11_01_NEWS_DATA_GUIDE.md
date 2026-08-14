@@ -73,9 +73,8 @@ GDELT는 글로벌 기사 검색과 전체 기사 대비 보도량 정규화에 
 ## GDELT 수집
 
 GDELT DOC API는 API 키 없이 사용할 수 있습니다. 수집기는 긴 기간을 월 단위로
-나누며, 운영 기본인 `combined` 모드는 감염병·의료물품·원자재 위험 후보를 월 1회
-조회한 뒤 로컬 분석기가 사건 유형을 분류합니다. `split` 모드는 세 카테고리를
-각각 조회해 후보 다양성은 높지만 요청량이 3배입니다. 결과는 `NEWS_DATA_PATH`에
+나누며, **`split` 모드만 지원합니다** — 감염병·의료물품·원자재 세 카테고리를 각각
+조회한 뒤 로컬 분석기가 사건 유형을 분류합니다. 결과는 `NEWS_DATA_PATH`에
 캐시되며 `NEWS_REFRESH=true`일 때만 다시 수집합니다. 호출 제한이 발생하면 자동으로
 대기 후 재시도하고, 월·쿼리별 체크포인트에서 이어서 수집합니다.
 
@@ -86,7 +85,7 @@ NEWS_START_DATE=2018-01-01
 NEWS_END_DATE=2025-12-31
 NEWS_REFRESH=false
 GDELT_MAX_RECORDS=250
-GDELT_QUERY_MODE=combined
+GDELT_QUERY_MODE=split
 GDELT_REQUEST_DELAY_SECONDS=5.0
 GDELT_MAX_RETRIES=8
 GDELT_RATE_LIMIT_BACKOFF_SECONDS=30.0
@@ -94,9 +93,38 @@ GDELT_MAX_BACKOFF_SECONDS=300.0
 ```
 
 기사 목록은 한 요청에 최대 250건이므로 캐시는 전체 뉴스 모집단이 아니라 위험 기사
-후보군입니다. `combined` 모드는 호출 안정성을 우선하며, 카테고리별 상한 250건이
-필요한 연구 수집에서는 `split`을 사용합니다. 전체 기사 대비 보도량 정규화 데이터는
-별도 단계에서 GDELT timeline volume으로 수집합니다.
+후보군입니다. 전체 기사 대비 보도량 정규화 데이터는 별도 단계에서 GDELT timeline
+volume으로 수집합니다.
+
+### `combined` 모드는 제거되었습니다 (ai#22)
+
+요청 수를 72 → 24로 줄이려고 세 카테고리를 하나의 OR 질의로 합쳤으나, GDELT가
+**첫 요청부터** 질의 길이 초과로 거부합니다.
+
+```
+Your query was too short or too long.
+
+combined  risk_candidate   261자  → 거부
+split     raw_material     172자  → 정상
+```
+
+rate limit이 아니라 질의 구성 문제라 재시도해도 풀리지 않습니다. 도달은 하지만
+항상 실패하는 경로였으므로 삭제했고, `GDELT_QUERY_MODE=combined`를 지정하면
+조용히 `split`으로 넘어가지 않고 **명시적으로 `ValueError`가 발생합니다**.
+
+키워드를 임의로 쳐내 길이를 줄이는 방식은 택하지 않았습니다. recall 평가 없이
+줄이면 수집 대상이 조용히 작아집니다. 고정 2분할도 최종 규칙으로 두지 않습니다.
+후속 과제는 감염병·의료용품·원자재라는 **감사 가능한 의미 축은 유지한 채**, 각
+카테고리 내부의 OR 검색어를 검증 가능한 크기의 여러 `query_id`로 **동적 분할**하는
+것입니다.
+
+질의 길이 거부는 `GDELTPermanentQueryError`로 분리되어 **재시도하지 않습니다**.
+종전에는 `GDELTTransientResponseError`로 잡혀 재시도 횟수를 그대로 소진했습니다.
+429·5xx·timeout만 backoff 대상입니다.
+
+> GDELT 공식 문서에 정확한 문자 수 상한이 명시되어 있지 않습니다. 위 261/172는
+> 재현된 관측이지 시스템 계약이 아닙니다. URL 인코딩 길이와 연산자 구성도
+> 영향을 줍니다. 참고: <https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/>
 
 기존 DOC API가 지속적으로 `429`를 반환하면 `gdelt_ngram` 공급자를 사용합니다. 이
 공급자는 GDELT가 공개한 최신 Web NGrams 파일과 기사 TOC를 내려받고, 주제어와 위험
