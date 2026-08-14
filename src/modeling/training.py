@@ -241,27 +241,42 @@ def select_feature_columns(
     return [col for col in df.columns if col not in excluded and not col.endswith("_pred")]
 
 
+def production_lgbm_params(objective: str) -> dict:
+    """운영 LightGBM 파라미터의 단일 정의.
+
+    튜닝 코드가 "현재 운영 baseline" 을 자체 정의하면 계약이 어긋난다.
+    실제로 tuner 가 `subsample_freq=1` 을 넣는 바람에, 운영에서는 기본값 0 이라
+    `subsample=0.9` 가 비활성인 상태와 비교가 되지 않았다(ai#60 리뷰 2번).
+    baseline 은 반드시 이 함수를 통해서만 만든다.
+
+    주의: `subsample_freq` 는 여기서 지정하지 않는다. LightGBM 기본값 0 이므로
+    `subsample` 은 실제로 적용되지 않으며, 이것이 현행 운영 동작이다.
+    """
+    parameters = {
+        "objective": objective,
+        "n_estimators": 160,
+        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "min_child_samples": 100,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 0.1,
+        "random_state": RANDOM_STATE,
+        "n_jobs": 4,
+        "force_col_wise": True,
+        "histogram_pool_size": 256,
+        "verbosity": -1,
+    }
+    if objective == "tweedie":
+        parameters["tweedie_variance_power"] = 1.3
+    return parameters
+
+
 def _build_estimator(objective: str):
     try:
         from lightgbm import LGBMRegressor
 
-        parameters = {
-            "objective": objective,
-            "n_estimators": 160,
-            "learning_rate": 0.05,
-            "num_leaves": 31,
-            "min_child_samples": 100,
-            "subsample": 0.9,
-            "colsample_bytree": 0.9,
-            "reg_lambda": 0.1,
-            "random_state": RANDOM_STATE,
-            "n_jobs": 4,
-            "force_col_wise": True,
-            "histogram_pool_size": 256,
-            "verbosity": -1,
-        }
-        if objective == "tweedie":
-            parameters["tweedie_variance_power"] = 1.3
+        parameters = production_lgbm_params(objective)
         return LGBMRegressor(**parameters), f"lightgbm_{objective}"
     except ImportError:
         loss = "poisson" if objective in {"poisson", "tweedie"} else "absolute_error"

@@ -343,7 +343,25 @@ VALID_START = "2025-01"
 VALID_END = "2025-06"
 TEST_START = "2025-07"
 
+# 롤링 원점(rolling-origin) 검증. 각 fold 는 자기 train_end 이후만 평가하므로
+# 미래 정보 누출이 없다. fold 폭은 3개월로 통일하고, 검증 총구간을 6개월(2 fold)에서
+# 12개월(4 fold)로 넓혔다 — fold 수가 적으면 WAPE 차이가 특정 분기의 계절성에
+# 좌우되어 튜닝 결과가 그 분기에 과적합된다(Bergmeir & Benitez 2012,
+# "On the use of cross-validation for time series predictor evaluation",
+# Information Sciences 191:192-213).
 VALIDATION_FOLDS = [
+    {
+        "fold": "2024_q3",
+        "train_end": "2024-06",
+        "valid_start": "2024-07",
+        "valid_end": "2024-09",
+    },
+    {
+        "fold": "2024_q4",
+        "train_end": "2024-09",
+        "valid_start": "2024-10",
+        "valid_end": "2024-12",
+    },
     {
         "fold": "2025_q1",
         "train_end": "2024-12",
