@@ -1,4 +1,41 @@
+import re
+
 import pandas as pd
+
+
+# 기사 제목·요약에서 국가를 찾는다. 코드는 관세청 country_code 와 맞춘다.
+#
+# GDELT 수집분은 country 컬럼이 전량 "Unknown" 이라 모든 기사가 같은 국가
+# 가중치를 받았다. 그러면 우리 조달과 무관한 나라의 사건이 같은 무게로 들어온다.
+# 실측상 미국 사건이 146건으로 가장 많은데 실제 수입 비중은 0.25% 다.
+#
+# 조달 비중이 큰 나라를 앞에 둔다. 한 기사에 여러 나라가 나오면 앞선 것을 쓴다.
+COUNTRY_PATTERNS = [
+    ("BH", r"bahrain"),
+    ("CN", r"china|chinese"),
+    ("AE", r"\buae\b|emirates|dubai|abu dhabi"),
+    ("OM", r"\boman\b"),
+    ("QA", r"qatar"),
+    ("SG", r"singapore"),
+    ("JP", r"japan|japanese"),
+    ("TH", r"thailand|thai\b"),
+    ("DE", r"germany|german\b"),
+    ("VN", r"vietnam"),
+    ("NL", r"netherlands|dutch"),
+    ("MY", r"malaysia"),
+    ("KR", r"korea|korean|한국|국내"),
+    ("US", r"united states|u\.s\.|\bus\b|american"),
+]
+COUNTRY_REGEX = [(code, re.compile(pattern, re.IGNORECASE)) for code, pattern in COUNTRY_PATTERNS]
+
+
+def _detect_country(row: pd.Series) -> str | None:
+    """제목·요약에서 조달 상대국을 찾는다. 못 찾으면 None."""
+    text = f"{row.get('title', '') or ''} {row.get('summary', '') or ''}"
+    for code, pattern in COUNTRY_REGEX:
+        if pattern.search(text):
+            return code
+    return None
 
 
 def _result(
@@ -36,7 +73,7 @@ def _result(
 def analyze_news_row(row: pd.Series) -> dict:
     title = str(row.get("title", "") or "").lower()
     text = f"{title} {row.get('summary', '')}".lower()
-    country = row.get("country") or "Unknown"
+    country = _detect_country(row) or row.get("country") or "Unknown"
 
     infectious_keywords = [
         "독감",
