@@ -28,7 +28,7 @@ from ..config import (
 from ..feature_engineering import run_feature_engineering
 from ..material_mapping import attach_approved_material_mapping_metadata
 from ..trade.trade_inventory_impact import write_trade_inventory_impact
-from ..utils import ensure_dirs, setup_logging
+from ..utils import guard_not_empty, ensure_dirs, setup_logging
 from .baseline import BASELINE_PREDICTION_COLUMNS, add_baseline_predictions
 from .classified_prediction import write_classified_prediction_outputs
 from .data_quality import attach_standardization_metadata
@@ -503,6 +503,8 @@ def run_prediction() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
     backtest, current_forecast = build_prediction_outputs()
+    guard_not_empty(backtest, BACKTEST_PREDICTION_PATH, "백테스트 예측")
+    guard_not_empty(current_forecast, PREDICTION_PATH, "현재 예측")
     backtest.to_csv(BACKTEST_PREDICTION_PATH, index=False)
     current_forecast.to_csv(PREDICTION_PATH, index=False)
     write_classified_prediction_outputs(current_forecast)

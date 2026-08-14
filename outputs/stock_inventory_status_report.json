@@ -1,0 +1,59 @@
+{
+  "version": "inventory-status-v1.1",
+  "generated_from_latest_data_month": "2025-12",
+  "generated_from_latest_data_date": "2025-12-31",
+  "series_count": 416128,
+  "raw_nonpositive_stock_count": 10910,
+  "classification_approved_count": 5142,
+  "classification_coverage": 0.012356774838511227,
+  "zero_stock_reason_counts": {
+    "STALE_OR_MISSING_OBSERVATION": 252899,
+    "IN_STOCK": 152319,
+    "TRUE_STOCKOUT": 5466,
+    "NOT_OPERATED": 4864,
+    "DATA_MISSING": 580
+  },
+  "inventory_action_counts": {
+    "FILTERED_DORMANT": 189791,
+    "OK": 110577,
+    "REVIEW_STALE_OR_MISSING_OBSERVATION": 109714,
+    "REVIEW_CLASSIFICATION": 4528,
+    "MONITOR_NO_RECENT_DEMAND": 920,
+    "REVIEW_DATA_QUALITY": 580,
+    "URGENT_SHORTAGE": 17,
+    "COVERED_BY_APPROVED_EQUIVALENT_STOCK": 1
+  },
+  "urgent_shortage_count": 17,
+  "dormant_demand_count": 189791,
+  "recent_data_quality_alert_count": 508,
+  "exact_group_stock_suppression_count": 1,
+  "broad_family_stock_display_only_count": 2340,
+  "document_rule_violation_rows": 55039,
+  "physical_rule_violation_rows": 51536,
+  "opening_stock_missing_rows": 0,
+  "ledger_balance_violation_rows": 8,
+  "urgent_candidate_reduction_vs_raw_nonpositive": 0.998441796516957,
+  "urgent_candidate_funnel": {
+    "raw_nonpositive": 10910,
+    "true_stockout_with_recent_demand": 4546,
+    "approved_forecastable": 18,
+    "suppressed_by_exact_group_stock": 1,
+    "urgent_shortage": 17
+  },
+  "candidate_reduction_is_accuracy_metric": false,
+  "group_suppression_scope": "approved institution + family + subtype + specification + unit",
+  "broad_family_grouping_is_display_only": true,
+  "pdf_reference_counts_reused_as_measured_results": false,
+  "daily_demand_parameter_method": "mu=sum(q)/T; sigma=sqrt(sum(q^2)/T-mu^2); missing days are zero",
+  "daily_demand_parameter_floors": {
+    "mean_daily_usage": 0.0,
+    "daily_demand_stddev": 0.0
+  },
+  "demand_floor_application_counts": {
+    "mean_daily_usage": 0,
+    "daily_demand_stddev": 0
+  },
+  "negative_normal_outbound_handling": "exclude_from_demand_moments",
+  "approved_classification_rows": 4969,
+  "ignored_unapproved_classification_rows": 0
+}

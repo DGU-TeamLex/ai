@@ -287,15 +287,43 @@ def build_commodity_risk_outputs(
 
     for column in ["transmission_weight", "proxy_quality", "mapping_weight", "exposure_score"]:
         merged[column] = pd.to_numeric(merged[column], errors="coerce").fillna(0.0).clip(0, 1)
-    merged["path_weight"] = merged[
-        [
-            "transmission_weight",
-            "proxy_quality",
-            "mapping_weight",
-            "exposure_score",
-            "mapping_confidence_score",
-        ]
-    ].prod(axis=1)
+    # 신뢰도 5종을 **기하평균** 으로 결합한다. 곱셈이 아니다.
+    #
+    # 종전에는 .prod(axis=1) 이었고 실측 분포가 이렇다.
+    #   transmission_weight        중앙 0.400
+    #   proxy_quality              중앙 0.600
+    #   mapping_weight             중앙 0.350
+    #   exposure_score             중앙 0.350
+    #   mapping_confidence_score   중앙 0.650
+    #   → path_weight              중앙 0.0195  최대 0.1625   (1/51 로 붕괴)
+    #
+    # 각 항이 다 타당한 값인데 다섯 번 곱해서 2% 로 주저앉는다. 그 결과
+    # market_factor_risk(중앙 0.282)가 살아 있어도 risk_contribution 은
+    # 0.0065 가 되고, commodity_risk 는 최대 0.105 에서 막힌다.
+    # module_c_supply_risk 에서 이 항의 가중치가 0.35 인데 기여 상한이
+    # 0.037 이라 사실상 상수 0 을 곱하는 것과 같았다.
+    #
+    # 기하평균은 "모든 조건이 동시에 충족되어야 한다"는 곱셈의 의미(약한 고리
+    # 하나가 전체를 낮춤)를 보존하면서 항 개수에 따라 값이 붕괴하지 않는다.
+    # 뉴스 점수에서 같은 결함(가중치 10개 곱셈 → 0.5^10)을 같은 방식으로
+    # 고쳐 0.19 → 0.95 로 정상화한 선례가 있다(ai#20 결함 K).
+    #
+    # 항이 하나라도 0 이면 기하평균도 0 이다. 경로가 끊긴 것이므로 의도한 동작이다.
+    confidence_terms = [
+        "transmission_weight",
+        "proxy_quality",
+        "mapping_weight",
+        "exposure_score",
+        "mapping_confidence_score",
+    ]
+    terms = merged[confidence_terms].to_numpy(dtype=float)
+    with np.errstate(divide="ignore"):
+        log_terms = np.log(np.where(terms > 0.0, terms, np.nan))
+    merged["path_weight"] = np.where(
+        (terms <= 0.0).any(axis=1),
+        0.0,
+        np.exp(np.nanmean(log_terms, axis=1)),
+    )
     merged["risk_contribution"] = (
         merged["market_factor_risk"] * merged["path_weight"]
     ).clip(0, 1)
@@ -362,10 +390,32 @@ def score_commodity_risk() -> pd.DataFrame:
     return scores
 
 
+class EmptyCommodityScoring(RuntimeError):
+    """산출이 비었다. 기존 파일을 덮어쓰지 않고 중단한다."""
+
+
 def run_commodity_risk_scoring() -> None:
+    """원자재 위험 점수를 산출해 저장한다. **산출이 비면 저장하지 않는다.**
+
+    실측 사고(2026-08-13): `.env` 의 `COMMODITY_REFRESH=true` 때문에 캐시 대신
+    Alpha Vantage 재수집이 돌았고, 그 응답이 0행이었다. 그런데도 to_csv 가
+    그대로 실행되어 1.5GB 짜리 감사 파일이 헤더만 남고 날아갔다.
+
+    빈 산출은 정상 결과가 아니라 상류 실패의 징후다. 덮어쓰기 전에 막는다.
+    합성 뉴스 차단(ai#22)과 같은 fail-closed 원칙이다.
+    """
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
     scores, audit = build_commodity_risk_outputs()
+
+    if scores.empty or audit.empty:
+        raise EmptyCommodityScoring(
+            f"산출이 비었다(점수 {len(scores)}행 / 감사 {len(audit)}행). "
+            "기존 파일을 보존하고 중단한다. "
+            "가격 캐시가 살아 있는지, COMMODITY_REFRESH 로 원격 재수집이 걸려 "
+            "빈 응답을 받은 것은 아닌지 확인하라."
+        )
+
     scores.to_csv(COMMODITY_RISK_SCORE_PATH, index=False)
     audit.to_csv(COMMODITY_RISK_AUDIT_PATH, index=False)
     LOGGER.info("Saved commodity risk scores: %s (%s rows)", COMMODITY_RISK_SCORE_PATH, len(scores))

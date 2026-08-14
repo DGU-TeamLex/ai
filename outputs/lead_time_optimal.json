@@ -1,0 +1,50 @@
+{
+  "2024-25": {
+    "label": "2024-25",
+    "samples": 93101,
+    "items": 8796,
+    "overall": {
+      "p10": 3.0,
+      "p25": 11.0,
+      "p50": 35.0,
+      "p75": 96.0,
+      "p90": 197.0
+    },
+    "mean": 69.7,
+    "max": 365,
+    "items_with_5plus_samples": 3619,
+    "item_level": {
+      "reliable_items": 3619,
+      "median_of_medians": 34.0,
+      "median_of_p25": 13.8,
+      "median_of_p10": 5.8
+    }
+  },
+  "2018-19": {
+    "label": "2018-19",
+    "samples": 37679,
+    "items": 5501,
+    "overall": {
+      "p10": 2.0,
+      "p25": 8.0,
+      "p50": 28.0,
+      "p75": 78.0,
+      "p90": 176.0
+    },
+    "mean": 60.3,
+    "max": 365,
+    "items_with_5plus_samples": 2153,
+    "item_level": {
+      "reliable_items": 2153,
+      "median_of_medians": 29.0,
+      "median_of_p25": 11.5,
+      "median_of_p10": 4.8
+    }
+  },
+  "cross_period": {
+    "common_items": 1831,
+    "correlation": 0.079,
+    "median_1819": 30.0,
+    "median_2425": 37.0
+  }
+}

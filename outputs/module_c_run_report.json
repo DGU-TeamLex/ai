@@ -1,0 +1,56 @@
+{
+  "module": "C",
+  "config_version": "module-c-v1.4-trade20-temporal",
+  "calibration_status": "20_country_train_validation_test_stockout_proxy_calibrated_requires_operational_validation",
+  "coefficient_basis": "trade_component_thresholds_from_20_country_quantiles_and_weights_selected_on_validation_then_evaluated_on_test",
+  "risk_score_count": 5743840,
+  "risk_adjustment_enabled_count": 5743840,
+  "alert_count": 2582991,
+  "approved_material_mapping_rows": 82947,
+  "approved_material_stock_item_count": 54511,
+  "approved_material_mapping_versions": [
+    "item-material-bulk-v1.0"
+  ],
+  "trade_signal_score_rows": 1104641,
+  "trade_signal_stock_item_count": 130598,
+  "trade_signal_enabled_count": 1104641,
+  "module_c_audit_scope": "latest_scored_month_signal_snapshot",
+  "exposure": {
+    "approved_classification_count": 409519,
+    "classification_with_representative_count": 409519,
+    "candidate_count": 623408,
+    "official_material_claim_approved_count": 0,
+    "candidate_local_item_count": 409519,
+    "market_factor_covered_count": 216233,
+    "material_review_approved_count": 0,
+    "family_conflict_count": 435124,
+    "supply_policy_review_count": 249835,
+    "supply_policy_review_local_item_count": 172238,
+    "supply_policy_unmapped_count": 249835,
+    "supply_policy_unmapped_local_item_count": 172238,
+    "operational_risk_eligible_count": 0,
+    "blocked_reason": "material_candidates_require_explicit_review_before_inventory_adjustment"
+  },
+  "supply_risk_quality": {
+    "rules_version": "supply-risk-anomaly-rules-v1.0",
+    "policy_version": "supply-risk-level-v1.3-periodic-review",
+    "operational_mode": false,
+    "input_rows": 409519,
+    "pass_rows": 12996,
+    "review_rows": 224285,
+    "blocked_rows": 172238,
+    "operationally_eligible_rows": 12996,
+    "row_issue_counts": {
+      "SR003_UNMAPPED_META_CODE": 172238,
+      "SR018_LEGACY_CODE_ALIAS_USED": 200430,
+      "SR019_NON_SUPPLY_CODE_IN_BASELINE": 152418
+    },
+    "dataset_issue_codes": [],
+    "dataset_quality_status": "PASS",
+    "batch_release_allowed": false,
+    "sample_requested_rows": 1000,
+    "sample_rows": 1000,
+    "sample_unique_representative_items": 1000,
+    "sample_selection_basis": "representative_item_diversity_then_status_and_issue_stratification"
+  }
+}

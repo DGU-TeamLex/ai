@@ -1,0 +1,44 @@
+{
+  "samples": 30815,
+  "train": 25000,
+  "valid": 5815,
+  "threshold_days": 30,
+  "auc": 0.7274787141997006,
+  "base_rate": 0.2638005159071367,
+  "single_feature_auc": {
+    "month": 0.5066321214961838,
+    "quarter": 0.5292790344041637,
+    "day_of_month": 0.49242422858103496,
+    "is_year_end": 0.5064484775060476,
+    "log_qty": 0.6202764588200431,
+    "log_amount": 0.6234829955715302,
+    "unit_price": 0.638134694796175,
+    "is_final": 0.5294194322142014,
+    "item_te": 0.7500829138910691,
+    "inst_te": 0.5851161723354186
+  },
+  "quantile_regression": {
+    "q50": {
+      "model_pinball": 4.142808270980685,
+      "constant_pinball": 6.021840068787618,
+      "constant_value": 30.0,
+      "improvement": 0.3120361511336585
+    },
+    "q75": {
+      "model_pinball": 4.445602178516181,
+      "constant_pinball": 8.562338779019777,
+      "constant_value": 30.0,
+      "improvement": 0.48079580903652164
+    },
+    "q90": {
+      "model_pinball": 3.884632064856759,
+      "constant_pinball": 9.651384350816853,
+      "constant_value": 60.0,
+      "improvement": 0.59750519473116
+    }
+  },
+  "verdict": {
+    "auc_pass": true,
+    "pinball_pass": true
+  }
+}

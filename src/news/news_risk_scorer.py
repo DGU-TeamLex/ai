@@ -15,7 +15,7 @@ from ..config import (
     STOCK_MATERIAL_MAPPING_PATH,
 )
 from ..material_mapping import load_approved_stock_material_mapping
-from ..utils import ensure_dirs, setup_logging
+from ..utils import guard_not_empty, ensure_dirs, setup_logging
 from .news_collector import collect_news
 from .news_filter import filter_relevant_news
 from .news_llm_analyzer import analyze_news_row
@@ -871,6 +871,7 @@ def run_news_risk_scoring() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR)
     scores, article_scores = build_news_risk_outputs()
+    guard_not_empty(scores, NEWS_RISK_SCORE_PATH, "뉴스 위험 점수")
     scores.to_csv(NEWS_RISK_SCORE_PATH, index=False)
     audit_path = _save_article_audit(article_scores)
     LOGGER.info("Saved news risk scores: %s (%s rows)", NEWS_RISK_SCORE_PATH, len(scores))

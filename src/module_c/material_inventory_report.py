@@ -19,7 +19,7 @@ from ..config import (
     MODULE_C_RUN_REPORT_PATH,
     PREDICTION_PATH,
 )
-from ..utils import ensure_dirs, write_json
+from ..utils import ensure_dirs, guard_not_empty, write_json
 
 
 PREDICTION_REQUIRED_COLUMNS = {
@@ -385,6 +385,7 @@ def run_material_inventory_report(
         MATERIAL_INVENTORY_IMPACT_SAMPLE_PATH.parent,
     )
     write_json(report, MATERIAL_INVENTORY_IMPACT_REPORT_PATH)
+    guard_not_empty(detail, MATERIAL_INVENTORY_IMPACT_DETAIL_PATH, "원자재 재고영향")
     detail.to_csv(MATERIAL_INVENTORY_IMPACT_DETAIL_PATH, index=False)
     by_spec.to_csv(MATERIAL_INVENTORY_IMPACT_BY_SPEC_PATH, index=False)
     detail.head(1000).to_csv(

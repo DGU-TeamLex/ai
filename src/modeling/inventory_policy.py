@@ -274,7 +274,15 @@ def add_inventory_recommendations(
         result["module_c_policy_demand_uplift_applied"] = demand_uplift.gt(0)
         result["module_c_config_version"] = config["version"]
         result["module_c_calibration_status"] = config["calibration_status"]
-        result["inventory_policy_method"] = "module_c_continuous_target_stock"
+        # 이름이 "continuous" 였으나 실제 계산은 정기검토다. 보호기간을
+        # 검토주기 + 리드타임으로 잡고 있으므로 이름을 계산에 맞춘다.
+        #
+        # 검토주기 자체는 상수가 아니다. ai#54 실측에서 품목별 중앙값이
+        # 1~434일로 흩어지고 기본값 30일 부근(21~40일)에 드는 품목은 7.6%
+        # 뿐이었다. 품목별 값은 data/mapping/review_period_by_item.csv 에
+        # 있고 `review_period_days_col` 로 행 단위 주입한다. 주입이 없으면
+        # DEFAULT_REVIEW_PERIOD_DAYS 로 폴백한다.
+        result["inventory_policy_method"] = "module_c_periodic_target_stock"
     else:
         risk = calculate_risk_components(result)
         for column in risk.columns:

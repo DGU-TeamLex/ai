@@ -1,0 +1,162 @@
+{
+  "A_production_baseline": {
+    "params_has_subsample_freq": false,
+    "combined": {
+      "N": 1403922.0,
+      "ACTUAL_SUM": 199309089.40558806,
+      "PREDICTION_SUM": 181747758.2497819,
+      "MAE": 54.780922647732396,
+      "RMSE": 259.18139932023803,
+      "RMSLE": 0.7835832352021516,
+      "MAPE": 80.60142657834076,
+      "SMAPE": 86.01927892739295,
+      "WAPE": 38.58737336807755,
+      "BIAS": -12.508765555213285,
+      "BIAS_PCT": -8.811104003425237,
+      "ZERO_ACTUAL_RATE": 24.211459041171803
+    },
+    "per_fold": [
+      {
+        "fold": "2024_q3",
+        "valid_start": "2024-07",
+        "valid_end": "2024-09",
+        "train_rows": 1635862,
+        "historical_rows": 952002,
+        "validation_rows": 355965,
+        "best_iteration": 160,
+        "WAPE": 36.798943695294675,
+        "MAE": 51.08236233648262,
+        "RMSE": 239.53018691364034,
+        "BIAS": -11.5493432116342,
+        "BIAS_PCT": -8.319968206697961
+      },
+      {
+        "fold": "2024_q4",
+        "valid_start": "2024-10",
+        "valid_end": "2024-12",
+        "train_rows": 1991827,
+        "historical_rows": 952002,
+        "validation_rows": 343536,
+        "best_iteration": 160,
+        "WAPE": 39.40311595890366,
+        "MAE": 62.91840490244785,
+        "RMSE": 253.53918614634617,
+        "BIAS": -21.187216919465463,
+        "BIAS_PCT": -13.268651142992727
+      },
+      {
+        "fold": "2025_q1",
+        "valid_start": "2025-01",
+        "valid_end": "2025-03",
+        "train_rows": 2335363,
+        "historical_rows": 952002,
+        "validation_rows": 340427,
+        "best_iteration": 158,
+        "WAPE": 38.381334118791166,
+        "MAE": 55.408527587381734,
+        "RMSE": 272.32567923378843,
+        "BIAS": -9.782485149291764,
+        "BIAS_PCT": -6.77630046088042
+      },
+      {
+        "fold": "2025_q2",
+        "valid_start": "2025-04",
+        "valid_end": "2025-06",
+        "train_rows": 2675790,
+        "historical_rows": 952002,
+        "validation_rows": 363994,
+        "best_iteration": 160,
+        "WAPE": 39.758514881655174,
+        "MAE": 50.130808224275114,
+        "RMSE": 270.10266447180186,
+        "BIAS": -7.806104979514343,
+        "BIAS_PCT": -6.190986181736792
+      }
+    ],
+    "minutes": 1.1
+  },
+  "B_baseline_plus_subsample_freq": {
+    "params_has_subsample_freq": true,
+    "combined": {
+      "N": 1403922.0,
+      "ACTUAL_SUM": 199309089.40558806,
+      "PREDICTION_SUM": 182016498.790228,
+      "MAE": 54.82471890759715,
+      "RMSE": 259.75635949656663,
+      "RMSLE": 0.7847852115040314,
+      "MAPE": 80.8166855339416,
+      "SMAPE": 86.12900636981269,
+      "WAPE": 38.61822320685069,
+      "BIAS": -12.317344279354593,
+      "BIAS_PCT": -8.676267934860785,
+      "ZERO_ACTUAL_RATE": 24.211459041171803
+    },
+    "per_fold": [
+      {
+        "fold": "2024_q3",
+        "valid_start": "2024-07",
+        "valid_end": "2024-09",
+        "train_rows": 1635862,
+        "historical_rows": 952002,
+        "validation_rows": 355965,
+        "best_iteration": 160,
+        "WAPE": 36.82765659480122,
+        "MAE": 51.122220076652255,
+        "RMSE": 239.80422548299438,
+        "BIAS": -11.692965170466016,
+        "BIAS_PCT": -8.42343124432426
+      },
+      {
+        "fold": "2024_q4",
+        "valid_start": "2024-10",
+        "valid_end": "2024-12",
+        "train_rows": 1991827,
+        "historical_rows": 952002,
+        "validation_rows": 343536,
+        "best_iteration": 157,
+        "WAPE": 39.392240959115895,
+        "MAE": 62.90103983820586,
+        "RMSE": 253.3812454163234,
+        "BIAS": -20.84374927924214,
+        "BIAS_PCT": -13.053551995504245
+      },
+      {
+        "fold": "2025_q1",
+        "valid_start": "2025-01",
+        "valid_end": "2025-03",
+        "train_rows": 2335363,
+        "historical_rows": 952002,
+        "validation_rows": 340427,
+        "best_iteration": 160,
+        "WAPE": 38.45899323261768,
+        "MAE": 55.52063878022225,
+        "RMSE": 272.8905073114453,
+        "BIAS": -9.428030417194636,
+        "BIAS_PCT": -6.530770646337855
+      },
+      {
+        "fold": "2025_q2",
+        "valid_start": "2025-04",
+        "valid_end": "2025-06",
+        "train_rows": 2675790,
+        "historical_rows": 952002,
+        "validation_rows": 363994,
+        "best_iteration": 160,
+        "WAPE": 39.791412368528775,
+        "MAE": 50.17228808363179,
+        "RMSE": 271.59776237559225,
+        "BIAS": -7.583009349679058,
+        "BIAS_PCT": -6.01405005736481
+      }
+    ],
+    "minutes": 1.2
+  },
+  "decomposition": {
+    "baseline_wape": 38.58737336807755,
+    "baseline_plus_subsample_freq_wape": 38.61822320685069,
+    "tuned_best_wape": 36.961150054164605,
+    "behaviour_change_pp": 0.0308,
+    "hyperparameter_search_pp": -1.6571,
+    "total_pp": -1.6262
+  }
+}

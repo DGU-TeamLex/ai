@@ -1,0 +1,22 @@
+{
+  "rules_version": "supply-risk-anomaly-rules-v1.0",
+  "policy_version": "supply-risk-level-v1.3-periodic-review",
+  "operational_mode": false,
+  "input_rows": 409519,
+  "pass_rows": 12996,
+  "review_rows": 224285,
+  "blocked_rows": 172238,
+  "operationally_eligible_rows": 12996,
+  "row_issue_counts": {
+    "SR003_UNMAPPED_META_CODE": 172238,
+    "SR018_LEGACY_CODE_ALIAS_USED": 200430,
+    "SR019_NON_SUPPLY_CODE_IN_BASELINE": 152418
+  },
+  "dataset_issue_codes": [],
+  "dataset_quality_status": "PASS",
+  "batch_release_allowed": false,
+  "sample_requested_rows": 1000,
+  "sample_rows": 1000,
+  "sample_unique_representative_items": 1000,
+  "sample_selection_basis": "representative_item_diversity_then_status_and_issue_stratification"
+}

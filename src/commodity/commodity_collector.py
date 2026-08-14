@@ -182,6 +182,29 @@ def collect_csv_prices(path: Path) -> pd.DataFrame:
     return normalize_commodity_prices(pd.read_csv(path))
 
 
+def _filter_price_window(
+    prices: pd.DataFrame,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    """가격 시계열을 요청 기간으로 자른다.
+
+    기간 밖 가격은 위험 점수에 쓰이지 않는데도 그대로 두면 월별 집계가 그만큼
+    늘어나 산출물이 조용히 커진다. 캐시는 계속 쌓이므로 시간이 갈수록 심해진다.
+    """
+    if prices.empty or "date" not in prices.columns:
+        return prices
+    dates = pd.to_datetime(prices["date"], errors="coerce")
+    window = dates.between(pd.Timestamp(start_date), pd.Timestamp(end_date))
+    filtered = prices.loc[window]
+    if len(filtered) != len(prices):
+        LOGGER.info(
+            "Filtered commodity prices to %s~%s: %s → %s rows",
+            start_date, end_date, f"{len(prices):,}", f"{len(filtered):,}",
+        )
+    return filtered.reset_index(drop=True)
+
+
 def _registry_rows(registry: pd.DataFrame, provider: str) -> pd.DataFrame:
     return registry[
         registry["provider"].astype(str).str.strip().str.lower().eq(provider)
@@ -369,7 +392,16 @@ def collect_commodity_prices(
         return collect_sample_prices(start_date, end_date)
     if selected != "csv" and cache_path.exists() and not refresh:
         LOGGER.info("Loading cached commodity prices: %s", cache_path)
-        return collect_csv_prices(cache_path)
+        # 캐시에도 요청 기간을 적용한다. 종전에는 캐시를 통째로 돌려줘서
+        # COMMODITY_START_DATE/END_DATE 가 원격 수집에만 걸리고 캐시 경로에서는
+        # 무시됐다. 캐시가 쌓일수록 산출물이 조용히 커진다.
+        #
+        # 실측(2026-08-13): 2023-10~2026-01 을 요청했는데 캐시 전체(2015-01~)가
+        # 쓰여 점수가 139개월 19,631,970행(3.4GB), 감사가 26,557,686행(12.9GB)이
+        # 됐다. 의도한 범위는 25개월 344만행이다.
+        return _filter_price_window(
+            collect_csv_prices(cache_path), start_date, end_date
+        )
 
     try:
         if selected == "csv":

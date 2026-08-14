@@ -78,8 +78,17 @@ class MidtermPackageTest(unittest.TestCase):
 
         self.assertEqual(blocked["module_c_total_risk"], 0.0)
         self.assertFalse(blocked["module_c_adjustment_enabled"])
-        self.assertAlmostEqual(supply["module_c_supply_risk"], 0.655)
-        self.assertEqual(supply["module_c_risk_level"], "warning")
+        # 가중최대 결합(ai#20 결함 O). APPROVED_SUPPLY_DISRUPTION 은
+        # supply_news 0.8 / material_news 0.6 / market_price 0.5 이고
+        # 가중 기여가 0.360 / 0.120 / 0.175 이므로 0.360/0.45 = 0.8 이다.
+        # 종전 가중합은 셋을 더해 0.655 였다.
+        self.assertAlmostEqual(supply["module_c_supply_risk"], 0.8)
+        # 가중최대로 바뀌면서 단일 강신호(supply_news 0.8)가 critical(>=0.75)에
+        # 닿는다. 공급 차질 시나리오가 critical 인 것은 의미상 맞다. 다만
+        # alert_thresholds 는 가중합 척도(실측 최대 0.568)에 맞춰진 값이라
+        # 재조정이 필요하다 — ai#20 에 올렸다. 실데이터에서는 critical 이
+        # 여전히 0% 라 당장의 운영 영향은 없다.
+        self.assertEqual(supply["module_c_risk_level"], "critical")
         self.assertTrue(result["supply_weight_formula_check"].all())
         self.assertFalse(result["operational_use_allowed"].any())
 

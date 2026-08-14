@@ -10,7 +10,7 @@ from ..config import (
     TRAIN_START,
     VALID_END,
 )
-from ..utils import ensure_dirs, setup_logging
+from ..utils import ensure_dirs, guard_not_empty, setup_logging
 from .metrics import regression_metrics
 
 
@@ -89,6 +89,7 @@ def run_evaluation() -> None:
     ensure_dirs(OUTPUT_DIR)
     predictions = pd.read_csv(BACKTEST_PREDICTION_PATH)
     report = build_evaluation_report(predictions)
+    guard_not_empty(report, EVALUATION_REPORT_PATH, "평가 보고")
     report.to_csv(EVALUATION_REPORT_PATH, index=False)
     segment_report = build_segment_evaluation_report(predictions)
     segment_report.to_csv(EVALUATION_SEGMENT_REPORT_PATH, index=False)

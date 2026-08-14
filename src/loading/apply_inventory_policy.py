@@ -1,13 +1,24 @@
 """Apply AI demand statistics to DB inventory without choosing an SS/ROP model.
 
-Issue #54 records an unresolved policy conflict:
+Issue #54 settled the *review mode* but not the *review period*.
 
-* backend: continuous review, ``SS=z*sigma*sqrt(L)``, ``ROP=mu*L+SS``
-* AI: periodic review plus lead time, fixed/risk-adjusted target stock
+Decided (ai#54, 2026-08-10)
+    Periodic review is canonical. The backend's continuous-review form
+    (``SS=z*sigma*sqrt(L)``, ``ROP=mu*L+SS``) is superseded by a target stock
+    over the protection interval ``R + L``.
 
-Until the ordering cadence and one canonical policy are approved, this loader
-updates only demand statistics and classification fields. It deliberately does
-not write ``ss``, ``rop``, ``target``, ``status`` or ``order_recommendation``.
+Still open (ai#54, 2026-08-12)
+    ``R`` is not a constant. Measured per-item medians run 1~434 days
+    (p10 31 / p50 91 / p90 141); only 7.6% of items fall near the 30-day
+    default, and the leading pharmaceuticals all sit at 93~140 days. Together
+    with the lead-time revision (15 -> 30 days) the protection interval moves
+    45 -> 129 days, a 2.87x change in target stock. Defaults are in
+    ``data/mapping/review_period_by_item.csv``; wiring them is a budget
+    decision that has not been made.
+
+So this loader still updates only demand statistics and classification fields.
+It deliberately does not write ``ss``, ``rop``, ``target``, ``status`` or
+``order_recommendation`` -- those all depend on the unresolved ``R``.
 
 Run with ``DRY_RUN=1`` first. ``DRY_RUN=0`` commits the restricted update.
 """

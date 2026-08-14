@@ -1,0 +1,124 @@
+{
+  "generated_at": "2026-08-13T13:57:25.464034+00:00",
+  "source": "raw_stock/*.DAT",
+  "monthly_rows": 5190768,
+  "series_count": 515563,
+  "first_month": "2018-01-01",
+  "last_month": "2025-12-01",
+  "next_forecast_month": "2026-01-01",
+  "data_age_months": 8,
+  "consumption": {
+    "missing_rows": 0,
+    "negative_rows": 1,
+    "negative_sum": -89.0,
+    "zero_rows": 2058215,
+    "zero_row_pct": 39.65145427420374
+  },
+  "series_quality": {
+    "multiple_monthly_name_series": 51,
+    "series_with_at_least_6_months": 276882,
+    "series_with_at_least_12_months": 174132,
+    "observed_month_quantiles": {
+      "0.25": 2.0,
+      "0.5": 6.0,
+      "0.75": 16.0,
+      "0.9": 24.0,
+      "0.95": 27.0
+    },
+    "contiguous_segment_count": 1459788,
+    "contiguous_segment_length_quantiles": {
+      "0.25": 1.0,
+      "0.5": 1.0,
+      "0.75": 3.0,
+      "0.9": 9.0,
+      "0.95": 17.0
+    }
+  },
+  "labeled_rows": 3730978,
+  "time_split": {
+    "train_rows": 2335363,
+    "historical_train_rows": 952002,
+    "current_train_rows": 1383361,
+    "validation_rows": 704421,
+    "test_rows": 605437
+  },
+  "standardization_coverage": [
+    {
+      "normalization_status": "current_representative_name",
+      "data_period": "current",
+      "historical_training_eligible": true,
+      "rows": 503044,
+      "row_pct": 9.691128557469723,
+      "usage_sum": 12804268.297,
+      "usage_pct": 2.0973872959675743
+    },
+    {
+      "normalization_status": "current_semantic_definition",
+      "data_period": "current",
+      "historical_training_eligible": true,
+      "rows": 3226939,
+      "row_pct": 62.166889369742584,
+      "usage_sum": 405675375.8552,
+      "usage_pct": 66.45115205879594
+    },
+    {
+      "normalization_status": "historical_core_name",
+      "data_period": "historical",
+      "historical_training_eligible": true,
+      "rows": 8108,
+      "row_pct": 0.15620039269718855,
+      "usage_sum": 720092.1666,
+      "usage_pct": 0.11795380470951765
+    },
+    {
+      "normalization_status": "historical_core_semantic",
+      "data_period": "historical",
+      "historical_training_eligible": true,
+      "rows": 8080,
+      "row_pct": 0.15566097348215138,
+      "usage_sum": 1269714.0,
+      "usage_pct": 0.20798392780758307
+    },
+    {
+      "normalization_status": "historical_name_fallback",
+      "data_period": "historical",
+      "historical_training_eligible": false,
+      "rows": 143736,
+      "row_pct": 2.7690700104493207,
+      "usage_sum": 12402768.2116,
+      "usage_pct": 2.0316200721860205
+    },
+    {
+      "normalization_status": "historical_strict_name",
+      "data_period": "historical",
+      "historical_training_eligible": true,
+      "rows": 362614,
+      "row_pct": 6.985748544338718,
+      "usage_sum": 18926202.1062,
+      "usage_pct": 3.1001830747141694
+    },
+    {
+      "normalization_status": "historical_strict_semantic",
+      "data_period": "historical",
+      "historical_training_eligible": true,
+      "rows": 938247,
+      "row_pct": 18.075302151820306,
+      "usage_sum": 158688174.8347,
+      "usage_pct": 25.9937197658192
+    }
+  ],
+  "readiness": {
+    "local_series_forecast": "ready_with_quality_controls",
+    "standardization_required_for_local_series_forecast": false,
+    "standardization_required_for_cross_institution_pooling": true,
+    "standardization_used_for_model_hierarchy": true,
+    "standardization_required_for_news_material_risk": true,
+    "limitations": [
+      "Series with fewer than six observed months have weak item-specific history.",
+      "A missing month is treated as an observation gap, not as zero demand.",
+      "Negative consumption is excluded from labels instead of being silently corrected.",
+      "The latest available raw_stock month may be stale for current operations.",
+      "Historical-only standardized names are excluded from model fitting."
+    ]
+  }
+}

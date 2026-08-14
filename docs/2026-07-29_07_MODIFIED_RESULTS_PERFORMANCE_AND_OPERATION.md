@@ -624,7 +624,7 @@ recommended_order = max(target_stock - inventory_position, 0)
 ```
 
 Module C 열이 없는 과거 호환 입력에만 고정률 legacy 정책을 사용한다. 현재 정식
-예측 출력은 `module_c_continuous_target_stock`을 사용한다.
+예측 출력은 `module_c_periodic_target_stock`을 사용한다.
 
 ### 10.4 공급위험 레벨 기반 SS/ROP
 

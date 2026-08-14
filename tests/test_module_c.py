@@ -211,8 +211,17 @@ class ModuleCRiskEngineTest(unittest.TestCase):
         row = scores.iloc[0]
 
         self.assertEqual(row["module_c_demand_risk"], 0.0)
-        self.assertAlmostEqual(row["module_c_supply_risk"], 0.685)
-        self.assertEqual(row["module_c_event_supply_risk_level"], "warning")
+        # 가중최대 결합(ai#20 결함 O). 세 신호의 가중 기여는
+        #   supply_news 0.45×0.8 = 0.360   ← 최대
+        #   market_price 0.35×0.7 = 0.245
+        #   material_news 0.20×0.4 = 0.080
+        # 최대 가중치 0.45 로 정규화하면 0.360/0.45 = 0.8 이다. 가장 강한 신호가
+        # 자기 값을 그대로 돌려받는 것이 이 결합의 의도다.
+        # 종전 가중합은 셋을 더해 0.685 였다 — 신호가 하나만 높아도 나머지가
+        # 낮으면 눌리던 것이 결함 O 다.
+        self.assertAlmostEqual(row["module_c_supply_risk"], 0.8)
+        # 위와 같은 이유로 critical 이다(ai#20 결함 O + 임계값 재조정 대기).
+        self.assertEqual(row["module_c_event_supply_risk_level"], "critical")
         self.assertEqual(row["module_c_trade_contribution"], 0.0)
         self.assertTrue(row["module_c_has_approved_material_mapping"])
         self.assertFalse(row["module_c_has_approved_demand_mapping"])
@@ -261,13 +270,20 @@ class ModuleCRiskEngineTest(unittest.TestCase):
         )
         row = scores.iloc[0]
 
-        self.assertAlmostEqual(row["module_c_trade_contribution"], 0.144)
-        self.assertAlmostEqual(row["module_c_supply_risk"], 0.424)
+        # 기대값은 가중최대 결합 기준이다(ai#20 결함 O). 손으로 검산하면
+        #   base    = max(wᵢ·sᵢ)/max(wᵢ) = 0.35×0.8 / 0.45 = 0.622222
+        #   overlay = 0.224 × 0.8                          = 0.179200
+        #   결합    = 1 − (1−base)(1−overlay)              = 0.697778
+        #   기여    = 결합 − base                           = 0.075556
+        # 종전 가중합에서는 base 가 0.28 이라 supply_risk 0.424 였다. 신호가
+        # 하나뿐인데 가중치 0.35 가 곱해져 값이 눌리던 것이 결함 O 였다.
+        self.assertAlmostEqual(row["module_c_supply_risk"], 0.697778, places=5)
+        self.assertAlmostEqual(row["module_c_trade_contribution"], 0.075556, places=5)
         self.assertTrue(row["module_c_has_approved_trade_mapping"])
         self.assertIn("HS_IMPORT_VOLUME_DROP", row["module_c_event_codes"])
         trade_audit = audit[audit["signal_type"].eq("import_export")].iloc[0]
         self.assertTrue(trade_audit["mapping_approved"])
-        self.assertAlmostEqual(trade_audit["weighted_contribution"], 0.144)
+        self.assertAlmostEqual(trade_audit["weighted_contribution"], 0.075556, places=5)
 
     def test_approved_disease_mapping_enables_demand_signal(self):
         news = pd.DataFrame(

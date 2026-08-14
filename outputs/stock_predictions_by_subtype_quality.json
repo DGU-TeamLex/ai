@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-08-10T13:29:55.632197+00:00",
+  "status": "ready",
+  "scope": "institution_department",
+  "classification_input_rows": 4969,
+  "approved_classification_rows": 4969,
+  "ignored_unapproved_classification_rows": 0,
+  "approved_taxonomy_rows": 59,
+  "local_prediction_rows": 163229,
+  "matched_prediction_rows": 2407,
+  "unmatched_prediction_rows": 160822,
+  "excluded_non_forecastable_rows": 18,
+  "eligible_prediction_rows": 2389,
+  "mapping_rows_without_prediction": 2616,
+  "predicted_usage_coverage_pct": 1.6956250196871192,
+  "output_rows": 2359,
+  "rules": {
+    "classification_gate": "classification and taxonomy must both be approved",
+    "grouping": "family + subtype + normalized specification + unit",
+    "unit_conversion": "disabled; different unit_code values are never summed",
+    "forecastable_policy": "is_forecastable is inherited from the approved taxonomy",
+    "quantity_method": "sum forecasts and inventory policy values from local series"
+  },
+  "classification_path": "C:\\Users\\user\\TeamLex-ai\\data\\mapping\\item_forecast_classification_approved.csv",
+  "taxonomy_path": "C:\\Users\\user\\TeamLex-ai\\data\\mapping\\item_family_taxonomy.csv",
+  "output_path": "C:\\Users\\user\\TeamLex-ai\\outputs\\stock_predictions_by_subtype.csv"
+}

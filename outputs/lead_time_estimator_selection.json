@@ -1,0 +1,65 @@
+{
+  "common_items": 2763,
+  "credibility_k": 0.808,
+  "global_median_1819": 28.0,
+  "estimators": {
+    "(a) 현행 15일 고정": {
+      "MAE": 28.6,
+      "MedAE": 20.0,
+      "under_rate": 0.871,
+      "pinball_0.9": 25.25
+    },
+    "(b) 전품목 공통(2018-19 median)": {
+      "MAE": 21.61,
+      "MedAE": 14.0,
+      "under_rate": 0.634,
+      "pinball_0.9": 16.55
+    },
+    "(c) 품목별 raw median(2018-19)": {
+      "MAE": 34.3,
+      "MedAE": 21.0,
+      "under_rate": 0.579,
+      "pinball_0.9": 17.03
+    },
+    "(d) 신뢰도 축소(Buhlmann-Straub)": {
+      "MAE": 29.47,
+      "MedAE": 19.14,
+      "under_rate": 0.551,
+      "pinball_0.9": 15.25
+    }
+  },
+  "global_quantiles": {
+    "q25": {
+      "days": 13.5,
+      "MAE": 29.77,
+      "under_rate": 0.902,
+      "pinball_0.9": 26.44
+    },
+    "q50": {
+      "days": 28.0,
+      "MAE": 21.61,
+      "under_rate": 0.634,
+      "pinball_0.9": 16.55
+    },
+    "q75": {
+      "days": 55.0,
+      "MAE": 26.05,
+      "under_rate": 0.247,
+      "pinball_0.9": 7.97
+    },
+    "q90": {
+      "days": 113.0,
+      "MAE": 72.83,
+      "under_rate": 0.028,
+      "pinball_0.9": 8.16
+    },
+    "q95": {
+      "days": 165.0,
+      "MAE": 123.29,
+      "under_rate": 0.007,
+      "pinball_0.9": 12.59
+    }
+  },
+  "recommended_global_days": 55.0,
+  "service_alpha": 0.9
+}

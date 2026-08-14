@@ -34,6 +34,28 @@ STATEMENTS = [
     "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS order_suppress_reason TEXT",
     "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS mu_is_floored BOOLEAN",
     "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS sigma_is_floored BOOLEAN",
+    # db/queries.py 가 SELECT 하지만 db/schema.sql 의 CREATE TABLE 에 없는 8개.
+    # 실측: `inv.<컬럼>` 참조 28개 중 8개가 스키마 미선언이다. 프로덕션 DB 에
+    # 이미 있으면 IF NOT EXISTS 로 무동작이고, 없으면 해당 쿼리가 500 이다.
+    #   mu_forecast        직전 3개월 일수요율 (queries.py:380 은 WHERE 절에도 쓴다)
+    #   zero_stock_reason  재고 0 의 사유 (TRUE_STOCKOUT|NOT_OPERATED|DATA_MISSING)
+    #   demand_pattern     수요 패턴 분류
+    #   is_medical         의약품 여부
+    #   item_family_id     동일군 식별자
+    #   family_available   동일군 합산 가용재고
+    #   family_codes       동일군 구성 품목코드
+    #   family_status      동일군 상태
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS mu_forecast DOUBLE PRECISION",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS zero_stock_reason TEXT",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS demand_pattern TEXT",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS is_medical BOOLEAN",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS item_family_id TEXT",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS family_available INTEGER",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS family_codes TEXT",
+    "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS family_status TEXT",
+    # queries.py:380 은 mu_forecast IS NOT NULL 로 거른다. 부분 인덱스가 맞다.
+    "CREATE INDEX IF NOT EXISTS idx_inv_mu_forecast ON inventory(mu_forecast) "
+    "WHERE mu_forecast IS NOT NULL",
 ]
 
 VERIFY = [
@@ -43,6 +65,14 @@ VERIFY = [
     ("inventory", "order_suppress_reason"),
     ("inventory", "mu_is_floored"),
     ("inventory", "sigma_is_floored"),
+    ("inventory", "mu_forecast"),
+    ("inventory", "zero_stock_reason"),
+    ("inventory", "demand_pattern"),
+    ("inventory", "is_medical"),
+    ("inventory", "item_family_id"),
+    ("inventory", "family_available"),
+    ("inventory", "family_codes"),
+    ("inventory", "family_status"),
 ]
 
 
@@ -73,16 +103,21 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # dry-run 은 접속하지 않으므로 DSN 을 요구하지 않는다. 무엇이 적용될지
+    # 보려고 프로덕션 DSN 을 들고 와야 하면 확인 자체가 번거로워진다.
+    if args.dry_run:
+        print(f"=== 적용될 문장 {len(STATEMENTS)}개 (실행하지 않음) ===")
+        for statement in STATEMENTS:
+            print(f"  {statement};")
+        print(f"\n=== 적용 후 확인할 컬럼 {len(VERIFY)}개 ===")
+        for table, column in VERIFY:
+            print(f"  {table}.{column}")
+        return 0
+
     dsn = os.environ.get("DATABASE_URL", "").strip()
     if not dsn:
         print("DATABASE_URL 환경변수가 필요하다.", file=sys.stderr)
         return 2
-
-    if args.dry_run:
-        print("=== 적용될 문장 (실행하지 않음) ===")
-        for statement in STATEMENTS:
-            print(f"  {statement};")
-        return 0
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:

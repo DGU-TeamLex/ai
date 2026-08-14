@@ -14,7 +14,7 @@ from ..config import (
     OUTPUT_DIR,
     PREDICTION_PATH,
 )
-from ..utils import ensure_dirs, setup_logging, write_json
+from ..utils import ensure_dirs, guard_not_empty, setup_logging, write_json
 
 
 LOGGER = logging.getLogger(__name__)
@@ -606,6 +606,7 @@ def write_classified_prediction_outputs(
         include_department=include_department,
     )
     ensure_dirs(output_path.parent, quality_path.parent)
+    guard_not_empty(grouped, output_path, "품목군별 예측")
     grouped.to_csv(output_path, index=False)
     report["classification_path"] = str(classification_path)
     report["taxonomy_path"] = str(taxonomy_path)
@@ -631,6 +632,7 @@ def run_classified_prediction(
         from .prediction import build_predictions
 
         predictions = build_predictions()
+        guard_not_empty(predictions, prediction_path, "품목군별 예측")
         predictions.to_csv(prediction_path, index=False)
     else:
         predictions = pd.read_csv(

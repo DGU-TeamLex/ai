@@ -439,7 +439,7 @@ SS  = z * daily_demand_stddev * sqrt(effective_lead_time_days)
 ROP = mean_daily_usage * effective_lead_time_days + SS
 ```
 
-`level_based_daily_ss_rop`와 `module_c_continuous_target_stock`은 서로 다른 정책이다. 같은
+`level_based_daily_ss_rop`와 `module_c_periodic_target_stock`은 서로 다른 정책이다. 같은
 발주량에 두 안전재고를 동시에 더하면 이중 과적재가 되므로 한 정책만 선택해야 한다.
 
 ## 12. 뉴스·질병·원자재 가중치 구조
