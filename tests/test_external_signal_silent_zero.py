@@ -264,6 +264,45 @@ class DotenvStrictParsingTest(unittest.TestCase):
         self.assertIn("3행", str(caught.exception))
 
 
+class DotenvIsolationTest(unittest.TestCase):
+    """`.env` 자동 로드가 테스트·라이브러리 사용자를 오염시키지 않아야 한다."""
+
+    def test_conftest_purged_dotenv_keys(self):
+        """conftest 가 `.env` 주입 키를 지웠는지.
+
+        지우지 않으면 개발자 `.env` 값이 테스트에 새어 들어와 같은 커밋이
+        사람마다 다른 결과를 낸다. 실제로 test_csv_provider_requires_path 가
+        이것 때문에 실패했다.
+        """
+        from src.config import DOTENV_LOADED_KEYS
+
+        leaked = [key for key in DOTENV_LOADED_KEYS if key in os.environ]
+        self.assertEqual(
+            leaked, [], f".env 값이 테스트 환경에 남아 있다: {leaked}"
+        )
+
+    def test_opt_out_env_var_disables_loading(self):
+        """`TEAMLEX_NO_DOTENV=1` 이면 파일이 있어도 읽지 않는다.
+
+        노트북·서비스처럼 라이브러리로 import 하는 쪽이 자기 환경을 지킬 수
+        있어야 한다. import 시점 부작용을 끌 수 있는 유일한 경로다.
+        """
+        import subprocess
+        import sys
+
+        script = (
+            "import os, src.config as c; "
+            "print(len(c.DOTENV_LOADED_KEYS))"
+        )
+        env = {**os.environ, "TEAMLEX_NO_DOTENV": "1"}
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8", "-c", script],
+            capture_output=True, text=True, env=env, cwd=str(Path(__file__).parents[1]),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "0")
+
+
 class PreflightReportTest(unittest.TestCase):
     """어느 provider 로 돌았는지가 산출물에 남아야 한다."""
 
