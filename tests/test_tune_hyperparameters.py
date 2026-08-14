@@ -175,12 +175,27 @@ class EffectiveParamRoundTripTests(unittest.TestCase):
         self.assertEqual(original, rebuilt)
 
     def test_baseline_and_tuned_share_fixed_params(self):
-        """baseline 과 tuned 가 같은 고정값을 써야 비교가 성립한다."""
+        """baseline 과 tuned 가 같은 고정값을 써야 비교가 성립한다.
+
+        `subsample_freq` 는 예외다. 운영 baseline(`production_lgbm_params`)은 이 키를
+        지정하지 않아 LightGBM 기본값 0(subsample 비활성)이고, tuned 쪽은 의도적으로
+        1 을 넣어 subsample 을 활성화한다. 이건 파라미터 탐색이 아니라 baseline 자체의
+        동작 변경이라 두 쪽이 달라야 정상이다(ai#60 리뷰 2번).
+
+        종전 단언은 이 키까지 같아야 한다고 봐서 KeyError 로 실패했다 — 테스트가
+        틀린 것이지 코드가 틀린 것이 아니다.
+        """
         base = tuning._baseline_params("regression")
         tuned = tuning.build_estimator_params({"learning_rate": 0.1}, "regression", 900)
-        for key in ("subsample_freq", "histogram_pool_size", "force_col_wise",
+        for key in ("histogram_pool_size", "force_col_wise",
                     "n_jobs", "random_state", "verbosity", "objective"):
             self.assertEqual(base[key], tuned[key], f"{key} 가 baseline 과 tuned 에서 다르다")
+        self.assertNotIn(
+            "subsample_freq", base, "운영 baseline 은 subsample_freq 를 지정하지 않아야 한다"
+        )
+        self.assertEqual(
+            tuned["subsample_freq"], 1, "tuned 쪽은 subsample_freq=1 을 명시해야 한다"
+        )
 
 
 class ExternalSignalGateScopeTests(unittest.TestCase):
