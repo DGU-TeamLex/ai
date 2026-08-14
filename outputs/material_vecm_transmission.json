@@ -1,0 +1,348 @@
+{
+  "results": [
+    {
+      "material": "POLYPROPYLENE_PP",
+      "market_factor": "PETROCHEMICAL_NAPHTHA",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.8,
+      "demand_share_pct": 14.35,
+      "status": "no_data"
+    },
+    {
+      "material": "POLYPROPYLENE_PP",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.2,
+      "demand_share_pct": 14.35,
+      "label": "BRENT_CRUDE → POLYPROPYLENE_PP",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": false,
+      "selected_lag_aic": 3,
+      "johansen_trace": 20.901,
+      "johansen_crit95": 15.494,
+      "cointegrated": true,
+      "vecm_alpha_korea": 0.3175,
+      "vecm_alpha_korea_pvalue": 0.0,
+      "long_run_intl_leads_korea": false,
+      "granger_pvalues": {
+        "1": 0.223,
+        "2": 0.59,
+        "3": 0.0123,
+        "4": 0.0226
+      },
+      "granger_significant_lags": [
+        3,
+        4
+      ],
+      "granger_best_lag": 3,
+      "granger_best_pvalue": 0.0123,
+      "status": "ok"
+    },
+    {
+      "material": "POLYETHYLENE_PE",
+      "market_factor": "PETROCHEMICAL_NAPHTHA",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.8,
+      "demand_share_pct": 0.179,
+      "status": "no_data"
+    },
+    {
+      "material": "POLYETHYLENE_PE",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.2,
+      "demand_share_pct": 0.179,
+      "label": "BRENT_CRUDE → POLYETHYLENE_PE",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": false,
+      "selected_lag_aic": 1,
+      "johansen_trace": 15.14,
+      "johansen_crit95": 15.494,
+      "cointegrated": false,
+      "granger_pvalues": {
+        "1": 0.3057,
+        "2": 0.2868,
+        "3": 0.5172,
+        "4": 0.5165
+      },
+      "granger_significant_lags": [],
+      "granger_best_lag": 2,
+      "granger_best_pvalue": 0.2868,
+      "status": "ok"
+    },
+    {
+      "material": "POLYVINYL_CHLORIDE_PVC",
+      "market_factor": "PETROCHEMICAL_NAPHTHA",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.55,
+      "demand_share_pct": 0.028,
+      "status": "no_data"
+    },
+    {
+      "material": "POLYVINYL_CHLORIDE_PVC",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.15,
+      "demand_share_pct": 0.028,
+      "label": "BRENT_CRUDE → POLYVINYL_CHLORIDE_PVC",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": true,
+      "selected_lag_aic": 1,
+      "johansen_trace": 18.448,
+      "johansen_crit95": 15.494,
+      "cointegrated": true,
+      "vecm_alpha_korea": 0.7127,
+      "vecm_alpha_korea_pvalue": 0.0,
+      "long_run_intl_leads_korea": false,
+      "granger_pvalues": {
+        "1": 0.6867,
+        "2": 0.2422,
+        "3": 0.5113,
+        "4": 0.6962
+      },
+      "granger_significant_lags": [],
+      "granger_best_lag": 2,
+      "granger_best_pvalue": 0.2422,
+      "status": "ok"
+    },
+    {
+      "material": "CRUDE_OIL_REFINED",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 0.0,
+      "assumed_weight": 1.0,
+      "demand_share_pct": 0.012,
+      "status": "no_data"
+    },
+    {
+      "material": "PARAFFIN_PETROLEUM",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.7,
+      "demand_share_pct": 1.424,
+      "label": "BRENT_CRUDE → PARAFFIN_PETROLEUM",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": true,
+      "selected_lag_aic": 1,
+      "johansen_trace": 9.023,
+      "johansen_crit95": 15.494,
+      "cointegrated": false,
+      "granger_pvalues": {
+        "1": 0.5986,
+        "2": 0.4761,
+        "3": 0.5319,
+        "4": 0.5337
+      },
+      "granger_significant_lags": [],
+      "granger_best_lag": 2,
+      "granger_best_pvalue": 0.4761,
+      "status": "ok"
+    },
+    {
+      "material": "POLYURETHANE_PU",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.5,
+      "demand_share_pct": 0.015,
+      "label": "BRENT_CRUDE → POLYURETHANE_PU",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": true,
+      "selected_lag_aic": 1,
+      "johansen_trace": 7.53,
+      "johansen_crit95": 15.494,
+      "cointegrated": false,
+      "granger_pvalues": {
+        "1": 0.6919,
+        "2": 0.9819,
+        "3": 0.9519,
+        "4": 0.9284
+      },
+      "granger_significant_lags": [],
+      "granger_best_lag": 1,
+      "granger_best_pvalue": 0.6919,
+      "status": "ok"
+    },
+    {
+      "material": "ACRYLIC_ADHESIVE",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.45,
+      "demand_share_pct": 0.055,
+      "status": "no_data"
+    },
+    {
+      "material": "SYNTHETIC_NITRILE_RUBBER",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.45,
+      "demand_share_pct": 0.058,
+      "status": "no_data"
+    },
+    {
+      "material": "NYLON",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.4,
+      "demand_share_pct": 0.14,
+      "status": "no_data"
+    },
+    {
+      "material": "POLYESTER_FIBER",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.4,
+      "demand_share_pct": 0.178,
+      "label": "BRENT_CRUDE → POLYESTER_FIBER",
+      "n_obs": 19,
+      "status": "insufficient_sample"
+    },
+    {
+      "material": "SYNTHETIC_GUM_BASE",
+      "market_factor": "BRENT_CRUDE",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.35,
+      "demand_share_pct": 0.01,
+      "status": "no_data"
+    },
+    {
+      "material": "NONWOVEN_FABRIC_SPUNBOND",
+      "market_factor": "PETROCHEMICAL_NAPHTHA",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.6,
+      "demand_share_pct": 0.189,
+      "status": "no_data"
+    },
+    {
+      "material": "MEDICAL_SUPPLY_PLASTIC_GENERIC",
+      "market_factor": "PETROCHEMICAL_NAPHTHA",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.4,
+      "demand_share_pct": 0.0,
+      "status": "no_data"
+    },
+    {
+      "material": "ALUMINUM",
+      "market_factor": "ALUMINUM",
+      "assumed_lag_days": 0.0,
+      "assumed_weight": 1.0,
+      "demand_share_pct": 13.366,
+      "label": "ALUMINUM → ALUMINUM",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": false,
+      "selected_lag_aic": 4,
+      "johansen_trace": 25.059,
+      "johansen_crit95": 15.494,
+      "cointegrated": true,
+      "vecm_alpha_korea": 0.4763,
+      "vecm_alpha_korea_pvalue": 0.0436,
+      "long_run_intl_leads_korea": false,
+      "granger_pvalues": {
+        "1": 0.0033,
+        "2": 0.056,
+        "3": 0.0907,
+        "4": 0.1992
+      },
+      "granger_significant_lags": [
+        1,
+        2,
+        3
+      ],
+      "granger_best_lag": 1,
+      "granger_best_pvalue": 0.0033,
+      "status": "ok"
+    },
+    {
+      "material": "ALUMINUM_HYDROXIDE_MINERAL",
+      "market_factor": "ALUMINUM",
+      "assumed_lag_days": 30.0,
+      "assumed_weight": 0.35,
+      "demand_share_pct": 2.482,
+      "status": "no_data"
+    },
+    {
+      "material": "COTTON_FIBER",
+      "market_factor": "COTTON",
+      "assumed_lag_days": 0.0,
+      "assumed_weight": 1.0,
+      "demand_share_pct": 0.276,
+      "label": "COTTON → COTTON_FIBER",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": true,
+      "selected_lag_aic": 1,
+      "johansen_trace": 27.228,
+      "johansen_crit95": 15.494,
+      "cointegrated": true,
+      "vecm_alpha_korea": 5.7585,
+      "vecm_alpha_korea_pvalue": 0.0241,
+      "long_run_intl_leads_korea": false,
+      "granger_pvalues": {
+        "1": 0.5893,
+        "2": 0.2578,
+        "3": 0.0832,
+        "4": 0.1125
+      },
+      "granger_significant_lags": [
+        3
+      ],
+      "granger_best_lag": 3,
+      "granger_best_pvalue": 0.0832,
+      "status": "ok"
+    },
+    {
+      "material": "GLUCOSE_CORNSTARCH",
+      "market_factor": "CORN",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.7,
+      "demand_share_pct": 0.098,
+      "label": "CORN → GLUCOSE_CORNSTARCH",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": true,
+      "selected_lag_aic": 1,
+      "johansen_trace": 12.137,
+      "johansen_crit95": 15.494,
+      "cointegrated": false,
+      "granger_pvalues": {
+        "1": 0.6263,
+        "2": 0.7481,
+        "3": 0.9194,
+        "4": 0.9119
+      },
+      "granger_significant_lags": [],
+      "granger_best_lag": 1,
+      "granger_best_pvalue": 0.6263,
+      "status": "ok"
+    },
+    {
+      "material": "REFINED_SUGAR",
+      "market_factor": "SUGAR",
+      "assumed_lag_days": 21.0,
+      "assumed_weight": 0.8,
+      "demand_share_pct": 0.01,
+      "label": "SUGAR → REFINED_SUGAR",
+      "n_obs": 24,
+      "intl_unit_root": true,
+      "korea_unit_root": true,
+      "selected_lag_aic": 1,
+      "johansen_trace": 6.616,
+      "johansen_crit95": 15.494,
+      "cointegrated": false,
+      "granger_pvalues": {
+        "1": 0.5904,
+        "2": 0.6299,
+        "3": 0.6683,
+        "4": 0.7428
+      },
+      "granger_significant_lags": [],
+      "granger_best_lag": 1,
+      "granger_best_pvalue": 0.5904,
+      "status": "ok"
+    }
+  ]
+}

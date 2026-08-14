@@ -1,0 +1,46 @@
+{
+  "summary": [
+    {
+      "variant": "stock_model_a_usage_only",
+      "n_features": 47,
+      "combined_WAPE": 39.051741586117544,
+      "delta_vs_A": 0.0,
+      "combined_BIAS": -8.736168542673369,
+      "per_fold": [
+        {
+          "fold": "2025_q1",
+          "WAPE": 38.39170445316935,
+          "BIAS": -9.730618326646155
+        },
+        {
+          "fold": "2025_q2",
+          "WAPE": 39.75851488165515,
+          "BIAS": -7.806104979514346
+        }
+      ]
+    },
+    {
+      "variant": "stock_model_b_news",
+      "n_features": 51,
+      "combined_WAPE": 39.39385067065713,
+      "delta_vs_A": 0.34210908453958666,
+      "combined_BIAS": 3.5318669836449637,
+      "per_fold": [
+        {
+          "fold": "2025_q1",
+          "WAPE": 38.47018282609729,
+          "BIAS": 0.8905911715014789
+        },
+        {
+          "fold": "2025_q2",
+          "WAPE": 40.38292194239865,
+          "BIAS": 6.002131880595381
+        }
+      ]
+    },
+    {
+      "variant": "stock_model_c_news_commodity",
+      "skipped": "Cannot tune variant stock_model_c_news_commodity: commodity risk features contain no non-zero observations"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-08-10T13:35:08.082597+00:00",
+  "policy_version": "item-bulk-approval-v1.1",
+  "policy_status": "user_requested_bulk_candidate_acceptance",
+  "approval_semantics": "All rows are accepted for workflow review status; external fact verification and operational eligibility remain separate.",
+  "applied": true,
+  "classification": {
+    "input_local_item_count": 409519,
+    "approved_local_item_count": 409519,
+    "existing_evidence_approved_count": 4969,
+    "bulk_complete_candidate_approved_count": 59348,
+    "bulk_pending_fields_approved_count": 345202,
+    "forecast_operational_eligible_count": 64315,
+    "automatic_order_eligible_count": 4969,
+    "taxonomy_rows": 346285,
+    "approval_coverage": 1.0
+  },
+  "material": {
+    "input_candidate_rows": 623408,
+    "input_candidate_local_item_count": 409519,
+    "approved_candidate_rows": 623408,
+    "approved_stock_mapping_rows": 634806,
+    "approved_stock_item_count": 416128,
+    "operational_eligible_mapping_rows": 82947,
+    "identity_approved_mapping_rows": 524988,
+    "market_signal_eligible_mapping_rows": 202048,
+    "news_signal_eligible_mapping_rows": 524988,
+    "operational_eligible_stock_item_count": 54511,
+    "evidence_status_counts": {
+      "candidate_not_external_fact_verified": 556662,
+      "material_unresolved_or_mixed": 78144
+    }
+  },
+  "exposure_candidate_generation": {
+    "approved_classification_count": 409519,
+    "classification_with_representative_count": 409519,
+    "candidate_count": 623408,
+    "official_material_claim_approved_count": 0,
+    "candidate_local_item_count": 409519,
+    "market_factor_covered_count": 216233,
+    "material_review_approved_count": 0,
+    "family_conflict_count": 435124,
+    "supply_policy_review_count": 249835,
+    "supply_policy_review_local_item_count": 172238,
+    "supply_policy_unmapped_count": 249835,
+    "supply_policy_unmapped_local_item_count": 172238,
+    "operational_risk_eligible_count": 0,
+    "blocked_reason": "material_candidates_require_explicit_review_before_inventory_adjustment"
+  },
+  "quality_gates": {
+    "all_local_candidates_approved": true,
+    "classification_keys_unique": true,
+    "all_taxonomy_references_valid": true,
+    "all_material_candidates_approved": true,
+    "all_material_rows_validate": true,
+    "operational_material_gate_preserved": true,
+    "automatic_order_not_bulk_enabled": true
+  },
+  "active_paths": {
+    "classification": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\item_forecast_classification_bulk_approved.parquet",
+    "taxonomy": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\item_family_taxonomy_bulk_approved.parquet",
+    "material_mapping": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\stock_item_material_mapping_bulk_approved.parquet"
+  },
+  "samples": {
+    "classification": "C:\\Users\\user\\TeamLex-ai\\data\\sample\\item_bulk_classification_approval_sample_1000.csv",
+    "material": "C:\\Users\\user\\TeamLex-ai\\data\\sample\\item_bulk_material_approval_sample_1000.csv"
+  },
+  "warnings": [
+    "Bulk approval is candidate acceptance, not proof that inferred facts are correct.",
+    "Incomplete taxonomy rows remain non-forecastable.",
+    "Only operationally eligible material rows are consumed by risk scorers.",
+    "Automatic ordering remains limited to prior evidence-approved classifications."
+  ]
+}

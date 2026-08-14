@@ -1,0 +1,213 @@
+{
+  "months": 24,
+  "period": [
+    "2024-01",
+    "2025-12"
+  ],
+  "lead_mean_range": [
+    35.272222222222226,
+    49.78186596583443
+  ],
+  "tests": [
+    {
+      "risk": "supply_risk_mean",
+      "target": "lead_mean",
+      "lag": 0,
+      "n": 24,
+      "pearson": -0.281,
+      "p_pearson": 0.1839,
+      "spearman": -0.192,
+      "p_spearman": 0.3683,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_mean",
+      "target": "lead_mean",
+      "lag": 1,
+      "n": 23,
+      "pearson": 0.15,
+      "p_pearson": 0.4931,
+      "spearman": 0.117,
+      "p_spearman": 0.5962,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_mean",
+      "target": "lead_mean",
+      "lag": 2,
+      "n": 22,
+      "pearson": 0.265,
+      "p_pearson": 0.2336,
+      "spearman": 0.243,
+      "p_spearman": 0.2751,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_mean",
+      "target": "lead_p75",
+      "lag": 0,
+      "n": 24,
+      "pearson": -0.191,
+      "p_pearson": 0.3708,
+      "spearman": -0.168,
+      "p_spearman": 0.433,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_mean",
+      "target": "lead_p75",
+      "lag": 1,
+      "n": 23,
+      "pearson": -0.205,
+      "p_pearson": 0.3471,
+      "spearman": -0.242,
+      "p_spearman": 0.2664,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_mean",
+      "target": "lead_p75",
+      "lag": 2,
+      "n": 22,
+      "pearson": -0.099,
+      "p_pearson": 0.6598,
+      "spearman": -0.168,
+      "p_spearman": 0.456,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_p90",
+      "target": "lead_mean",
+      "lag": 0,
+      "n": 24,
+      "pearson": -0.149,
+      "p_pearson": 0.4867,
+      "spearman": -0.157,
+      "p_spearman": 0.4652,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_p90",
+      "target": "lead_mean",
+      "lag": 1,
+      "n": 23,
+      "pearson": 0.196,
+      "p_pearson": 0.3703,
+      "spearman": 0.193,
+      "p_spearman": 0.3784,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_p90",
+      "target": "lead_mean",
+      "lag": 2,
+      "n": 22,
+      "pearson": 0.317,
+      "p_pearson": 0.1503,
+      "spearman": 0.276,
+      "p_spearman": 0.2136,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_p90",
+      "target": "lead_p75",
+      "lag": 0,
+      "n": 24,
+      "pearson": -0.086,
+      "p_pearson": 0.6912,
+      "spearman": -0.031,
+      "p_spearman": 0.8854,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_p90",
+      "target": "lead_p75",
+      "lag": 1,
+      "n": 23,
+      "pearson": -0.143,
+      "p_pearson": 0.5146,
+      "spearman": -0.081,
+      "p_spearman": 0.7147,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "supply_risk_p90",
+      "target": "lead_p75",
+      "lag": 2,
+      "n": 22,
+      "pearson": 0.033,
+      "p_pearson": 0.8847,
+      "spearman": -0.022,
+      "p_spearman": 0.9231,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "trade_risk_mean",
+      "target": "lead_mean",
+      "lag": 0,
+      "n": 24,
+      "pearson": 0.256,
+      "p_pearson": 0.2274,
+      "spearman": 0.3,
+      "p_spearman": 0.1544,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "trade_risk_mean",
+      "target": "lead_mean",
+      "lag": 1,
+      "n": 23,
+      "pearson": -0.224,
+      "p_pearson": 0.3045,
+      "spearman": -0.13,
+      "p_spearman": 0.553,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "trade_risk_mean",
+      "target": "lead_mean",
+      "lag": 2,
+      "n": 22,
+      "pearson": -0.33,
+      "p_pearson": 0.1332,
+      "spearman": -0.256,
+      "p_spearman": 0.2506,
+      "bonferroni_p": 1.0
+    },
+    {
+      "risk": "trade_risk_mean",
+      "target": "lead_p75",
+      "lag": 0,
+      "n": 24,
+      "pearson": 0.432,
+      "p_pearson": 0.035,
+      "spearman": 0.429,
+      "p_spearman": 0.0365,
+      "bonferroni_p": 0.63
+    },
+    {
+      "risk": "trade_risk_mean",
+      "target": "lead_p75",
+      "lag": 1,
+      "n": 23,
+      "pearson": 0.499,
+      "p_pearson": 0.0153,
+      "spearman": 0.43,
+      "p_spearman": 0.0407,
+      "bonferroni_p": 0.2754
+    },
+    {
+      "risk": "trade_risk_mean",
+      "target": "lead_p75",
+      "lag": 2,
+      "n": 22,
+      "pearson": 0.457,
+      "p_pearson": 0.0326,
+      "spearman": 0.328,
+      "p_spearman": 0.1363,
+      "bonferroni_p": 0.5868
+    }
+  ],
+  "significant_after_bonferroni": 0,
+  "note": "월 단위 집계끼리 맞춘 것이며 같은 기관·품목을 짝지은 것이 아니다. L_계약은 계약 납기이지 실제 도착일이 아니다."
+}

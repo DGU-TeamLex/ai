@@ -1,0 +1,99 @@
+{
+  "review_period_days": 30,
+  "safety_stock_rate": 0.2,
+  "current_default_lead_time_days": 15,
+  "formula": "target = mu * (R + L) + safety_stock",
+  "rows": [
+    {
+      "lead_time_days": 7,
+      "protection_period_days": 37,
+      "rows": 163229,
+      "protection_period_demand_sum": 22783068.3909107,
+      "safety_stock_sum": 4556613.678182141,
+      "base_stock_sum": 27339682.069092844,
+      "target_stock_sum": 27339816.609013706,
+      "target_col": "target_stock",
+      "order_qty_sum": 902228.3455784456,
+      "items_needing_order": 13824,
+      "order_col": "recommended_order"
+    },
+    {
+      "lead_time_days": 15,
+      "protection_period_days": 45,
+      "rows": 163229,
+      "protection_period_demand_sum": 27709137.232188683,
+      "safety_stock_sum": 5541827.446437739,
+      "base_stock_sum": 33250964.67862643,
+      "target_stock_sum": 33251129.463600554,
+      "target_col": "target_stock",
+      "order_qty_sum": 1441712.0891225366,
+      "items_needing_order": 16597,
+      "order_col": "recommended_order"
+    },
+    {
+      "lead_time_days": 30,
+      "protection_period_days": 60,
+      "rows": 163229,
+      "protection_period_demand_sum": 36945516.309584916,
+      "safety_stock_sum": 7389103.261916985,
+      "base_stock_sum": 44334619.57150191,
+      "target_stock_sum": 44334841.06595087,
+      "target_col": "target_stock",
+      "order_qty_sum": 2926293.7195812403,
+      "items_needing_order": 22094,
+      "order_col": "recommended_order"
+    },
+    {
+      "lead_time_days": 45,
+      "protection_period_days": 75,
+      "rows": 163229,
+      "protection_period_demand_sum": 46181895.386981145,
+      "safety_stock_sum": 9236379.077396229,
+      "base_stock_sum": 55418274.46437738,
+      "target_stock_sum": 55418552.66830121,
+      "target_col": "target_stock",
+      "order_qty_sum": 5104945.650799123,
+      "items_needing_order": 27859,
+      "order_col": "recommended_order"
+    },
+    {
+      "lead_time_days": 60,
+      "protection_period_days": 90,
+      "rows": 163229,
+      "protection_period_demand_sum": 55418274.464377366,
+      "safety_stock_sum": 11083654.892875478,
+      "base_stock_sum": 66501929.35725286,
+      "target_stock_sum": 66502264.27065154,
+      "target_col": "target_stock",
+      "order_qty_sum": 8022869.083060821,
+      "items_needing_order": 33808,
+      "order_col": "recommended_order"
+    },
+    {
+      "lead_time_days": 90,
+      "protection_period_days": 120,
+      "rows": 163229,
+      "protection_period_demand_sum": 73891032.61916983,
+      "safety_stock_sum": 14778206.52383397,
+      "base_stock_sum": 88669239.14300382,
+      "target_stock_sum": 88669687.47535223,
+      "target_col": "target_stock",
+      "order_qty_sum": 16246597.920778025,
+      "items_needing_order": 46042,
+      "order_col": "recommended_order"
+    },
+    {
+      "lead_time_days": 120,
+      "protection_period_days": 150,
+      "rows": 163229,
+      "protection_period_demand_sum": 92363790.77396229,
+      "safety_stock_sum": 18472758.154792458,
+      "base_stock_sum": 110836548.92875476,
+      "target_stock_sum": 110837110.68005286,
+      "target_col": "target_stock",
+      "order_qty_sum": 27481507.201175455,
+      "items_needing_order": 57546,
+      "order_col": "recommended_order"
+    }
+  ]
+}

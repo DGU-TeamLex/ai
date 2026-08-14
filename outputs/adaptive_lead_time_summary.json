@@ -1,0 +1,29 @@
+{
+  "snapshot_month": "2025-12",
+  "items": 102660,
+  "base_lead_time": {
+    "mean_days": 39.8,
+    "sd_days": 39.4,
+    "source": "procurement_contract_2024_01_06"
+  },
+  "coefficients": {
+    "supply_lead_time_multiplier_max": 0.5,
+    "supply_extra_lead_time_days_max": 14.0
+  },
+  "supply_risk": {
+    "median": 0.0,
+    "p90": 0.27295222878456116,
+    "max": 0.2749759554862976,
+    "nonzero_share": 0.30788038184297684
+  },
+  "recommended_lead_time_days": {
+    "min": 39.84710693359375,
+    "median": 39.84710693359375,
+    "max": 49.175270080566406
+  },
+  "order_quantity": {
+    "current_policy": 2791094.323900883,
+    "recommended": 13718891.482257644,
+    "ratio": 4.915237498345766
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "version": "stock-preprocessing-v1.2",
+  "training_data_policy": "current_2024_2025_plus_validation_weighted_matched_2018_2019",
+  "historical_data_policy": "matched_to_current_standard_item_only_with_separate_lag_segments",
+  "demand_definition": "normal_outbound_only",
+  "automatic_disposal_handling": "excluded_from_demand_and_ledger_balance",
+  "current": {
+    "role": "model_input",
+    "path": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\stock_monthly.parquet",
+    "rows": 3729983,
+    "start_month": "2024-01",
+    "end_month": "2025-12",
+    "month_count": 24,
+    "institution_count": 3530,
+    "department_count": 109,
+    "item_count": 17155,
+    "series_count": 416128,
+    "ledger_balance_violation_rows": 8,
+    "automatic_disposal_excluded": true
+  },
+  "historical_auxiliary": {
+    "role": "standardization_and_training_candidate",
+    "path": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\stock_monthly_2018_2019_auxiliary.parquet",
+    "rows": 1460785,
+    "start_month": "2018-01",
+    "end_month": "2019-12",
+    "month_count": 24,
+    "institution_count": 1553,
+    "department_count": 89,
+    "item_count": 11795,
+    "series_count": 179295,
+    "ledger_balance_violation_rows": 39,
+    "automatic_disposal_excluded": true
+  }
+}

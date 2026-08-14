@@ -1,0 +1,26 @@
+{
+  "policy_version": "material-approval-pilot-v1.0",
+  "policy_status": "experimental_branch_only",
+  "reviewer": "codex_policy_review_experiment",
+  "reviewed_at": "2026-08-10T13:36:51.542796+00:00",
+  "input_candidate_rows": 11383,
+  "input_local_item_count": 4969,
+  "approved_candidate_rows": 2212,
+  "approved_local_item_count": 2212,
+  "approved_stock_item_mapping_rows": 2297,
+  "approved_stock_item_count": 2297,
+  "approved_candidate_usage_sum": 67120909.0,
+  "approval_reason_counts": {
+    "not_in_explicit_approval_policy": 9171,
+    "strict_policy_pass": 2212
+  },
+  "approved_rule_counts": {
+    "DISPOSABLE_SYRINGE_PP_V1": 2212
+  },
+  "demand_mapping_approved": false,
+  "release_scope": "experimental_branch_only",
+  "applied": false,
+  "mapping_output_path": "C:\\Users\\user\\TeamLex-ai\\data\\mapping\\stock_item_material_mapping.csv",
+  "audit_output_path": "C:\\Users\\user\\TeamLex-ai\\outputs\\material_mapping_approval_audit.csv",
+  "sample_output_path": "C:\\Users\\user\\TeamLex-ai\\data\\sample\\material_mapping_approval_sample_1000.csv"
+}

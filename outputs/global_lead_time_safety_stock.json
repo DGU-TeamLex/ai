@@ -1,0 +1,81 @@
+{
+  "lead_time_distribution": {
+    "source": "procurement_contract_lead_time_2024_01_06",
+    "n": 10109,
+    "p10": 30.0,
+    "p25": 30.0,
+    "median": 30.0,
+    "p75": 30.0,
+    "p90": 60.0,
+    "mean_days": 41.0,
+    "sd_days": 41.3,
+    "note": "계약상 납기. 실제 도착일이 아니므로 sd 는 과소추정 쪽이다."
+  },
+  "coefficients": {
+    "supply_lead_time_multiplier_max": 0.5,
+    "supply_extra_lead_time_days_max": 14.0
+  },
+  "items": 161659,
+  "scenarios": [
+    {
+      "risk": 0.0,
+      "lead_mean_days": 41.0,
+      "protection_days": 71.0,
+      "current_ss_sum": 10349112.7542677,
+      "ss_sum_z90": 43931748.158146895,
+      "ratio_z90": 4.244977245999238,
+      "ss_sum_z95": 56385246.99230324,
+      "ratio_z95": 5.448317003701738,
+      "ss_sum_z98": 70398432.57832888,
+      "ratio_z98": 6.802364052831334
+    },
+    {
+      "risk": 0.25,
+      "lead_mean_days": 49.6,
+      "protection_days": 79.6,
+      "current_ss_sum": 11606311.310684025,
+      "ss_sum_z90": 49185599.0277262,
+      "ratio_z90": 4.2378321338364495,
+      "ss_sum_z95": 63128426.84199971,
+      "ratio_z95": 5.439146439565836,
+      "ss_sum_z98": 78817466.23224196,
+      "ratio_z98": 6.790914367400059
+    },
+    {
+      "risk": 0.5,
+      "lead_mean_days": 58.2,
+      "protection_days": 88.2,
+      "current_ss_sum": 12863509.867100349,
+      "ss_sum_z90": 54363827.77638015,
+      "ratio_z90": 4.2262048490685125,
+      "ss_sum_z95": 69774547.68209091,
+      "ratio_z95": 5.4242231244013706,
+      "ss_sum_z98": 87115319.21375775,
+      "ratio_z98": 6.772282224197882
+    },
+    {
+      "risk": 0.75,
+      "lead_mean_days": 66.9,
+      "protection_days": 96.9,
+      "current_ss_sum": 14120708.42351667,
+      "ss_sum_z90": 59485696.605294764,
+      "ratio_z90": 4.212656675654254,
+      "ss_sum_z95": 76348332.04279757,
+      "ratio_z95": 5.406834399019728,
+      "ss_sum_z98": 95322858.23836912,
+      "ratio_z98": 6.7505719528645
+    },
+    {
+      "risk": 1.0,
+      "lead_mean_days": 75.5,
+      "protection_days": 105.5,
+      "current_ss_sum": 15377906.979932994,
+      "ss_sum_z90": 64564224.46060003,
+      "ratio_z90": 4.198505332673131,
+      "ss_sum_z95": 82866489.40015683,
+      "ratio_z95": 5.388671521312447,
+      "ss_sum_z98": 103460945.51711476,
+      "ratio_z98": 6.727895132421042
+    }
+  ]
+}
