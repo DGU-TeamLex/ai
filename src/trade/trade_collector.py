@@ -461,13 +461,23 @@ def collect_trade_flows(
         return totals, countries
     if selected != "kcs":
         raise ValueError(f"Unsupported TRADE_PROVIDER: {selected}")
-    if total_cache_path.exists() and not refresh:
-        return collect_trade_flows(
-            hs_codes,
-            provider="csv",
-            total_cache_path=total_cache_path,
-            country_cache_path=country_cache_path,
-        )
+    # 캐시 조기 반환을 두지 않는다.
+    #
+    # 종전에는 `total_cache_path.exists()` 만 보고 돌려줬고, 그 뒤 요청 HS 코드
+    # 포함 여부를 덧대 봤지만 그것도 불완전했다. 리뷰가 든 반례가 그대로 통과한다.
+    #
+    #   요청 기간   2024-01~2025-12
+    #   total cache 3902100000 의 2025-01 한 행만 존재
+    #   country     없음
+    #   → totals=1행, countries=0행, 네트워크 수집 없이 "성공"
+    #
+    # HS 코드 집합이 맞아도 **기간과 국가 pair 가 비어 있을 수 있다.** 조기
+    # 반환에 검사를 계속 덧대는 대신 아래 증분 completeness 경로로 항상 내려간다.
+    # 그 경로는 이미 기간·state·country-HS pair 를 보고 빠진 것만 수집하며,
+    # 마지막에 요청 HS 로 필터링한다. 캐시가 완전하면 요청이 0건이므로
+    # 네트워크 비용도 종전과 같다.
+    #
+    # ai#71 Blocking 1.
 
     start_month = os.getenv("TRADE_START_MONTH", "2023-01")
     end_month = os.getenv("TRADE_END_MONTH", "2026-06")
@@ -525,18 +535,16 @@ def collect_trade_flows(
         if set(requested_hs_codes).issubset(observed_total_hs):
             completed_totals.update(requested_hs_codes)
     if not existing_countries.empty:
-        for country_code, rows in existing_countries.groupby(
-            "country_code",
+        # (국가, HS) **쌍마다** 기간을 확인한다. 종전에는 국가 단위로 기간만 보고
+        # 요청 HS 전부를 완료 처리했다. 그러면 그 국가에 일부 HS 만 있어도
+        # 나머지가 수집된 것으로 표시되어 조용히 빠진다(ai#71 Blocking 1).
+        pair_span = existing_countries.groupby(
+            ["country_code", "hs_code"],
             observed=True,
-        ):
-            if (
-                rows["STD_YYYYMM"].min() <= expected_start
-                and rows["STD_YYYYMM"].max() >= expected_end
-            ):
-                completed_country_pairs.update(
-                    f"{country_code}:{hs_code}"
-                    for hs_code in requested_hs_codes
-                )
+        )["STD_YYYYMM"].agg(["min", "max"])
+        for (country_code, hs_code), row in pair_span.iterrows():
+            if row["min"] <= expected_start and row["max"] >= expected_end:
+                completed_country_pairs.add(f"{country_code}:{hs_code}")
 
     missing_total_hs = [
         hs_code

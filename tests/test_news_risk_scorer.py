@@ -11,10 +11,7 @@ from urllib.error import HTTPError
 
 import pandas as pd
 
-from src.news.news_risk_scorer import (
-    _write_article_score_audit,
-    build_news_risk_outputs,
-)
+from src.news.news_risk_scorer import build_news_risk_outputs
 from src.news.news_collector import (
     _find_recent_gdelt_ngram_batches,
     _news_from_gdelt_ngram_batch,
@@ -334,18 +331,47 @@ class NewsCollectorTest(unittest.TestCase):
         pd.testing.assert_frame_equal(news, cached)
 
     @patch("src.news.news_collector._request_gdelt_articles")
-    def test_gdelt_combined_mode_uses_one_request_per_month(self, request_articles):
+    def test_gdelt_combined_mode_is_rejected(self, request_articles):
+        """combined 는 GDELT 가 질의 길이로 항상 거부하므로 제거했다(ai#22).
+
+        조용히 split 으로 넘기면 설정한 사람이 combined 로 돌아간다고 믿은 채
+        다른 결과를 받는다. 명시적으로 실패해야 한다.
+        """
         request_articles.return_value = []
 
-        news = collect_gdelt_news(
-            "2024-01-01",
-            "2024-01-31",
-            request_delay_seconds=0,
-            query_mode="combined",
-        )
+        with self.assertRaises(ValueError) as caught:
+            collect_gdelt_news(
+                "2024-01-01",
+                "2024-01-31",
+                request_delay_seconds=0,
+                query_mode="combined",
+            )
 
-        self.assertEqual(request_articles.call_count, 1)
-        self.assertTrue(news.empty)
+        self.assertIn("combined", str(caught.exception))
+        self.assertEqual(request_articles.call_count, 0)
+
+    @patch("src.news.news_collector.urlopen")
+    def test_query_length_rejection_is_not_retried(self, urlopen_mock):
+        """질의 길이 초과는 재시도해도 달라지지 않는다.
+
+        종전에는 GDELTTransientResponseError 로 잡혀 재시도를 그대로 소진했다.
+        """
+        from src.news.news_collector import GDELTPermanentQueryError
+
+        response = io.BytesIO(b"Your query was too short or too long.")
+        response.__enter__ = lambda self_=response: self_
+        response.__exit__ = lambda *_: False
+        urlopen_mock.return_value = response
+
+        with self.assertRaises(GDELTPermanentQueryError):
+            _request_gdelt_articles(
+                "q",
+                pd.Timestamp("2024-01-01"),
+                pd.Timestamp("2024-01-31"),
+                250,
+            )
+
+        self.assertEqual(urlopen_mock.call_count, 1)
 
     def test_english_supply_news_is_classified(self):
         analysis = analyze_news_row(
@@ -458,53 +484,138 @@ class NewsCollectorTest(unittest.TestCase):
         self.assertTrue(audit.empty)
 
 
-class ArticleScoreAuditFormatTest(unittest.TestCase):
-    FRAME = pd.DataFrame(
-        [
-            {"STD_YYYYMM": "2025-01", "stock_item_key": "I1::D::A", "article_score": 0.5},
-            {"STD_YYYYMM": "2025-01", "stock_item_key": "I1::D::B", "article_score": 0.25},
-        ]
-    )
+class SyntheticNewsGuardTest(unittest.TestCase):
+    """합성 뉴스가 운영 점수 경로로 들어가는 것을 막는다 (ai#22).
 
-    def _write_with(self, fmt: str | None, directory: str):
-        target = Path(directory) / "stock_news_article_scores.csv"
-        env = {} if fmt is None else {"NEWS_ARTICLE_SCORE_FORMAT": fmt}
-        with patch.dict(os.environ, env, clear=False):
-            if fmt is None:
-                os.environ.pop("NEWS_ARTICLE_SCORE_FORMAT", None)
-            with patch(
-                "src.news.news_risk_scorer.NEWS_ARTICLE_SCORE_PATH", target
-            ):
-                return _write_article_score_audit(self.FRAME)
+    실제로 `data/raw/news/news_history.csv` 라는 실데이터 같은 이름의 파일이
+    example.test URL 을 가진 합성 96행이었고, 그것이 피처테이블 뉴스 신호
+    전부를 차지한 채 조용히 통과했다. 그 상태로 A/B 를 돌려 "뉴스를 넣으면
+    WAPE 가 나빠진다" 는 결론을 낼 뻔했다.
+    """
 
-    def test_csv_is_the_default_so_the_documented_artifact_is_unchanged(self):
+    def _write(self, directory: str, rows: list[dict]) -> Path:
+        path = Path(directory) / "news.csv"
+        pd.DataFrame(rows).to_csv(path, index=False)
+        return path
+
+    @staticmethod
+    def _row(url: str, source: str = "major_news_agency") -> dict:
+        return {
+            "date": "2024-01-10",
+            "title": "원자재 공급 차질",
+            "summary": "공급 차질이 우려된다.",
+            "source": source,
+            "country": "Korea",
+            "url": url,
+        }
+
+    def test_placeholder_urls_are_rejected_by_default(self):
         with tempfile.TemporaryDirectory() as directory:
-            written = self._write_with(None, directory)
+            path = self._write(
+                directory,
+                [self._row(f"https://example.test/{index}") for index in range(10)],
+            )
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+                with self.assertRaises(ValueError) as caught:
+                    collect_news(provider="csv", data_path=path)
 
-            self.assertEqual(written.suffix, ".csv")
-            self.assertTrue(written.exists())
-            pd.testing.assert_frame_equal(pd.read_csv(written), self.FRAME)
+        self.assertIn("NEWS_ALLOW_SYNTHETIC", str(caught.exception))
 
-    def test_parquet_round_trips_without_loss(self):
+    def test_explicit_opt_in_allows_synthetic(self):
         with tempfile.TemporaryDirectory() as directory:
-            written = self._write_with("parquet", directory)
+            path = self._write(
+                directory,
+                [self._row(f"https://example.test/{index}") for index in range(10)],
+            )
+            with patch.dict(os.environ, {"NEWS_ALLOW_SYNTHETIC": "true"}):
+                news = collect_news(provider="csv", data_path=path)
 
-            self.assertEqual(written.suffix, ".parquet")
-            pd.testing.assert_frame_equal(pd.read_parquet(written), self.FRAME)
+        self.assertEqual(len(news), 10)
 
-    def test_parquet_does_not_leave_a_stale_csv_behind(self):
+    def test_real_urls_pass_through(self):
         with tempfile.TemporaryDirectory() as directory:
-            written = self._write_with("parquet", directory)
+            path = self._write(
+                directory,
+                [self._row(f"https://www.yna.co.kr/view/{index}") for index in range(10)],
+            )
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+                news = collect_news(provider="csv", data_path=path)
 
-            self.assertFalse(written.with_suffix(".csv").exists())
+        self.assertEqual(len(news), 10)
 
-    def test_unknown_format_fails_instead_of_silently_picking_one(self):
+    def test_minority_placeholder_urls_do_not_block(self):
+        """일부 기사에 URL 이 없거나 자리표시자여도 전체를 막지는 않는다."""
+        rows = [self._row(f"https://www.yna.co.kr/view/{index}") for index in range(9)]
+        rows.append(self._row("https://example.test/1"))
         with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaises(ValueError) as caught:
-                self._write_with("json", directory)
+            path = self._write(directory, rows)
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+                news = collect_news(provider="csv", data_path=path)
 
-        self.assertIn("NEWS_ARTICLE_SCORE_FORMAT", str(caught.exception))
+        self.assertEqual(len(news), 10)
+
+    def test_sample_provider_is_also_guarded(self):
+        """sample provider 도 운영 산출물을 만든다. 같은 게이트를 통과해야 한다."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
+            with self.assertRaises(ValueError):
+                collect_news(provider="sample")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewsFilterCoversClassifierTest(unittest.TestCase):
+    """입구 필터가 분류기보다 좁으면 안 된다.
+
+    filter_relevant_news 에서 걸러진 기사는 news_llm_analyzer 가 볼 기회조차
+    없다. 실제로 좁아서 수집 7,756건 중 991건(12.8%)만 통과했고, 탈락분에
+    port_or_logistics_disruption 으로 잡힐 기사가 대량으로 있었다. 그 결과
+    supply_news_risk 가 비영 0% 였다.
+    """
+
+    CLASSIFIABLE_TITLES = [
+        "Port strike halts container operations at major terminal",
+        "US customs computer outage causes delays for airport travelers",
+        "Company declares force majeure after plant explosion",
+        "New sanctions restrict aluminium exports",
+        "Red Sea shipping disruption forces vessels to reroute",
+        "Factory shutdown cuts polypropylene output",
+        "Freight backlog grows amid port congestion",
+    ]
+
+    def test_filter_keeps_everything_the_classifier_can_classify(self):
+        from src.news.news_filter import filter_relevant_news
+        from src.news.news_llm_analyzer import analyze_news_row
+
+        news = pd.DataFrame(
+            [
+                {
+                    "date": "2024-05-01",
+                    "title": title,
+                    "summary": "",
+                    "source": "reuters.com",
+                    "country": "Unknown",
+                    "url": f"https://example.invalid/{index}",
+                }
+                for index, title in enumerate(self.CLASSIFIABLE_TITLES)
+            ]
+        )
+        classified = [
+            title
+            for title, (_, row) in zip(self.CLASSIFIABLE_TITLES, news.iterrows())
+            if analyze_news_row(row)["event_type"] != "none"
+        ]
+        self.assertTrue(classified, "분류기가 하나도 못 잡으면 이 테스트가 무의미하다")
+
+        kept = set(filter_relevant_news(news)["title"])
+        dropped = [title for title in classified if title not in kept]
+        self.assertEqual(
+            dropped,
+            [],
+            f"분류 가능한 기사가 입구 필터에서 탈락한다: {dropped}",
+        )

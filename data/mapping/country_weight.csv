@@ -1,5 +1,14 @@
-country,region_weight
-Korea,1.0
-Malaysia,0.7
-Global,0.6
-Unknown,0.5
+﻿country,country_name,region_weight,import_share,aliases
+BH,바레인,1.0,0.497,Bahrain
+CN,중국,0.5524,0.2746,China;Chinese
+AE,아랍에미리트 연합,0.2221,0.1104,UAE;Emirates;Dubai;Abu Dhabi
+OM,오만,0.0824,0.041,Oman
+QA,카타르,0.0748,0.0372,Qatar
+SG,싱가포르,0.0307,0.0153,Singapore
+JP,일본,0.012,0.0059,Japan;Japanese
+TH,태국,0.0101,0.005,Thailand;Thai
+DE,독일,0.0083,0.0041,Germany;German
+VN,베트남,0.0064,0.0032,Vietnam
+US,미국,0.005,0.0025,United States;U.S.;American
+NL,네덜란드,0.0029,0.0014,Netherlands;Dutch
+Unknown,미상,0.3,0.0,

@@ -129,18 +129,44 @@ GDELT_NGRAM_RISK_KEYWORDS = (
     "war",
     "conflict",
 )
-COMBINED_GDELT_QUERIES = {
-    "risk_candidate": (
-        '(pandemic OR epidemic OR influenza OR covid OR "disease outbreak" '
-        'OR "medical supplies" OR "medical device" OR syringe OR catheter '
-        'OR respirator OR naphtha OR "crude oil" OR polypropylene OR polyethylene '
-        'OR PVC OR latex OR nitrile OR aluminum OR cotton OR pulp)'
-    ),
-}
+# `combined` 모드는 제거했다(ai#22 결정).
+#
+# 요청 수를 72 → 24 로 줄이려고 세 카테고리를 하나의 OR 질의로 합쳤으나,
+# GDELT 가 첫 요청부터 "Your query was too short or too long" 으로 거부한다.
+# rate limit 이 아니라 질의 길이 문제다.
+#
+#     combined  risk_candidate   261자  → 거부
+#     split     raw_material     172자  → 정상
+#
+# 즉 도달은 하지만 **항상 실패하는 경로**였다. 동작하지 않는 선택지를 남겨두면
+# 다음 사람이 같은 곳에서 막힌다.
+#
+# 키워드를 임의로 쳐내는 방식(1안)은 택하지 않았다. recall 평가 없이 줄이면
+# 수집 대상이 조용히 줄어든다. 고정 2분할(2안)도 최종 규칙으로 두지 않는다.
+# 감염병·의료용품·원자재는 감사 가능한 의미 축이므로 유지하고, 카테고리 내부를
+# 검증 가능한 크기로 동적 분할하는 방향이 후속 과제다.
+#
+# 주의: GDELT 공식 문서에 문자 수 상한이 명시되어 있지 않다. 위 261/172 는
+# 재현된 관측이지 계약이 아니다. URL 인코딩 길이와 연산자 구성도 영향을 준다.
 
 
 class GDELTTransientResponseError(RuntimeError):
-    """Raised when GDELT returns a temporary non-JSON response."""
+    """일시적 오류. 재시도로 풀릴 수 있다 (429, 5xx, 빈 응답, 비JSON)."""
+
+
+class GDELTPermanentQueryError(RuntimeError):
+    """설정 오류. 재시도해도 달라지지 않으므로 즉시 실패시킨다.
+
+    질의 길이 초과가 여기 해당한다. 종전에는 이것이 GDELTTransientResponseError
+    로 잡혀 재시도 10회를 그대로 소진했다. 질의 길이는 기다린다고 바뀌지 않는다.
+    """
+
+
+# GDELT 는 질의를 거부할 때 JSON 이 아니라 평문 문장을 돌려준다.
+# 실측 문구: "Your query was too short or too long."
+_QUERY_LENGTH_REJECTION_PATTERN = re.compile(
+    r"query was too (?:short|long)", re.IGNORECASE
+)
 
 
 def _keyword_pattern(keywords: tuple[str, ...]) -> re.Pattern:
@@ -161,6 +187,73 @@ GDELT_NGRAM_TITLE_TOPIC_PATTERNS = {
     ),
 }
 GDELT_NGRAM_RISK_PATTERN = _keyword_pattern(GDELT_NGRAM_RISK_KEYWORDS)
+
+
+# 자리표시자 URL 스킴/도메인. 실제 기사라면 여기 걸릴 수 없다.
+SYNTHETIC_URL_MARKERS = (
+    "sample://",
+    "test://",
+    "example.test",
+    "example.com",
+    "example.org",
+    "localhost",
+)
+SYNTHETIC_SOURCE_MARKERS = ("sample", "synthetic", "dummy", "fixture")
+# 합성 판정 임계. 일부 기사에 URL 이 없어 Unknown 인 경우까지 막지 않도록
+# "대다수가 자리표시자" 일 때만 차단한다.
+SYNTHETIC_RATIO_THRESHOLD = 0.8
+
+
+def _synthetic_share(news: pd.DataFrame) -> float:
+    """자리표시자 URL/출처 비율. 0.0~1.0."""
+    if news.empty:
+        return 0.0
+    flagged = pd.Series(False, index=news.index)
+    if "url" in news.columns:
+        url = news["url"].astype("string").fillna("").str.lower()
+        for marker in SYNTHETIC_URL_MARKERS:
+            flagged |= url.str.contains(marker, regex=False)
+    if "source" in news.columns:
+        source = news["source"].astype("string").fillna("").str.lower().str.strip()
+        flagged |= source.isin(SYNTHETIC_SOURCE_MARKERS)
+    return float(flagged.mean())
+
+
+def _guard_synthetic_news(news: pd.DataFrame, origin: str) -> pd.DataFrame:
+    """합성/샘플 뉴스가 운영 점수 경로로 들어가는 것을 막는다 (ai#22).
+
+    fail-closed 로 둔 이유가 있다. `data/raw/news/news_history.csv` 라는 실데이터
+    같은 이름의 파일이 사실은 `example.test` URL 을 가진 합성 96행이었는데,
+    그것이 피처테이블 뉴스 신호 **전부**를 차지한 채 조용히 통과했다. 그 상태로
+    A/B 를 돌려 "뉴스를 넣으면 WAPE 가 나빠진다" 는 결론을 낼 뻔했다.
+    실제로는 뉴스 신호를 평가한 적이 없었다.
+
+    파이프라인 동작 확인 목적이면 NEWS_ALLOW_SYNTHETIC=true 로 명시적으로 켠다.
+    켜면 경고를 남기므로 산출물의 출처가 로그에 드러난다.
+    """
+    share = _synthetic_share(news)
+    if share < SYNTHETIC_RATIO_THRESHOLD:
+        return news
+
+    allowed = os.getenv("NEWS_ALLOW_SYNTHETIC", "false").strip().lower() == "true"
+    if allowed:
+        LOGGER.warning(
+            "합성 뉴스를 사용한다 (%s): %s행 중 %.0f%% 가 자리표시자 URL/출처. "
+            "NEWS_ALLOW_SYNTHETIC=true 로 허용됨. 이 산출물은 모델 성능 판단에 "
+            "쓰면 안 된다.",
+            origin,
+            f"{len(news):,}",
+            share * 100,
+        )
+        return news
+
+    raise ValueError(
+        f"합성/샘플 뉴스가 운영 점수 경로로 들어오려 한다 ({origin}). "
+        f"{len(news):,}행 중 {share:.0%} 가 자리표시자 URL/출처다"
+        f"(예: {SYNTHETIC_URL_MARKERS[:3]}). "
+        "실제 뉴스를 넣거나, 파이프라인 동작 확인이 목적이면 "
+        "NEWS_ALLOW_SYNTHETIC=true 를 명시할 것."
+    )
 
 
 SAMPLE_NEWS = [
@@ -273,6 +366,13 @@ def _request_gdelt_articles(
                 payload = json.loads(response_body)
             except (json.JSONDecodeError, UnicodeDecodeError) as error:
                 preview = response_body[:160].decode("utf-8", errors="replace")
+                # 질의 길이 초과는 평문으로 온다. 재시도해도 질의는 안 바뀌므로
+                # 일시 오류로 취급하면 10회를 그대로 날린다(ai#22).
+                if _QUERY_LENGTH_REJECTION_PATTERN.search(preview):
+                    raise GDELTPermanentQueryError(
+                        f"GDELT 가 질의를 거부했다(길이/구성 문제, 재시도 무의미): "
+                        f"{preview!r}"
+                    ) from error
                 raise GDELTTransientResponseError(
                     f"GDELT returned a non-JSON response: {preview!r}"
                 ) from error
@@ -354,15 +454,18 @@ def collect_gdelt_news(
 
     max_records = max(1, min(int(max_records), 250))
     selected_query_mode = query_mode.strip().lower()
-    if selected_query_mode == "split":
-        queries = DEFAULT_GDELT_QUERIES
-    elif selected_query_mode == "combined":
-        queries = COMBINED_GDELT_QUERIES
-    else:
+    if selected_query_mode == "combined":
+        # 조용히 split 으로 넘기지 않는다. 설정한 사람이 combined 로 돌아간다고
+        # 믿은 채 다른 결과를 받으면 더 나쁘다. 명시적으로 실패시킨다.
         raise ValueError(
-            f"Unsupported GDELT query mode: {query_mode}. "
-            "Expected 'split' or 'combined'."
+            "GDELT_QUERY_MODE=combined 는 지원하지 않는다(ai#22). GDELT 가 질의 "
+            "길이 초과로 항상 거부하므로 제거했다. 'split' 을 쓸 것."
         )
+    if selected_query_mode != "split":
+        raise ValueError(
+            f"Unsupported GDELT query mode: {query_mode}. Expected 'split'."
+        )
+    queries = DEFAULT_GDELT_QUERIES
     rows = []
     part_dir = cache_path.parent / f".{cache_path.stem}_parts" if cache_path else None
     if part_dir:
@@ -628,12 +731,18 @@ def collect_news(provider: str | None = None, data_path: str | Path | None = Non
     if selected_provider in {"disabled", "none"}:
         return pd.DataFrame(columns=NEWS_COLUMNS)
     if selected_provider == "sample":
-        return _normalize_news(pd.DataFrame(SAMPLE_NEWS))
+        return _guard_synthetic_news(
+            _normalize_news(pd.DataFrame(SAMPLE_NEWS)),
+            origin="NEWS_PROVIDER=sample",
+        )
     if selected_provider == "csv":
         selected_path = data_path or os.getenv("NEWS_DATA_PATH")
         if not selected_path:
             raise ValueError("NEWS_DATA_PATH is required when NEWS_PROVIDER=csv")
-        return load_news_csv(Path(selected_path))
+        return _guard_synthetic_news(
+            load_news_csv(Path(selected_path)),
+            origin=f"NEWS_DATA_PATH={selected_path}",
+        )
     if selected_provider == "gdelt":
         start_date = os.getenv("NEWS_START_DATE")
         end_date = os.getenv("NEWS_END_DATE")
