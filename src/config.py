@@ -78,7 +78,24 @@ def load_dotenv(path: Path = PROJECT_ROOT / ".env") -> list[str]:
     return loaded
 
 
-DOTENV_LOADED_KEYS = load_dotenv()
+# `.env` 는 **import 시점에** 읽힌다. 이 부작용을 명시해 둔다.
+#
+# 진입점이 57개라 각 `__main__` 에서 명시 호출하도록 바꾸는 것은 비용이 크고,
+# 하나라도 빠뜨리면 그 경로만 설정이 조용히 안 먹는다 — 이 자동 로드가 애초에
+# 막으려던 실패다(ai#71).
+#
+# 대신 부작용을 **끌 수 있게** 한다. 라이브러리로 import 하는 쪽(노트북·서비스·
+# 테스트)은 자기 환경이 개발자 `.env` 로 오염되면 안 된다.
+#
+#   TEAMLEX_NO_DOTENV=1 python -c "import src.config"    # 로드하지 않음
+#
+# 테스트는 `tests/conftest.py` 가 주입된 키를 지우는 방식으로 격리한다.
+# 어느 키가 주입됐는지는 `DOTENV_LOADED_KEYS` 로 확인할 수 있다.
+DOTENV_LOADED_KEYS = (
+    []
+    if os.environ.get("TEAMLEX_NO_DOTENV", "").strip().lower() in {"1", "true", "yes"}
+    else load_dotenv()
+)
 
 RAW_STOCK_DIR = PROJECT_ROOT / "raw_stock"
 RAW_STOCK_FILE_PATTERN = "*.DAT"
