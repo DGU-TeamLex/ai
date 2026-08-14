@@ -129,24 +129,51 @@ def _shard_lock(raw_path: Path):
 # 보건지소·보건진료소까지 포함해야 원장 모집단(3,598곳)과 층이 맞는다.
 HEALTH_CENTER_TOKENS = ("보건소", "보건지소", "보건진료소", "보건의료원")
 
+# API 응답은 30개 필드를 준다. 종전에는 17개만 담아 나머지를 버리고 있었다.
+#
+# 실납품일을 찾다가 발견했다. 이 API 에 실납품일·검수일 필드는 **없지만**,
+# 버리고 있던 13개 중에 쓸 만한 것이 있다.
+#
+#   dlvrReqChgOrd     납품요구 변경차수. 사후 변경 여부를 뜻한다.
+#   dlvrReqIncdecQty  변경으로 늘거나 준 수량
+#   dlvrReqIncdecAmt  변경으로 늘거나 준 금액
+#   inspInstSeNm      검수기관 구분 (수요기관/조달청 등)
+#   inspInstCdNm      검수기관
+#
+# `L_계약` 이 계약 납기라 median 이 30일에 고정되는 한계가 있는데, 변경차수는
+# **납기가 실제로 연장됐는지** 를 볼 실마리가 될 수 있다. 지금 안 담으면
+# 나중에 524 요청을 다시 써야 하므로 전부 담는다. 크기 부담은 작다.
 KEEP_FIELDS = [
     "dlvrReqNo",
+    "dlvrReqChgOrd",
     "dlvrReqRcptDate",
     "maxDlvrTmlmtDate",
     "dlvrReqNm",
     "dlvrReqQty",
     "dlvrReqAmt",
+    "dlvrReqIncdecQty",
+    "dlvrReqIncdecAmt",
     "dminsttCd",
     "dminsttNm",
+    "dminsttBizno",
     "dmndInsttDivNm",
     "dminsttRgnNm",
     "corpNm",
+    "corpBizno",
+    "corpEntrprsDivNm",
     "rprsntPrdctClsfcNo",
     "rprsntPrdctClsfcNoNm",
     "rprsntDtilPrdctClsfcNo",
     "rprsntDtilPrdctClsfcNoNm",
     "cntrctNo",
+    "cntrctChgOrd",
+    "cntrctCnclsStleNm",
+    "masYn",
+    "exclcProdctYn",
     "fnlDlvrReqYn",
+    "inspInstSeNm",
+    "inspInstCdNm",
+    "igiInstCdNm",
 ]
 
 

@@ -22,15 +22,50 @@ LAST3 = ["2025-10", "2025-11", "2025-12"]
 DAYS = 92  # 31+30+31
 
 led = pd.read_parquet(LEDGER_PATH, columns=["보건기관코드_en", "물품코드", "재고마감일", "정상출고량"])
+# 원장 판본에 따라 `재고마감일` 이 datetime 이기도 하고 "20241220" 문자열이기도
+# 하다. 문자열이면 .dt 접근이 터진다.
+#
+# `format="mixed"` 를 쓰면 안 된다. "20241220" 을 epoch 정수로 읽어 전부
+# 1970-01 이 된다(실측: 전 구간이 1970-01 로 뭉개짐). 8자리 숫자면 %Y%m%d 로
+# 명시해 파싱한다.
+if not pd.api.types.is_datetime64_any_dtype(led["재고마감일"]):
+    raw_dates = led["재고마감일"].astype(str).str.strip()
+    if raw_dates.str.fullmatch(r"\d{8}").mean() > 0.9:
+        led["재고마감일"] = pd.to_datetime(raw_dates, format="%Y%m%d", errors="coerce")
+    else:
+        led["재고마감일"] = pd.to_datetime(raw_dates, errors="coerce")
+led = led.dropna(subset=["재고마감일"])
 led["ym"] = led["재고마감일"].dt.to_period("M").astype(str)
 
-# ★ 전체 원장 anon 집합으로 매핑(원본 inventory 적재와 동일 정렬 위치)
+# 검증된 2열 매핑이 있으면 그것을 쓴다. 없을 때만 정렬-zip 으로 내려간다.
+#
+# 정렬-zip 은 두 집합의 정렬 순서가 정확히 같을 때만 맞는데, 원장 3,530 vs
+# institutions 3,598 로 68개 차이가 나서 위치가 밀릴 위험이 있었다. 그 매핑을
+# DB on_hand 와 대조해 검증했고(재고 일치 99.52%, 한 칸 민 대조군 16.24%),
+# 결과를 data/mapping/institution_id_mapping.csv 에 고정했다.
+#
+# 파일이 있으면 그것을 쓰는 편이 낫다. 검증 근거가 파일에 붙어 있고, 원장
+# 집합이 바뀌어도 매핑이 조용히 달라지지 않는다.
+VERIFIED_MAP = os.environ.get(
+    "INST_CODE_MAP", "data/mapping/institution_id_mapping.csv"
+)
 anon_full = sorted(led["보건기관코드_en"].dropna().unique())
-real = pd.read_csv(INST_MAP)["institution_id"].tolist()
-if len(anon_full) != len(real):
-    print(f"[경고] anon {len(anon_full)} vs real {len(real)} — inventory 와 동일한 정렬 zip 로 진행"
-          f"(초과분은 원장 미등장 기관이라 무해).")
-mapping = dict(zip(anon_full, sorted(real)))
+mapping = None
+if os.path.exists(VERIFIED_MAP):
+    verified = pd.read_csv(VERIFIED_MAP, dtype=str)
+    if {"anon_institution_code", "institution_id"}.issubset(verified.columns) and len(verified):
+        mapping = dict(
+            zip(verified["anon_institution_code"], verified["institution_id"])
+        )
+        covered = sum(1 for code in anon_full if code in mapping)
+        print(f"[매핑] 검증본 사용: {VERIFIED_MAP} ({len(mapping):,}행), "
+              f"원장 기관 커버리지 {covered/len(anon_full):.2%}")
+if mapping is None:
+    real = pd.read_csv(INST_MAP)["institution_id"].tolist()
+    if len(anon_full) != len(real):
+        print(f"[경고] 검증 매핑이 없다. anon {len(anon_full)} vs real {len(real)} 로 "
+              f"정렬 zip 을 쓴다 — 위치가 밀릴 수 있다.")
+    mapping = dict(zip(anon_full, sorted(real)))
 
 g = (led[led["ym"].isin(LAST3)]
      .groupby(["보건기관코드_en", "물품코드"], observed=True, as_index=False)["정상출고량"].sum())
