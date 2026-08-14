@@ -232,6 +232,109 @@ class KcsTradeCollectorTest(unittest.TestCase):
         self.assertEqual(requests[0][0], KCS_COUNTRY_ENDPOINT)
         self.assertEqual(requests[0][1]["cntyCd"], "IN")
 
+    # ── ai#71 Blocking 1: 캐시 조기 반환 제거 검증 ──────────────────────
+    #
+    # 종전에는 total 캐시 파일이 존재하기만 하면(그리고 요청 HS 코드가 한 번이라도
+    # 들어 있으면) 기간·국가를 보지 않고 성공 반환했다. 아래 네 경우가 그 구멍이다.
+
+    @staticmethod
+    def _row(month, hs, country="ALL"):
+        return {
+            "STD_YYYYMM": month,
+            "hs_code": hs,
+            "country_code": country,
+            "export_weight_kg": 0,
+            "export_value_usd": 0,
+            "import_weight_kg": 100,
+            "import_value_usd": 100,
+        }
+
+    def _run(self, total_rows, country_rows, *, hs_codes, env_extra=None):
+        """수집을 돌리고 (요청내역, totals, countries) 를 준다."""
+        requests = []
+
+        def request_xml(url, params, timeout):
+            requests.append((url, params, timeout))
+            return b"<response><header><resultCode>00</resultCode></header><body/></response>"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            total_path = root / "total.csv"
+            country_path = root / "country.csv"
+            if total_rows:
+                pd.DataFrame(total_rows).to_csv(total_path, index=False)
+            if country_rows:
+                pd.DataFrame(country_rows).to_csv(country_path, index=False)
+            env = {
+                "TRADE_START_MONTH": "2024-01",
+                "TRADE_END_MONTH": "2024-03",
+                "TRADE_COUNTRY_CODES": "CN",
+                "TRADE_MAX_REQUESTS": "50",
+                "DATA_GO_KR_SERVICE_KEY": "test-key",
+                "TRADE_PROVIDER": "kcs",
+            }
+            env.update(env_extra or {})
+            with patch.dict("os.environ", env, clear=False):
+                totals, countries = collect_trade_flows(
+                    hs_codes,
+                    provider="kcs",
+                    total_cache_path=total_path,
+                    country_cache_path=country_path,
+                    state_path=root / "state.json",
+                    request_xml=request_xml,
+                )
+        return requests, totals, countries
+
+    def test_partial_month_cache_is_not_treated_as_complete(self):
+        """HS 는 있으나 요청 월 일부만 있는 캐시 → 수집이 일어나야 한다."""
+        rows = [self._row("2024-01", "3902100000")]
+        requests, _, _ = self._run(rows, rows, hs_codes=["3902100000"])
+        self.assertGreater(
+            len(requests), 0,
+            "2024-01 한 달만 있는 캐시를 2024-01~03 요청에 완결로 처리했다",
+        )
+
+    def test_complete_total_with_missing_country_pair_still_collects(self):
+        """total 은 완결이나 country-HS pair 가 빠진 캐시 → 국가 수집이 일어나야 한다."""
+        totals = [self._row(m, "3902100000") for m in ("2024-01", "2024-02", "2024-03")]
+        countries = [self._row(m, "9018310000", "CN")
+                     for m in ("2024-01", "2024-02", "2024-03")]
+        requests, _, _ = self._run(totals, countries, hs_codes=["3902100000"])
+        country_requests = [r for r in requests if r[0] == KCS_COUNTRY_ENDPOINT]
+        self.assertGreater(
+            len(country_requests), 0,
+            "country 캐시에 다른 HS 만 있는데 요청 HS 를 완료로 처리했다",
+        )
+
+    def test_returns_only_requested_hs_subset(self):
+        """캐시에 여분 HS 가 있어도 요청한 것만 돌려준다."""
+        months = ("2024-01", "2024-02", "2024-03")
+        totals = [self._row(m, hs) for m in months for hs in ("3902100000", "9018310000")]
+        countries = [self._row(m, hs, "CN") for m in months
+                     for hs in ("3902100000", "9018310000")]
+        _, returned_totals, returned_countries = self._run(
+            totals, countries, hs_codes=["3902100000"]
+        )
+        for frame, label in ((returned_totals, "totals"), (returned_countries, "countries")):
+            if frame.empty:
+                continue
+            self.assertEqual(
+                set(frame["hs_code"].astype(str)), {"3902100000"},
+                f"{label} 에 요청하지 않은 HS 가 섞였다",
+            )
+
+    def test_complete_cache_makes_no_network_request(self):
+        """캐시가 완전하면 네트워크를 타지 않는다 — 조기 반환 제거의 비용 중립성."""
+        months = ("2024-01", "2024-02", "2024-03")
+        totals = [self._row(m, "3902100000") for m in months]
+        countries = [self._row(m, "3902100000", "CN") for m in months]
+        requests, _, _ = self._run(totals, countries, hs_codes=["3902100000"])
+        self.assertEqual(
+            len(requests), 0,
+            f"완전한 캐시인데 {len(requests)}건 요청했다",
+        )
+
+
 
 class TradeRiskScorerTest(unittest.TestCase):
     def setUp(self):

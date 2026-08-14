@@ -1,9 +1,11 @@
 import logging
+import os
 
 import pandas as pd
 
 from ..config import (
     COMMODITY_RISK_SCORE_PATH,
+    DOTENV_LOADED_KEYS,
     MODULE_C_ALERT_PATH,
     MODULE_C_EXPOSURE_CANDIDATE_PATH,
     MODULE_C_RISK_AUDIT_PATH,
@@ -44,9 +46,55 @@ def _read_optional_csv(path, usecols: list[str] | None = None) -> pd.DataFrame:
     )
 
 
+def _preflight_report() -> dict:
+    """실행 전에 외부신호 설정을 있는 그대로 찍는다.
+
+    `.env` 를 읽게 되면서 "키가 있으니 신호가 켜졌겠지" 라는 오해가 생기기
+    쉬워졌다. provider 기본값은 의도적으로 `disabled` 라 **키가 있어도 provider 를
+    지정하지 않으면 신호는 꺼져 있다.** 어느 provider 가 실제로 선택됐는지,
+    키가 있는지, 산출물이 있는지를 나눠서 보여준다(ai#71).
+
+    키 값 자체는 절대 찍지 않는다. 존재 여부만 본다.
+    """
+    report = {
+        "dotenv_loaded_keys": sorted(DOTENV_LOADED_KEYS),
+        "providers": {
+            name: os.getenv(variable, "disabled").strip().lower() or "disabled"
+            for name, variable in (
+                ("news", "NEWS_PROVIDER"),
+                ("commodity", "COMMODITY_PROVIDER"),
+                ("trade", "TRADE_PROVIDER"),
+            )
+        },
+        "api_keys_present": {
+            variable: bool(os.getenv(variable, "").strip())
+            for variable in ("DATA_GO_KR_SERVICE_KEY", "ALPHA_VANTAGE_API_KEY")
+        },
+        "artifacts_present": {
+            "news_risk": NEWS_RISK_SCORE_PATH.exists(),
+            "commodity_risk": COMMODITY_RISK_SCORE_PATH.exists(),
+            "trade_risk": TRADE_RISK_SCORE_PATH.exists(),
+        },
+    }
+    LOGGER.info(
+        "preflight — provider news=%s commodity=%s trade=%s",
+        report["providers"]["news"],
+        report["providers"]["commodity"],
+        report["providers"]["trade"],
+    )
+    for name, provider in report["providers"].items():
+        if provider == "disabled":
+            LOGGER.warning(
+                "%s provider 가 disabled 다. API 키가 있어도 이 신호는 0 이 된다.",
+                name,
+            )
+    return report
+
+
 def run_module_c_pipeline() -> None:
     setup_logging()
     ensure_dirs(OUTPUT_DIR, MODULE_C_SUPPLY_QUALITY_SAMPLE_PATH.parent)
+    preflight = _preflight_report()
     config = load_module_c_config()
     approved_material_mapping = load_approved_stock_material_mapping(
         STOCK_MATERIAL_MAPPING_PATH
@@ -188,6 +236,9 @@ def run_module_c_pipeline() -> None:
             ).sum()
         ),
         "module_c_audit_scope": "latest_scored_month_signal_snapshot",
+        # 어느 provider 로 돌았는지를 산출물에 남긴다. 나중에 "이 결과가
+        # 실데이터냐 0 채움이냐" 를 로그 뒤지지 않고 알 수 있어야 한다(ai#71).
+        "preflight": preflight,
         "exposure": exposure_report,
         "supply_risk_quality": supply_quality_report,
     }
