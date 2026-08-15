@@ -249,9 +249,66 @@ def production_lgbm_params(objective: str) -> dict:
     `subsample=0.9` 가 비활성인 상태와 비교가 되지 않았다(ai#60 리뷰 2번).
     baseline 은 반드시 이 함수를 통해서만 만든다.
 
-    주의: `subsample_freq` 는 여기서 지정하지 않는다. LightGBM 기본값 0 이므로
-    `subsample` 은 실제로 적용되지 않으며, 이것이 현행 운영 동작이다.
+    ## regression_l1 은 Optuna 탐색값을 쓴다 (ai#60)
+
+    `tune_hyperparameters.py` 로 60회 탐색한 결과를 적용한다. 근거는
+    `outputs/tuned_hyperparameters_stock_model_a_usage_only.json` 과
+    `outputs/tuned_params_test_check.json` / `tuned_params_inventory_check.json`.
+
+    탐색은 회전 검증 폴드 4개만 썼고 TEST 는 보지 않았다
+    (`selection_did_not_use_test: True`). 그래서 TEST 가 오염되지 않은 판정면이다.
+
+        검증 폴드 WAPE   38.587 -> 36.961   (-1.626%p, 탐색에 쓰인 면)
+        TEST WAPE        38.121 -> 35.676   (-2.444%p, 판정면)
+
+    TEST 개선폭이 검증 폴드보다 **크다.** 과적합이면 반대가 나온다.
+
+    재고 기준으로도 다시 쟀다. WAPE 개선이 재고 성과로 오지 않는 경우가 있기
+    때문이다(Petropoulos et al. 2024, EJOR — M5 재고 시뮬레이션). 실제로 관측
+    창 6개월 후보는 WAPE 로 이겼다가 재고에서 뒤집혀 폐기했다.
+
+        충족률   94.45% -> 95.18%   (+0.732%p)
+        품절월    8.00% ->  7.86%
+        평균재고   258.5 ->  261.8   (+1.29%)
+
+    재고가 1.29% 늘었으므로 공짜가 아니다. 같은 재고를 z 상향으로 샀다면
+    충족률이 94.53% 였다. tuned 는 95.18% 이므로 **+0.656%p 더 효율적** 이다.
+    즉 재고를 더 쓴 효과가 아니라 예측이 실제로 좋아진 것이다.
+
+    비용: 학습 시간이 10.1배 늘어난다(16.4s -> 166.1s). n_estimators 가 160 에서
+    1999 로 12배이기 때문이다. 추론 비용도 같은 배수로 늘어난다.
+
+    ## tweedie 는 그대로 둔다
+
+    탐색은 `regression_l1` 목적함수로만 돌렸다. tweedie 변형(모델 B·C·D)에
+    그대로 옮기면 근거 없는 이식이 된다. tweedie 탐색은 별도 과제다.
+
+    ## subsample_freq
+
+    baseline 은 `subsample_freq` 를 지정하지 않아 LightGBM 기본값 0 이었고,
+    그래서 `subsample=0.9` 가 실제로는 비활성이었다(ai#60 리뷰 2번). 탐색은
+    `subsample_freq=1` 로 돌았으므로 탐색값을 쓸 때는 함께 넣어야 같은 동작이
+    된다. 위 TEST·재고 수치는 그 조건에서 잰 것이다.
     """
+    if objective == "regression_l1":
+        return {
+            "objective": objective,
+            "n_estimators": 1999,
+            "learning_rate": 0.02723494881078291,
+            "num_leaves": 249,
+            "min_child_samples": 126,
+            "subsample": 0.733063041720666,
+            "subsample_freq": 1,
+            "colsample_bytree": 0.6133567436538621,
+            "reg_lambda": 0.07198334621828253,
+            "reg_alpha": 0.02041030416355554,
+            "random_state": RANDOM_STATE,
+            "n_jobs": 4,
+            "force_col_wise": True,
+            "histogram_pool_size": 256,
+            "verbosity": -1,
+        }
+
     parameters = {
         "objective": objective,
         "n_estimators": 160,
