@@ -1,0 +1,27 @@
+{
+  "samples": 30814,
+  "changed": 122,
+  "p_value": 0.006046585898173969,
+  "rank_biserial": 0.10951858016079374,
+  "median_unchanged": 30.0,
+  "median_changed": 30.0,
+  "mean_unchanged": 39.64697641079108,
+  "mean_changed": 55.74590163934426,
+  "by_change_order": {
+    "0": {
+      "n": 30692,
+      "median": 30.0,
+      "mean": 39.64697641079108
+    },
+    "1": {
+      "n": 121,
+      "median": 30.0,
+      "mean": 56.107438016528924
+    },
+    "2": {
+      "n": 1,
+      "median": 12.0,
+      "mean": 12.0
+    }
+  }
+}
