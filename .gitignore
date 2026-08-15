@@ -64,6 +64,16 @@ data/external/trade/*
 !data/external/trade/kcs_trade_country_monthly.csv
 !data/external/trade/kcs_trade_collection_state.json
 
+# 공공 개방데이터만 연다. 이 저장소는 공개다.
+#   mfds_drug_supply_disruption.csv  식약처 공급중단·부족 현황 (공개 게시)
+#   hira_supply_stop.csv             심평원 공급중단 보고대상 (공공저작물 1유형)
+# `drug_ingredient_master.csv` 는 **열지 않는다.** 정보원 제공 원장에서 뽑은
+# 파생물이라 공개 저장소에 올릴지는 팀장·정보원 판단 사항이다.
+!data/external/shortage/
+data/external/shortage/*
+!data/external/shortage/mfds_drug_supply_disruption.csv
+!data/external/shortage/hira_supply_stop.csv
+
 !data/raw/
 data/raw/*
 !data/raw/news/
