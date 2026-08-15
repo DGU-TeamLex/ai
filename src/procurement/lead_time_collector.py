@@ -129,24 +129,51 @@ def _shard_lock(raw_path: Path):
 # 보건지소·보건진료소까지 포함해야 원장 모집단(3,598곳)과 층이 맞는다.
 HEALTH_CENTER_TOKENS = ("보건소", "보건지소", "보건진료소", "보건의료원")
 
+# API 응답은 30개 필드를 준다. 종전에는 17개만 담아 나머지를 버리고 있었다.
+#
+# 실납품일을 찾다가 발견했다. 이 API 에 실납품일·검수일 필드는 **없지만**,
+# 버리고 있던 13개 중에 쓸 만한 것이 있다.
+#
+#   dlvrReqChgOrd     납품요구 변경차수. 사후 변경 여부를 뜻한다.
+#   dlvrReqIncdecQty  변경으로 늘거나 준 수량
+#   dlvrReqIncdecAmt  변경으로 늘거나 준 금액
+#   inspInstSeNm      검수기관 구분 (수요기관/조달청 등)
+#   inspInstCdNm      검수기관
+#
+# `L_계약` 이 계약 납기라 median 이 30일에 고정되는 한계가 있는데, 변경차수는
+# **납기가 실제로 연장됐는지** 를 볼 실마리가 될 수 있다. 지금 안 담으면
+# 나중에 524 요청을 다시 써야 하므로 전부 담는다. 크기 부담은 작다.
 KEEP_FIELDS = [
     "dlvrReqNo",
+    "dlvrReqChgOrd",
     "dlvrReqRcptDate",
     "maxDlvrTmlmtDate",
     "dlvrReqNm",
     "dlvrReqQty",
     "dlvrReqAmt",
+    "dlvrReqIncdecQty",
+    "dlvrReqIncdecAmt",
     "dminsttCd",
     "dminsttNm",
+    "dminsttBizno",
     "dmndInsttDivNm",
     "dminsttRgnNm",
     "corpNm",
+    "corpBizno",
+    "corpEntrprsDivNm",
     "rprsntPrdctClsfcNo",
     "rprsntPrdctClsfcNoNm",
     "rprsntDtilPrdctClsfcNo",
     "rprsntDtilPrdctClsfcNoNm",
     "cntrctNo",
+    "cntrctChgOrd",
+    "cntrctCnclsStleNm",
+    "masYn",
+    "exclcProdctYn",
     "fnlDlvrReqYn",
+    "inspInstSeNm",
+    "inspInstCdNm",
+    "igiInstCdNm",
 ]
 
 
@@ -481,8 +508,8 @@ def merge_shards() -> int:
         LOGGER.info("합칠 샤드가 없다.")
         return 0
 
-    seen: set[str] = set()
-    lines: list[str] = []
+    # identity -> (필드수, 줄). 필드가 많은 판본을 남긴다.
+    seen: dict[str, tuple[int, str]] = {}
     damaged = 0
     for path in [RAW_PATH, *shard_files]:
         if not path.exists():
@@ -503,16 +530,22 @@ def merge_shards() -> int:
                 f"{record.get('dlvrReqNo')}|{record.get('rprsntDtilPrdctClsfcNo')}"
                 f"|{record.get('dlvrReqRcptDate')}"
             )
-            if identity in seen:
+            # 같은 건이 여러 판본으로 있으면 **필드가 많은 쪽을 남긴다.**
+            #
+            # 종전에는 먼저 읽은 것이 이겼고, 본 파일을 먼저 읽으므로 항상 옛
+            # 판본이 남았다. KEEP_FIELDS 를 17 → 30 으로 늘려 재수집했는데
+            # 병합 후 신규 필드 보유가 0.5% 에 그친 것이 이 때문이다.
+            existing = seen.get(identity)
+            if existing is not None and len(record) <= existing[0]:
                 continue
-            seen.add(identity)
-            lines.append(line.rstrip("\r") + "\n")
+            seen[identity] = (len(record), line.rstrip("\r") + "\n")
 
     if damaged:
         LOGGER.warning(
             "손상된 줄 %s개를 건너뛰었다. 해당 샤드를 재수집하는 편이 낫다.", damaged
         )
 
+    lines = [line for _, line in seen.values()]
     RAW_PATH.write_text("".join(lines), encoding="utf-8")
 
     # 완료 개월도 합친다.
