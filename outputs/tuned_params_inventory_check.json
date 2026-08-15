@@ -1,0 +1,81 @@
+{
+  "variant": "stock_model_a_usage_only",
+  "test_months": [
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11"
+  ],
+  "series": 77575,
+  "policy": {
+    "protection_months": 2.0,
+    "z": 1.645,
+    "sigma_source": "train_valid_only",
+    "unmet": "lost_sales"
+  },
+  "results": {
+    "baseline": {
+      "fill_rate": 0.944532656683431,
+      "stockout_month_rate": 0.08001289075088625,
+      "mean_on_hand": 258.5219784437481,
+      "wape": 34.89690232135457
+    },
+    "tuned": {
+      "fill_rate": 0.9518479895495779,
+      "stockout_month_rate": 0.07862326780534966,
+      "mean_on_hand": 261.84438758923824,
+      "wape": 32.630754038450455
+    }
+  },
+  "fill_rate_gain_pp": 0.731533286614694,
+  "stockout_month_gain_pp": 0.13896229455365866,
+  "mean_on_hand_change": 3.3224091454901554,
+  "z_equivalence_curve": [
+    {
+      "z": 1.645,
+      "fill_rate": 0.944532656683431,
+      "stockout_month_rate": 0.08001289075088625,
+      "mean_on_hand": 258.5219784437481
+    },
+    {
+      "z": 1.75,
+      "fill_rate": 0.9477908860839109,
+      "stockout_month_rate": 0.07493909120206252,
+      "mean_on_hand": 272.82380766219853
+    },
+    {
+      "z": 1.88,
+      "fill_rate": 0.9513657128733695,
+      "stockout_month_rate": 0.06946310022558815,
+      "mean_on_hand": 290.6705822680353
+    },
+    {
+      "z": 2.05,
+      "fill_rate": 0.9554105878076695,
+      "stockout_month_rate": 0.06310796003867225,
+      "mean_on_hand": 314.21165282937363
+    },
+    {
+      "z": 2.33,
+      "fill_rate": 0.960761142744743,
+      "stockout_month_rate": 0.05453303254914599,
+      "mean_on_hand": 353.4116082516109
+    },
+    {
+      "z": 2.58,
+      "fill_rate": 0.9644871702224058,
+      "stockout_month_rate": 0.04872961650016113,
+      "mean_on_hand": 388.7435130594264
+    }
+  ],
+  "fill_rate_z_equivalent": 0.9452895648378294,
+  "efficiency_gap_pp": 0.6558424711748501,
+  "verdict": "충족률 +0.732%p 개선. 같은 재고를 z 로 사는 것보다 +0.656%p 낫다. 예측이 실제로 좋아진 것이다. 채택 권고.",
+  "caveats": [
+    "초기재고를 첫 목표재고로 둠",
+    "손실판매 가정",
+    "보유비/품절비 미상이라 단일 비용으로 합치지 않음",
+    "단일 시드(42)"
+  ]
+}
