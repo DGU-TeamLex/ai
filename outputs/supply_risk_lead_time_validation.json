@@ -5,7 +5,7 @@
     "2025-12"
   ],
   "lead_mean_range": [
-    35.272222222222226,
+    35.32842686292548,
     49.78186596583443
   ],
   "tests": [
@@ -14,10 +14,10 @@
       "target": "lead_mean",
       "lag": 0,
       "n": 24,
-      "pearson": -0.281,
-      "p_pearson": 0.1839,
-      "spearman": -0.192,
-      "p_spearman": 0.3683,
+      "pearson": -0.137,
+      "p_pearson": 0.5231,
+      "spearman": -0.162,
+      "p_spearman": 0.4502,
       "bonferroni_p": 1.0
     },
     {
@@ -25,10 +25,10 @@
       "target": "lead_mean",
       "lag": 1,
       "n": 23,
-      "pearson": 0.15,
-      "p_pearson": 0.4931,
-      "spearman": 0.117,
-      "p_spearman": 0.5962,
+      "pearson": 0.123,
+      "p_pearson": 0.5763,
+      "spearman": 0.053,
+      "p_spearman": 0.8089,
       "bonferroni_p": 1.0
     },
     {
@@ -36,10 +36,10 @@
       "target": "lead_mean",
       "lag": 2,
       "n": 22,
-      "pearson": 0.265,
-      "p_pearson": 0.2336,
-      "spearman": 0.243,
-      "p_spearman": 0.2751,
+      "pearson": 0.288,
+      "p_pearson": 0.1941,
+      "spearman": 0.206,
+      "p_spearman": 0.3575,
       "bonferroni_p": 1.0
     },
     {
@@ -47,10 +47,10 @@
       "target": "lead_p75",
       "lag": 0,
       "n": 24,
-      "pearson": -0.191,
-      "p_pearson": 0.3708,
-      "spearman": -0.168,
-      "p_spearman": 0.433,
+      "pearson": -0.278,
+      "p_pearson": 0.1885,
+      "spearman": -0.317,
+      "p_spearman": 0.1312,
       "bonferroni_p": 1.0
     },
     {
@@ -58,10 +58,10 @@
       "target": "lead_p75",
       "lag": 1,
       "n": 23,
-      "pearson": -0.205,
-      "p_pearson": 0.3471,
-      "spearman": -0.242,
-      "p_spearman": 0.2664,
+      "pearson": -0.291,
+      "p_pearson": 0.1778,
+      "spearman": -0.349,
+      "p_spearman": 0.1024,
       "bonferroni_p": 1.0
     },
     {
@@ -69,10 +69,10 @@
       "target": "lead_p75",
       "lag": 2,
       "n": 22,
-      "pearson": -0.099,
-      "p_pearson": 0.6598,
-      "spearman": -0.168,
-      "p_spearman": 0.456,
+      "pearson": -0.215,
+      "p_pearson": 0.3368,
+      "spearman": -0.27,
+      "p_spearman": 0.225,
       "bonferroni_p": 1.0
     },
     {
@@ -80,10 +80,10 @@
       "target": "lead_mean",
       "lag": 0,
       "n": 24,
-      "pearson": -0.149,
-      "p_pearson": 0.4867,
-      "spearman": -0.157,
-      "p_spearman": 0.4652,
+      "pearson": -0.007,
+      "p_pearson": 0.9725,
+      "spearman": -0.02,
+      "p_spearman": 0.9261,
       "bonferroni_p": 1.0
     },
     {
@@ -91,10 +91,10 @@
       "target": "lead_mean",
       "lag": 1,
       "n": 23,
-      "pearson": 0.196,
-      "p_pearson": 0.3703,
-      "spearman": 0.193,
-      "p_spearman": 0.3784,
+      "pearson": 0.087,
+      "p_pearson": 0.6918,
+      "spearman": -0.008,
+      "p_spearman": 0.9714,
       "bonferroni_p": 1.0
     },
     {
@@ -102,10 +102,10 @@
       "target": "lead_mean",
       "lag": 2,
       "n": 22,
-      "pearson": 0.317,
-      "p_pearson": 0.1503,
-      "spearman": 0.276,
-      "p_spearman": 0.2136,
+      "pearson": 0.234,
+      "p_pearson": 0.2951,
+      "spearman": 0.123,
+      "p_spearman": 0.587,
       "bonferroni_p": 1.0
     },
     {
@@ -113,10 +113,10 @@
       "target": "lead_p75",
       "lag": 0,
       "n": 24,
-      "pearson": -0.086,
-      "p_pearson": 0.6912,
-      "spearman": -0.031,
-      "p_spearman": 0.8854,
+      "pearson": -0.107,
+      "p_pearson": 0.6192,
+      "spearman": -0.093,
+      "p_spearman": 0.6647,
       "bonferroni_p": 1.0
     },
     {
@@ -124,10 +124,10 @@
       "target": "lead_p75",
       "lag": 1,
       "n": 23,
-      "pearson": -0.143,
-      "p_pearson": 0.5146,
-      "spearman": -0.081,
-      "p_spearman": 0.7147,
+      "pearson": -0.248,
+      "p_pearson": 0.2547,
+      "spearman": -0.336,
+      "p_spearman": 0.1173,
       "bonferroni_p": 1.0
     },
     {
@@ -135,10 +135,10 @@
       "target": "lead_p75",
       "lag": 2,
       "n": 22,
-      "pearson": 0.033,
-      "p_pearson": 0.8847,
-      "spearman": -0.022,
-      "p_spearman": 0.9231,
+      "pearson": -0.169,
+      "p_pearson": 0.453,
+      "spearman": -0.226,
+      "p_spearman": 0.3122,
       "bonferroni_p": 1.0
     },
     {
@@ -146,10 +146,10 @@
       "target": "lead_mean",
       "lag": 0,
       "n": 24,
-      "pearson": 0.256,
-      "p_pearson": 0.2274,
-      "spearman": 0.3,
-      "p_spearman": 0.1544,
+      "pearson": 0.263,
+      "p_pearson": 0.2139,
+      "spearman": 0.252,
+      "p_spearman": 0.2345,
       "bonferroni_p": 1.0
     },
     {
@@ -157,10 +157,10 @@
       "target": "lead_mean",
       "lag": 1,
       "n": 23,
-      "pearson": -0.224,
-      "p_pearson": 0.3045,
-      "spearman": -0.13,
-      "p_spearman": 0.553,
+      "pearson": -0.079,
+      "p_pearson": 0.721,
+      "spearman": 0.018,
+      "p_spearman": 0.9358,
       "bonferroni_p": 1.0
     },
     {
@@ -168,10 +168,10 @@
       "target": "lead_mean",
       "lag": 2,
       "n": 22,
-      "pearson": -0.33,
-      "p_pearson": 0.1332,
-      "spearman": -0.256,
-      "p_spearman": 0.2506,
+      "pearson": -0.172,
+      "p_pearson": 0.4428,
+      "spearman": -0.104,
+      "p_spearman": 0.6436,
       "bonferroni_p": 1.0
     },
     {
@@ -179,33 +179,33 @@
       "target": "lead_p75",
       "lag": 0,
       "n": 24,
-      "pearson": 0.432,
-      "p_pearson": 0.035,
-      "spearman": 0.429,
-      "p_spearman": 0.0365,
-      "bonferroni_p": 0.63
+      "pearson": 0.366,
+      "p_pearson": 0.079,
+      "spearman": 0.342,
+      "p_spearman": 0.102,
+      "bonferroni_p": 1.0
     },
     {
       "risk": "trade_risk_mean",
       "target": "lead_p75",
       "lag": 1,
       "n": 23,
-      "pearson": 0.499,
-      "p_pearson": 0.0153,
-      "spearman": 0.43,
-      "p_spearman": 0.0407,
-      "bonferroni_p": 0.2754
+      "pearson": 0.574,
+      "p_pearson": 0.0042,
+      "spearman": 0.551,
+      "p_spearman": 0.0065,
+      "bonferroni_p": 0.0756
     },
     {
       "risk": "trade_risk_mean",
       "target": "lead_p75",
       "lag": 2,
       "n": 22,
-      "pearson": 0.457,
-      "p_pearson": 0.0326,
-      "spearman": 0.328,
-      "p_spearman": 0.1363,
-      "bonferroni_p": 0.5868
+      "pearson": 0.389,
+      "p_pearson": 0.0735,
+      "spearman": 0.342,
+      "p_spearman": 0.1187,
+      "bonferroni_p": 1.0
     }
   ],
   "significant_after_bonferroni": 0,
