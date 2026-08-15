@@ -482,7 +482,20 @@ def collect_trade_flows(
     start_month = os.getenv("TRADE_START_MONTH", "2023-01")
     end_month = os.getenv("TRADE_END_MONTH", "2026-06")
     delay = float(os.getenv("TRADE_REQUEST_DELAY_SECONDS", "0.2"))
-    service_key = os.getenv("DATA_GO_KR_SERVICE_KEY", "")
+    # `DATA_GO_KR_SERVICE_KEY` 는 **콤마 구분 다중 키** 를 허용한다(조달청 수집기가
+    # 팀원 키를 여러 개 받도록 그렇게 정했다). 그 값을 통째로 serviceKey 에 넣으면
+    # 서버가 인식하지 못해 403 이 난다.
+    #
+    # 실측(2026-08-15): 키를 2개로 늘린 뒤 관세청 수집이 전량 403 이었다. 직접
+    # 호출은 200 이라 원인을 찾는 데 시간이 걸렸다 — 키·인코딩·User-Agent 를
+    # 다 확인한 뒤에야 문자열 자체가 다르다는 것이 드러났다.
+    #
+    # 여기서는 첫 키만 쓴다. 관세청은 조달청과 달리 샤드 병렬 실행 구조가 없어
+    # 다중 키를 활용할 경로가 아직 없다.
+    service_key = next(
+        (k.strip() for k in os.getenv("DATA_GO_KR_SERVICE_KEY", "").split(",") if k.strip()),
+        "",
+    )
     configured_country_codes = os.getenv("TRADE_COUNTRY_CODES", "").strip()
     country_codes = (
         [
