@@ -522,7 +522,26 @@ MAX_RISK_BUFFER_RATE = 0.50
 DEMAND_RISK_BUFFER_RATE = 0.20
 SUPPLY_RISK_BUFFER_RATE = 0.20
 MATERIAL_RISK_BUFFER_RATE = 0.10
+
+# 발주 주기 — 보건기관은 재고 소진 시 수시 발주가 아니라 월 단위로 정기 발주한다.
+#   확인: 2026-07-30 reo-23, 이슈 #54 (조달 실무 확인 결과)
+#   그래서 재고 모형은 연속검토(ROP 도달 시 발주)가 아니라 정기검토를 쓴다.
+#   보호기간 = 검토주기 + 리드타임 이며 src/modeling/inventory_policy.py 가 이를 따른다.
+#
+#   ⚠️ backend 는 연속검토 식(SS = z·σ·√L, ROP = μ·L + SS)으로 운영 DB 를 채워 왔다.
+#      두 모형이 공존하던 문제가 #54 이고, 실무 확인으로 정기검토가 정본임이 확정됐다.
+#      운영 DB 재산정은 2026-08-15 에 src/loading/apply_contract_lead_time.py (ai#39)
+#      로 수행됐다 — 409,459행 전량의 ss/rop/target/order_recommendation 을 조달청
+#      리드타임 분위수와 함께 한 트랜잭션에서 다시 계산했다. R 은 아래 기본값 30일을
+#      썼다. 품목별 R 은 여전히 미결이다(#54).
+#      src/loading/apply_inventory_policy.py 는 같은 컬럼의 두 번째 기록자가 되지
+#      않도록 계속 수요통계·분류만 쓴다.
 DEFAULT_REVIEW_PERIOD_DAYS = 30
+
+# ⚠️ 이 상수는 현재 어디에서도 읽지 않는다(2026-08-16 확인). 운영 리드타임은
+#    조달청 계약 납기 분위수로 대체됐다 — NORMAL/CAUTION 30일, WARNING 60일,
+#    CRITICAL 94일 (src/loading/apply_contract_lead_time.py). 15 는 그 이전의
+#    폴백값이고 전체의 2.2% 에만 쓰였다. 지우지 않고 두되, **새로 배선하지 말 것.**
 DEFAULT_LEAD_TIME_DAYS = 15
 
 RANDOM_STATE = 42

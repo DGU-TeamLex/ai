@@ -7,6 +7,10 @@ Decided (ai#54, 2026-08-10)
     (``SS=z*sigma*sqrt(L)``, ``ROP=mu*L+SS``) is superseded by a target stock
     over the protection interval ``R + L``.
 
+    The cadence behind that decision is recorded evidence, not an assumption:
+    institutions place orders on a monthly cadence (ai#54 request 1, 2026-07-30
+    confirmation from reo-23). That is why ``R`` defaults to 30 days.
+
 Still open (ai#54, 2026-08-12)
     ``R`` is not a constant. Measured per-item medians run 1~434 days
     (p10 31 / p50 91 / p90 141); only 7.6% of items fall near the 30-day
@@ -19,6 +23,13 @@ Still open (ai#54, 2026-08-12)
 So this loader still updates only demand statistics and classification fields.
 It deliberately does not write ``ss``, ``rop``, ``target``, ``status`` or
 ``order_recommendation`` -- those all depend on the unresolved ``R``.
+
+    Note (2026-08-15): those columns *are* now populated in the DB, but by
+    ``src/loading/apply_contract_lead_time.py`` (ai#39), which recomputes them
+    alongside the 조달청 lead-time quantiles in one transaction. It uses the
+    30-day default ``R``. That does not resolve the per-item ``R`` question
+    above -- it applies the default -- so this loader keeps its narrow scope
+    rather than becoming a second writer of the same columns.
 
 Run with ``DRY_RUN=1`` first. ``DRY_RUN=0`` commits the restricted update.
 """
@@ -132,7 +143,7 @@ def main() -> None:
     )
     print(
         "보호 범위: SS/ROP/target/status/order_recommendation "
-        "(ai#54 결정 전 미변경)"
+        "(정기검토 모형 확정됨(ai#54 요청1) — DB 재계산은 별도 PR 대기, 이 로더는 미변경)"
     )
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
