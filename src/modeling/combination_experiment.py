@@ -44,7 +44,7 @@ SCALE_LABELS = [
     "LE_500",
     "GT_500",
 ]
-BASE_FORECAST_COLUMNS = [
+REQUIRED_FORECAST_COLUMNS = [
     "baseline_last_month_pred",
     "baseline_rolling_mean_3_pred",
     "baseline_rolling_median_3_pred",
@@ -53,7 +53,14 @@ BASE_FORECAST_COLUMNS = [
     "baseline_expanding_mean_pred",
     "stock_model_a_usage_only_pred",
     "stock_model_a_usage_tweedie_pred",
+]
+OPTIONAL_FORECAST_COLUMNS = [
+    # 외부신호 커버리지 게이트를 통과했을 때만 학습되는 모형이다.
     "stock_model_d_module_c_pred",
+]
+BASE_FORECAST_COLUMNS = [
+    *REQUIRED_FORECAST_COLUMNS,
+    *OPTIONAL_FORECAST_COLUMNS,
 ]
 BUFFER_METHODS = [
     "none",
@@ -67,6 +74,30 @@ def _require_columns(frame: pd.DataFrame, columns: Iterable[str], label: str) ->
     missing = sorted(set(columns) - set(frame.columns))
     if missing:
         raise ValueError(f"{label} is missing required columns: {missing}")
+
+
+def available_forecast_columns(header: Iterable[str]) -> list[str]:
+    """현재 실행에서 실제 생성된 비교 예측열만 반환한다.
+
+    Module C 같은 외부위험 모형은 입력 신호가 비면 학습 단계에서 의도적으로
+    제외된다. 그 상태에서 과거 실행의 후보 목록을 필수 스키마로 요구하면
+    수요전용 조합실험까지 막히므로, 핵심 수요모형은 필수로 유지하고 외부위험
+    모형만 가용할 때 추가한다.
+    """
+    available = set(header)
+    missing_required = sorted(set(REQUIRED_FORECAST_COLUMNS) - available)
+    if missing_required:
+        raise ValueError(
+            "Backtest predictions are missing required forecast columns: "
+            f"{missing_required}"
+        )
+    skipped_optional = sorted(set(OPTIONAL_FORECAST_COLUMNS) - available)
+    if skipped_optional:
+        LOGGER.info(
+            "Combination experiment omits unavailable optional forecasts: %s",
+            ", ".join(skipped_optional),
+        )
+    return [column for column in BASE_FORECAST_COLUMNS if column in available]
 
 
 def _json_value(value):
@@ -899,6 +930,7 @@ def run_combination_experiment(
         raise ValueError("sample_size must be positive")
 
     header = pd.read_csv(backtest_path, nrows=0).columns
+    candidate_columns = available_forecast_columns(header)
     required = {
         "forecast_origin_month",
         "year_month",
@@ -906,7 +938,7 @@ def run_combination_experiment(
         "actual_usage",
         "demand_pattern",
         "item_group_id_candidate",
-        *BASE_FORECAST_COLUMNS,
+        *REQUIRED_FORECAST_COLUMNS,
     }
     missing = sorted(required - set(header))
     if missing:
@@ -924,8 +956,6 @@ def run_combination_experiment(
         usecols=usecols,
         parse_dates=["forecast_origin_month", "year_month"],
     )
-    candidate_columns = list(BASE_FORECAST_COLUMNS)
-
     if include_tsb:
         monthly = pd.read_parquet(
             monthly_path,

@@ -4,9 +4,12 @@ import numpy as np
 import pandas as pd
 
 from src.modeling.combination_experiment import (
+    OPTIONAL_FORECAST_COLUMNS,
+    REQUIRED_FORECAST_COLUMNS,
     _split_months,
     apply_buffer,
     apply_pattern_router,
+    available_forecast_columns,
     build_tsb_hb_predictions,
     fit_pooled_buffer,
     inventory_metrics,
@@ -15,6 +18,17 @@ from src.modeling.combination_experiment import (
 
 
 class CombinationExperimentTest(unittest.TestCase):
+    def test_optional_module_c_forecast_may_be_absent(self):
+        selected = available_forecast_columns(REQUIRED_FORECAST_COLUMNS)
+
+        self.assertEqual(selected, REQUIRED_FORECAST_COLUMNS)
+        self.assertNotIn(OPTIONAL_FORECAST_COLUMNS[0], selected)
+
+    def test_missing_core_forecast_still_fails(self):
+        columns = REQUIRED_FORECAST_COLUMNS[1:]
+        with self.assertRaisesRegex(ValueError, REQUIRED_FORECAST_COLUMNS[0]):
+            available_forecast_columns(columns)
+
     def test_split_months_reserves_later_months_for_evaluation(self):
         frame = pd.DataFrame(
             {
