@@ -2,71 +2,87 @@
 
 - 감사일: 2026-08-17
 - 저장소: `DGU-TeamLex/ai`
-- 범위: 열려 있는 이슈 31개의 본문이 아니라 각 이슈의 최신 코멘트를 결정 기준으로 사용했다.
-- 원칙: 검증되지 않은 가정은 코드로 강행하지 않고 shadow, quarantine, 사람 승인 또는 새 평가기간 게이트로 남긴다.
+- 대상 브랜치: `feat/report-storyline-and-data-examples` → `dev`
+- 보호 대상: 사용자 요청에 따라 `main`에는 직접 push·merge하지 않음
+- 판단 기준: 이슈 본문보다 가장 최근 코멘트를 우선하되, 코멘트 이후의 코드·테스트·산출물도 함께 확인함
 
-## 1. 이번 변경에서 코드로 반영한 항목
+## 1. 상태를 읽는 법
 
-- #65: signed 정상출고 원장값과 양수-only 모델 수요를 별도 컬럼으로 분리했다. 음수-only 월의 모델 수요는 0이고 음수 건수·절댓값을 감사 필드로 보존한다.
-- #22: 합성 뉴스는 비율과 무관하게 기본 실패한다. 공급 전역 사건은 명시적 재고 universe에만 전파한다. GKG 체크포인트에 성공·재시도·영구누락 상태와 계약 hash를 둔다.
-- #20, #72: 뉴스·무역·원자재 위험의 운영 재고조정을 기본 차단하고 shadow 목표재고만 계산한다. PP lag 효과를 운영 가중치나 리드타임 증거로 사용하지 않는다.
-- #44: pooling 월 수를 행 개수가 아닌 고유 월 수로 고쳤고, 개별 시계열 CV 후 그룹 내 CV 분포를 평가한다. 최종 선택은 holdout 서비스·fill·평균재고로 미룬다.
-- #56: 기관 로컬 코드를 전역 통합하지 않고 `representative_item_id` 기준 사용량 등급을 계산한다. 가격 결측 때문에 ABC value class가 아니라 volume class로 명명하고 VED는 별도 검토한다.
-- #62: 원자재 매핑을 대표품목→로컬품목→재고키 fanout으로 변경하고 충돌을 격리한다. 원자재 연결은 exact BOM이 아니라 proxy임을 기록한다.
-- #58: 이미 검사한 2025-10~12를 final untouched test라고 부르지 않고 재사용 평가구간으로 표시한다.
-- #5: `dev` 대상 오프라인 pytest CI workflow를 추가했다. required check 설정은 저장소 관리자 작업으로 남는다.
+| 상태 | 뜻 |
+|---|---|
+| 반영 완료 | 최신 요구가 코드·테스트 또는 재현 산출물에서 확인됨 |
+| 부분 반영 | 핵심 로직은 있으나 운영·DB·독립평가·승인 같은 완료조건이 남음 |
+| 미채택 | 실험 결과나 위험 때문에 의도적으로 모델·운영정책에 넣지 않음 |
+| 외부 확인 대기 | 정보원·임상담당자·backend·DB 또는 새 데이터가 있어야 끝낼 수 있음 |
 
-## 2. 전체 최신 코멘트 결정표
+`부분 반영`과 `외부 확인 대기`를 실패로 해석하면 안 된다. 최신 코멘트가 요구한 안전조건에
+따라 연구결과가 자동발주로 승격되지 않게 막아 둔 상태도 정상적인 반영이다.
 
-| 이슈 | 최신 코멘트에서 채택한 결정 | 현재 상태 |
-|---|---|---|
-| #72 PP lag | 24개월 검증 p=0.4617, 3개월 p=0.007은 불안정, 90검정 보정 후 0건. 운영 근거 금지 | 코드·문서 반영 |
-| #65 signed demand | signed 대사값과 positive model demand, 음수 건수·양을 분리 | 코드·테스트 반영 |
-| #63 FDA timing | 2023-11-30 사건과 2024-03-19 갱신을 분리, 월자료로 1~4주 효과 주장 금지 | 문서 게이트 |
-| #62 mapping axis | `representative_item_id` 축, evidence scope, conflict quarantine, 가중 커버리지 | 코드 반영 |
-| #58 evaluation | 동일 초기상태, 사전 고정 정책, WAPE·BIAS·fill·stockout·평균재고 동시 보고 | 일부 반영, 새 clean test 필요 |
-| #57 institution prefix | 개선 0.0598%p로 작고 개인정보 위험. 지역 prefix 채택 금지 | 미채택 결정 |
-| #56 importance | representative 축, 미해결 USE는 기관별 유지, volume class와 VED 분리 | 코드 반영 |
-| #54 policy parity | 단일 versioned 정책, DB/source version, migration·rollback, 누락 규칙 명시 | backend/DB 확인 필요 |
-| #52 mu floor | DORMANT 자동발주 차단, raw/stabilized 추정 분리, holdout 검증 | 기존 차단 유지, 추가 보고 필요 |
-| #44 pooling | 고유 월 수, 개별 시계열 CV, 그룹 CV IQR, holdout 정책평가 | 코드 반영 |
-| #43 ingredient | USE 단독 dedupe 금지, 대표품목/약품코드, 제형·함량·제조사와 hash 보고 | 최신 dev/PR 정렬 후 확인 |
-| #41 governance | 승인자·버전·근거·rollback 없는 매핑을 운영에 사용 금지 | 승인 게이트 유지 |
-| #39 lead time | 나라장터는 실제 입고가 아닌 약정 benchmark, 30일 민감도, 의료품 shadow | 문서·shadow 원칙 반영 |
-| #38 zero stock | 0재고 suppression과 reason code를 유지 | 기존 구현 확인 |
-| #34 historical ingestion | unresolved 후보 행을 별도 보고하고 조용히 누락하지 않음 | 기존 수정 확인 |
-| #28 handoff | handoff 계약과 산출물 설명 유지 | 완료 상태 확인 |
-| #23 SS/ROP | 연속 ROP가 아니라 versioned 정기검토 `(R,S)`, backend는 AI 정책만 소비 | 수식 반영, backend parity 필요 |
-| #22 news | sentinel 0행 금지, 합성자료 fail, URL 검증, 체크포인트 상태·hash | 코드·테스트 반영 |
-| #21 2026 event | 현재 원천 종료 뒤 사건은 causal 평가 금지, descriptive stress only | 평가 게이트 |
-| #20 risk coupling | 다중검정·독립 holdout 전 자동발주 연결 금지, signal ablation | shadow 차단 반영 |
-| #19 propagation | 승인된 매핑과 증거 수준을 따라 전파, 미매핑을 0위험으로 오해 금지 | 모집단 계약 반영 |
-| #16 unclassified | 미분류를 강제 분류하지 않고 별도 상태·검토 대상으로 보존 | 기존 원칙 유지 |
-| #15 normalization | 정규화 규칙과 원문·버전·충돌 보고를 분리 | 기존 원칙 유지 |
-| #14 spec tokens | 환경·계약 토큰을 명시하고 알 수 없는 값은 fail closed | 기존 원칙 유지 |
-| #12 disease mapping | 질병-수요 관계는 원자재 관계와 분리하고 사람 승인 필요 | 사람 라벨 대기 |
-| #11 material mapping | 원자재 proxy와 exact product BOM을 구분 | 코드·문서 반영 |
-| #10 reproducibility | 실행 manifest, 입력 hash, 자원·환경·정책 버전 기록 | 추가 구현 필요 |
-| #9 model | 시간순 평가, 간헐수요, 정책 지표를 함께 비교 | 기존 구현·새 clean test 필요 |
-| #8 raw pipeline | 대용량 원천을 정본으로 하고 schema·누락·대사 보고 | 현재 모집단 계약 반영 |
-| #5 CI | dev PR/push에서 재현 가능한 offline test를 수행 | workflow 반영, 보호규칙 필요 |
-| #4 commodity | 수집기 존재와 운영 품질·검증을 구분 | shadow 유지 |
-| #2 news adapter | provider가 없거나 불완전하면 fail closed, 합성 fallback 금지 | 코드 반영 |
+## 2. 이번 감사에서 직접 확인한 사항
 
-## 3. 아직 자동으로 완료할 수 없는 항목
+- #65: `normal_outbound_signed_sum`, `model_demand_positive_sum`, 음수 건수·절댓값이 분리돼 있다.
+  실제 추출 결과 현재기간 음수 포함 월 15개, 음수만 기록된 월 1개, 혼재 월 14개였다.
+- #22: 최신 코멘트 이후 합성뉴스가 소수만 섞여도 strict 모드에서 차단되고, 공급 전역사건은
+  명시적 재고품목 모집단으로 전파되며, GDELT 슬라이스는 성공·재시도·영구누락 상태와 계약
+  hash를 가진다. 관련 `unittest` 35개를 포함한 선별검사 44개가 통과했다.
+- #62·#56: 승인된 `representative_item_id`를 중심으로 전파·사용량 등급을 계산하고, 승인되지
+  않은 로컬품목은 합치지 않는 회귀검사를 확인했다.
+- #58: 2025-10~12는 이미 선택·진단에 사용된 `재사용 평가구간`으로 기록돼 있으며 깨끗한 최종
+  시험기간이라고 부르지 않는다.
+- #20·#39·#54·#72: 외부위험과 리드타임 변경값은 실제 권고와 분리된 병렬 시험값으로 다루고,
+  현재 보고서에서는 운영 효과나 인과효과로 주장하지 않는다.
+- #38·#52: 최신 재고상태 산출물은 `DORMANT`를 자동발주에서 걸러내고 평균·표준편차 바닥값
+  적용 건수를 모두 0으로 기록한다. 다만 backend·DB의 동일 정책 여부는 별도 확인이 필요하다.
 
-다음은 코드를 더 작성한다고 정답이 생기지 않는다.
+## 3. 최신 코멘트 결정표
 
-- #12와 #56의 질병·VED 임상 중요도는 담당자 라벨과 승인자가 필요하다.
-- #43의 성분 제품 exact 연결은 최신 `dev`의 PR 산출물과 source hash를 먼저 맞춰야 한다.
-- #54와 #23의 DB/backend 정책 일치는 실제 배포 DB schema와 consumer 확인이 필요하다.
-- #58, #20, #72의 운영 승격은 사전에 보지 않은 12개월 이상 평가기간과 block bootstrap 결과가 필요하다.
-- #10의 완전한 재현 manifest는 실행 entry point와 보존할 대용량 산출물 범위를 합의해야 한다.
+| 이슈 | 최신 코멘트 | 반영 판단 | 근거와 남은 조건 |
+|---|---|---|---|
+| [#72 PP 선행관계](https://github.com/DGU-TeamLex/ai/issues/72) | 2026-08-16 | 미채택 | 24개월 `p=0.4617`, 90검정 보정 후 0건. PP 2개월 효과를 가중치·리드타임 근거로 사용하지 않음 |
+| [#65 부호 보존 원장](https://github.com/DGU-TeamLex/ai/issues/65) | 2026-08-16 | 부분 반영 | 컬럼·사례·회귀계약 반영. 2018~2019까지 같은 grain으로 만드는 기간별 정합성 표는 추가 필요 |
+| [#63 사건 시기](https://github.com/DGU-TeamLex/ai/issues/63) | 2026-08-10 | 반영 완료 | 2026 사건의 인과검증을 금지하고 FDA 사례도 설명적 스트레스 시험으로만 허용 |
+| [#62 원자재 매핑 축](https://github.com/DGU-TeamLex/ai/issues/62) | 2026-08-16 | 부분 반영 | 대표품목→로컬→재고키, 충돌 격리 반영. 사용량 가중 커버리지·오탐 검토는 계속 필요 |
+| [#58 평가기간](https://github.com/DGU-TeamLex/ai/issues/58) | 2026-08-16 | 부분 반영 | 재사용 평가구간 표기와 공동지표 반영. 동일 실제 초기재고와 새 미사용 기간 필요 |
+| [#57 기관 prefix](https://github.com/DGU-TeamLex/ai/issues/57) | 2026-08-16 | 미채택 | 개선 0.0598%p, fold 불일치·해석 위험으로 사용하지 않음 |
+| [#56 품목 중요도](https://github.com/DGU-TeamLex/ai/issues/56) | 2026-08-16 | 부분 반영 | 대표품목 기준 `사용량 등급`으로 수정. VED 임상 중요도는 담당자 승인 대기 |
+| [#54 단일 재고정책](https://github.com/DGU-TeamLex/ai/issues/54) | 2026-08-16 | 외부 확인 대기 | 보고서 수식은 정기검토 `(R,S)`. AI/backend fixture parity, DB 정책버전·migration·rollback 필요 |
+| [#52 수요 바닥값](https://github.com/DGU-TeamLex/ai/issues/52) | 2026-08-16 | 부분 반영 | 최신 AI 산출물은 바닥값 0건, DORMANT 차단. DB와 하류 결과의 같은 계약 여부 확인 필요 |
+| [#44 안전재고 pooling](https://github.com/DGU-TeamLex/ai/issues/44) | 2026-08-16 | 부분 반영 | 고유 월수·개별 계열 CV 계산 수정. 새 holdout의 품절·충족률·평균재고로 최종 선택 필요 |
+| [#43 약성분 분류](https://github.com/DGU-TeamLex/ai/issues/43) | 2026-08-16 | 부분 반영 | 대표품목 축 분석은 반영. 제품명·성분·제형·함량·제조사 exact 검증과 source hash 필요 |
+| [#41 브랜치 거버넌스](https://github.com/DGU-TeamLex/ai/issues/41) | 2026-08-16 | 부분 반영 | 본 작업은 feat→dev만 사용. branch protection·필수 review는 저장소 관리자 설정 |
+| [#39 리드타임](https://github.com/DGU-TeamLex/ai/issues/39) | 2026-08-16 | 부분 반영 | 계약 납기와 실제 입고일을 구분. 30일은 민감도 기준일 뿐 자동승격값이 아님 |
+| [#38 0재고 사유](https://github.com/DGU-TeamLex/ai/issues/38) | 2026-08-10 | 부분 반영 | AI의 reason→action 차단 반영. 공용 가용재고 builder와 DB/frontend 계약 필요 |
+| [#34 과거자료 적재](https://github.com/DGU-TeamLex/ai/issues/34) | 2026-08-10 | 반영 완료 | 과거 전용 품목을 조용히 누락하지 않고 미연결 건수·사용량·사례를 보고 |
+| [#28 예측 handoff](https://github.com/DGU-TeamLex/ai/issues/28) | 2026-08-10 | 반영 완료 | 행별 백테스트와 세그먼트 산출물 존재. 소비자의 DB join율·checksum 회신은 별도 범위 |
+| [#23 SS/ROP·발주](https://github.com/DGU-TeamLex/ai/issues/23) | 2026-08-10 | 부분 반영 | 연속 ROP 단독식 대신 정기검토 목표재고·재고포지션을 보고서에 사용. backend parity 필요 |
+| [#22 뉴스 수집](https://github.com/DGU-TeamLex/ai/issues/22) | 2026-08-16 | 반영 완료 | 최신 코멘트 이후 세 경계조건 코드·테스트 반영, 2026-08-17 CSV 재생도 뉴스점수 110,256행 생성 |
+| [#21 2026 사건연구](https://github.com/DGU-TeamLex/ai/issues/21) | 2026-08-10 | 외부 확인 대기 | 2026 원장이 오기 전 인과효과를 평가하지 않음 |
+| [#20 위험–재고 연결](https://github.com/DGU-TeamLex/ai/issues/20) | 2026-08-16 | 부분 반영 | 신호는 계산하되 자동발주 변경 차단. 신호별 제거실험과 새 미사용 기간 필요 |
+| [#19 위험 전파사슬](https://github.com/DGU-TeamLex/ai/issues/19) | 2026-08-10 | 부분 반영 | end-to-end 골격과 산출물 존재. `PASS=0, REVIEW=4,647, BLOCKED=322`라 운영 완료 아님 |
+| [#16 미분류 잔류](https://github.com/DGU-TeamLex/ai/issues/16) | 2026-08-10 | 부분 반영 | 미분류 강제승격 차단. 검토 SLA와 수요량 가중 coverage 필요 |
+| [#15 품목 정규화](https://github.com/DGU-TeamLex/ai/issues/15) | 2026-08-10 | 반영 완료 | 대표품목·후보/승인 분리·과거 적용 경로 존재 |
+| [#14 규격 토큰](https://github.com/DGU-TeamLex/ai/issues/14) | 2026-08-10 | 반영 완료 | 3cc/5cc와 거즈 규격 분리 회귀사례 유지 |
+| [#12 질병–품목 관계](https://github.com/DGU-TeamLex/ai/issues/12) | 2026-08-10 | 외부 확인 대기 | 가장 큰 미완료 데이터 축. 임상 근거·reviewer가 있는 승인 관계표 필요 |
+| [#11 품목–원자재](https://github.com/DGU-TeamLex/ai/issues/11) | 2026-08-10 | 부분 반영 | 의약품 성분 경로와 소모품 proxy 존재. family generic과 exact BOM의 근거 확대 필요 |
+| [#10 대용량 재현성](https://github.com/DGU-TeamLex/ai/issues/10) | 2026-08-10 | 부분 반영 | 전처리는 동작. 입력·출력 hash, commit, 자원사용량을 한 run manifest로 자동 고정해야 함 |
+| [#9 실제 예측모형](https://github.com/DGU-TeamLex/ai/issues/9) | 2026-08-10 | 반영 완료 | LightGBM·시간순 평가·간헐수요·handoff가 존재. 운영 평가는 #58 조건을 따름 |
+| [#8 raw_stock 전환](https://github.com/DGU-TeamLex/ai/issues/8) | 2026-08-10 | 반영 완료 | raw_stock이 정본 입력이며 금지된 옛 경로 의존을 제거함 |
+| [#5 통합테스트 CI](https://github.com/DGU-TeamLex/ai/issues/5) | 2026-08-10 | 부분 반영 | dev용 오프라인 CI 존재. required check·review 규칙은 관리자 설정 필요 |
+| [#4 원자재 가격](https://github.com/DGU-TeamLex/ai/issues/4) | 2026-08-10 | 부분 반영 | CSV/API adapter와 점수 생성은 동작. 직접 series·라이선스·staleness 관리는 계속 필요 |
+| [#2 뉴스 API](https://github.com/DGU-TeamLex/ai/issues/2) | 2026-08-10 | 반영 완료 | provider·cache 경로와 합성 fallback 차단. 과거 backfill coverage는 운영 데이터 과제 |
 
-이 항목들은 미반영이 아니라 최신 코멘트의 안전조건을 반영해 명시적 미승격 상태로 둔 것이다.
+## 4. 심사·제출 전에 반드시 남겨야 하는 미완료
 
-## 4. Git 반영 순서
+1. **새 독립 평가기간**: 2025-10~12를 더 이상 최종 미사용 시험기간이라고 부르지 않는다.
+2. **정책 정본 일치**: AI와 backend가 같은 입력에서 같은 목표재고·발주량을 내는 fixture와 DB
+   migration/rollback 보고가 필요하다.
+3. **사람 승인 데이터**: 질병–품목, VED, exact BOM은 임상·조달 담당자의 근거와 승인자가 필요하다.
+4. **실제 리드타임·비용**: 계약 납기 대신 주문일–실입고일, 보유·폐기·부족·긴급구매 비용이 필요하다.
+5. **실행 manifest**: 입력 byte/SHA-256, commit, 설정, 기간, 행 수, 출력 hash와 실행시간을 한 파일에
+   고정해야 한다.
 
-현재 `feat/formula-data-evidence-alignment`는 `origin/dev`와 이력이 갈라져 있다. 이 변경을 먼저
-검증한 뒤 최신 `dev` 위로 충돌 없이 정렬하고, feat PR을 통해 `dev`에만 병합한다. `main`에는
-직접 push 또는 merge하지 않는다.
+## 5. Git 반영 원칙
+
+문서 수정은 `feat/report-storyline-and-data-examples`에서 수행하고 PR 대상은 `dev`로 제한한다.
+feat 브랜치는 검토·머지 전까지 유지하고, `dev` 병합 뒤 삭제한다. `main` 동기화는 이 작업의
+범위가 아니며 사용자 별도 승인 없이 수행하지 않는다.
