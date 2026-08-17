@@ -33,13 +33,13 @@
 | 양수·음수 상계 | 2024-06 | H-b4e0dfa4 | H-f7c34b9a | 0 | 4 | 1건·4 | 원장합이 0이어도 실제 양수 출고 4는 유지 |
 
 현재기간에서 음수가 들어간 월은 15개였다. 그중 음수만 기록된 월 1개, 양수·음수 혼재 월
-14개다. 이 수치는 `scripts/analysis/report_data_examples.py`로 재추출했다.[^negative-source]
+14개다. 이 수치는 `scripts/analysis/report_data_examples.py`로 재추출했다.[주 1]
 
 ## 3. 과거품목 연결에서 제외한 사례
 
 2018~2019 로컬품목 175,760개 중 146,757개는 현재 대표품목과 엄격히 연결됐다. 나머지
 29,003개는 이름 기반 임시 표준키만 있어 현재품목의 학습이력으로 사용하지 않았다. 영향을 받은
-월별 행은 143,736개, 양수 모델수요 합계는 12,402,768.2116이다.[^mapping-source]
+월별 행은 143,736개, 양수 모델수요 합계는 12,402,768.2116이다.[주 2]
 
 | 과거품목 표본ID | 원문 품목명 | 연결방법 | 신뢰도 | 처리 | 제외 이유 |
 |---|---|---|---:|---|---|
@@ -59,9 +59,9 @@
 
 이전 수요전용 스냅샷은 특성생성 시점에 점수파일이 연결되지 않아 뉴스 4개, 원자재 3개,
 Module C 8개, 총 15개 열의 비영 관측이 모두 0이었다. 따라서 외부모형을 비교에서 제외했다.
-이는 외부위험이 존재하지 않았다는 의미가 아니다.[^coverage-source]
+이는 외부위험이 존재하지 않았다는 의미가 아니다.[주 3]
 
-2026-08-17 재실행에서는 큰 용량의 기존 로컬 데이터 범위 안에서 다음 중간 산출물이 생성됐다.
+2026-08-17 재실행에서는 큰 용량의 기존 로컬 데이터 범위 안에서 다음 산출물이 생성됐다.
 
 | 단계 | 생성 결과 | 해석 |
 |---|---:|---|
@@ -71,8 +71,10 @@ Module C 8개, 총 15개 열의 비영 관측이 모두 0이었다. 따라서 �
 | Module C 위험점수 | 316,986행 | 뉴스·가격·무역 결합점수 생성 |
 | Module C 품질판정 | PASS 0, REVIEW 4,647, BLOCKED 322 | 점수가 있어도 실제 권고에는 반영할 수 없음 |
 
-이 표는 모델 성능 결과가 아니라 **입력 연결 단계가 살아났다는 중간 증거**다. 특성생성·학습·평가가
-끝나기 전에는 WAPE 개선을 기입하지 않는다.[^external-run]
+학습구간 1,829,647행 중 공급위험 비영행은 9,947개(0.5437%)였다. 학습·예측·평가까지
+완료했지만 원자재 전용모형은 재사용 평가에서 수요전용보다 WAPE가 0.026%p 높았고,
+뉴스·뉴스+원자재·Module C도 같은 손실함수의 수요전용 비교모형을 이기지 못했다. 따라서
+입력 연결은 복구됐지만 운영 효과는 입증되지 않았다.[주 4]
 
 ### 4.1 뉴스는 잡혔지만 품목에 연결하지 않은 실제 기사
 
@@ -84,7 +86,7 @@ Module C 8개, 총 15개 열의 비영 관측이 모두 0이었다. 따라서 �
 - `Europe trawls for alternative aluminum supply in face of Mozal shutdown`
 
 기사를 삭제하거나 위험 0으로 바꾼 것이 아니다. 기사 점수 감사자료에는 남기고, 알루미늄과
-관련 없는 의료품목에 임의로 전파하지 않은 것이다.[^external-log]
+관련 없는 의료품목에 임의로 전파하지 않은 것이다.[주 5]
 
 ## 5. 제출용 제외사유 코드 제안
 
@@ -101,15 +103,16 @@ Module C 8개, 총 15개 열의 비영 관측이 모두 0이었다. 따라서 �
 
 ## 6. 각주
 
-[^negative-source]: `data/processed/stock_monthly.parquet`에서
+**주 1.** `data/processed/stock_monthly.parquet`에서
     `negative_normal_outbound_count > 0`을 필터링한 결과. 재현 명령은
     `.venv\\Scripts\\python.exe scripts/analysis/report_data_examples.py --sample-limit 5`다.
-[^mapping-source]: `data/processed/stock_standard_item_mapping.parquet`,
+**주 2.** `data/processed/stock_standard_item_mapping.parquet`,
     `outputs/stock_standard_item_mapping_report.json`, `outputs/stock_forecast_data_quality.json`.
-[^coverage-source]: `outputs/experiment_snapshots/demand_only_20260817/external_signal_coverage_report.json`.
+**주 3.** `outputs/experiment_snapshots/demand_only_20260817/external_signal_coverage_report.json`.
     수요전용 실행의 train 1,829,647행에서 15개 외부신호의 비영 관측이 모두 0이었다.
-[^external-run]: `outputs/background_external_risk_experiment_active_20260817.stdout.log`의
-    `news-risk-scoring`, `commodity-risk-scoring`, `trade-risk-scoring`, `module-c-risk-scoring` 완료 기록.
-[^external-log]: `outputs/background_external_risk_experiment_active_20260817.stderr.log`의
+**주 4.** `outputs/background_external_risk_experiment_active_20260817.stdout.log`의
+    점수·특성·학습·예측·평가 완료 기록과 `outputs/stock_evaluation_report.csv`. 마지막 조합 단계는
+    선택적 Module C 열 로딩을 수정한 뒤 재실행해 `outputs/stock_combination_policy.json`을 생성했다.
+**주 5.** `outputs/background_external_risk_experiment_active_20260817.stderr.log`의
     `No stock item mapping found for material=aluminum` 경고. 경고는 단계 실패가 아니라 매핑 없는
     기사별 제외 기록이다.

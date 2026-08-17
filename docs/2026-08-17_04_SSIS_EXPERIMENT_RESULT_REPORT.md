@@ -4,8 +4,8 @@
 - 대상: 한국사회보장정보원 및 데이터 제공·검토 담당자
 - 분석 성격: 연구·실험용. 운영 자동발주 승인 자료가 아님
 - 데이터 시차: 최신 원천은 2025-12이며, 운영시점 대비 8개월 시차는 실험 설계상 허용함
-- 코드 기준: `DGU-TeamLex/ai`의 `dev` `c1d473b`; 수요전용 비교값은
-  `outputs/experiment_snapshots/demand_only_20260817`에 고정함
+- 코드 기준: `DGU-TeamLex/ai`의 `dev` `c1d473b`; 마지막 조합 열 로딩 수정은
+  `355ff37`(PR #99), 수요전용 비교값은 `outputs/experiment_snapshots/demand_only_20260817`에 고정함
 - 표기 원칙: 한국어 설명을 먼저 쓰고, 코드·논문의 영어는 괄호 안에 병기함
 
 ## 0. 먼저 읽는 결론
@@ -18,11 +18,11 @@
 
 1. **수요예측의 잠정 선택모형**은 외부위험을 넣지 않은 `검증 조정 수요전용 LightGBM`이다.
    2025-08~12의 605,438행에서 WAPE 35.714%였고 가장 좋은 단순 기준예측 40.022%보다
-   4.307%p, 상대 10.76% 낮았다.[^data-demand-snapshot]
-2. **외부위험 모형은 아직 선택하지 않는다.** 수요전용 스냅샷에서는 뉴스·원자재·Module C의
-   15개 입력열이 모두 0이었다. 현재 재실행에서는 뉴스 110,256행, 원자재 316,986행, 무역
-   20,345행, Module C 316,986행의 점수 생성까지 성공했지만 학습·평가 효과는 아직 확정 전이다.
-   앞의 0열 결과와 현재 재실행을 같은 실행처럼 섞지 않는다.[^data-external][^data-external-active]
+   4.307%p, 상대 10.76% 낮았다.[주 6]
+2. **외부위험 모형은 선택하지 않는다.** 수요전용 스냅샷에서는 15개 외부위험 열이 모두
+   0이었지만 재실행에서 입력 연결과 학습·평가까지 완료했다. 검증에서는 원자재 모형이 WAPE를
+   0.056%p 낮췄으나 재사용 평가에서는 오히려 0.026%p 높아졌다. 뉴스·뉴스+원자재·Module C
+   모형도 수요전용 비교모형보다 나아지지 않았다.[주 4·주 5]
 3. **발주량은 예측값과 같지 않다.** 예측량에 보호기간, 예측오차, 비용비, 현재 재고포지션을
    차례로 적용해야 제안발주량이 된다.
 4. **병렬 시험값(shadow value)**은 실제 권고와 분리한다. 뉴스·원자재·무역으로 계산한
@@ -30,9 +30,8 @@
 5. **운영 자동발주는 아직 승인할 수 없다.** 새 독립 평가기간, 실제 발주·입고·미충족·비용자료,
    공식 품목 대응표가 없기 때문이다. 현재 결과는 연구 수준의 비교성과다.
 
-백그라운드 외부위험 전수 재실행이 끝나면 외부모형의 지표만 별도 표에 추가한다. 선택 원칙은
-`예측오차만 최소화`가 아니라 `예측오차·과소예측 편향·품절·평균재고를 함께 개선`하는 모형을
-고르는 것이다.
+외부위험 재실행 결과는 수요전용 스냅샷과 분리해 보고한다. 선택 원칙은 `예측오차만 최소화`가
+아니라 `예측오차·과소예측 편향·품절·평균재고를 함께 개선`하는 모형을 고르는 것이다.
 
 ## 1. 용어와 공식을 먼저 이해하기
 
@@ -105,7 +104,7 @@ CV² (Squared Coefficient of Variation, 변동계수 제곱) = (s+ / μ+)²
 - `μ+`: 양수 수요량의 평균, `s+`: 양수 수요량의 표준편차
 
 ADI가 크면 수요가 드물고, CV²가 크면 발생량 변화가 크다. 두 값으로 안정형(smooth),
-간헐형(intermittent), 변동형(erratic), 불규칙 대량형(lumpy)을 구분한다.[^ref-syntetos]
+간헐형(intermittent), 변동형(erratic), 불규칙 대량형(lumpy)을 구분한다.[주 11]
 
 ### 1.5 발주 공식의 전체 모습
 
@@ -122,7 +121,7 @@ recommended order / 제안발주량     Q  = max(S - IP, 0)
 
 다음 달 예측량만큼 주문하는 식이 아니다. 검토주기와 입고대기기간의 수요를 계산하고,
 틀릴 가능성에 대비한 안전재고를 더한 뒤, 이미 보유하거나 주문한 재고를 차감한다는 뜻이다.
-[^ref-mit-rs][^ref-newsvendor]
+[주 12·주 13]
 
 ## 2. 어떤 데이터를 사용했고, 무엇을 연결하지 못했는가
 
@@ -137,7 +136,7 @@ recommended order / 제안발주량     Q  = max(S - IP, 0)
 - 2020~2023 공백은 보간하지 않고 2019와 2024 사이에서 시계열 구간을 끊음
 
 구입단가는 16,265,602행 중 101,022행, 약 0.62%에서만 관측된다. 현재 자료만으로 전 품목의
-실제 금액 ABC나 실제 비용 최적화를 주장하지 않는다.[^data-current]
+실제 금액 ABC나 실제 비용 최적화를 주장하지 않는다.[주 1]
 
 ### 2.2 `음수만 기록된 달`은 무엇인가
 
@@ -155,7 +154,7 @@ negative amount / 음수 절댓값               = Σ |min(normal_outbound, 0)|
 합계와 음수 건수·양은 보존하되, 사람의 실제 사용량을 `-89개`로 학습할 수 없으므로 모델
 수요만 0으로 둔다.
 
-실제 월별 자료 발췌 사례다. 기관·품목 식별자는 SHA-256 앞 8자리로 가명화했다.[^data-negative]
+실제 월별 자료 발췌 사례다. 기관·품목 식별자는 SHA-256 앞 8자리로 가명화했다.[주 2]
 
 | 사례 | 월 | 기관 표본ID | 품목 표본ID | 부호 보존 합계 | 모델 수요 | 음수 건수·절댓값 | 해석 |
 |---|---:|---|---|---:|---:|---:|---|
@@ -172,7 +171,7 @@ negative amount / 음수 절댓값               = Σ |min(normal_outbound, 0)|
 2018~2019 로컬 품목 175,760개 가운데 146,757개(83.50%)는 현재 대표품목과 엄격하게
 연결됐다. 나머지 29,003개는 과거 이름으로 임시 표준키를 만들 수 있었지만 현재 대표품목과
 동일하다고 확정할 증거가 부족했다. 해당 143,736개 월별 행, 양수 모델수요 합계
-12,402,768.2116은 과거 학습에서 제외했다.[^data-mapping]
+12,402,768.2116은 과거 학습에서 제외했다.[주 3]
 
 | 과거 품목 표본ID | 원문 품목명 | 연결방법 | 신뢰도 | 학습 여부 | 제외 이유 |
 |---|---|---|---:|---|---|
@@ -186,17 +185,18 @@ negative amount / 음수 절댓값               = Σ |min(normal_outbound, 0)|
 ### 2.4 외부위험 데이터가 연결되지 않은 사례
 
 고정해 둔 수요전용 스냅샷의 특성표에는 뉴스 4개, 원자재 3개, Module C 8개로 총 15개
-외부위험 열이 있으나 학습·검증·평가 구간의 0이 아닌 관측이 모두 0개였다.[^data-external]
+외부위험 열이 있으나 학습·검증·평가 구간의 0이 아닌 관측이 모두 0개였다.[주 4]
 
 - 수요·달력·재고이력만 쓰는 모형 A는 학습·평가한다.
 - 값이 전부 0인 뉴스·원자재·Module C 모형은 성능 비교에서 제외한다.
 - 0을 `위험 없음`으로 해석하지 않고 입력파일 미연결 상태로 기록한다.
 - 과거 별도 외부신호 결과는 `과거 실행 참고값`으로 구분한다.
 
-이 문제를 확인한 뒤 같은 대용량 로컬 원천 범위에서 외부점수를 먼저 생성하는 재실행을 시작했다.
-뉴스·원자재·무역·Module C 점수파일은 생성됐고, 특성생성 이후의 비영률과 모형효과는 실행이
-끝난 뒤 별도 결과표에 채운다. 점수행이 생겼다는 사실만으로 예측력이 입증된 것은 아니다.
-연결·제외 실제 사례는 별도 부록에 정리했다.[^data-external-active]
+이 문제를 확인한 뒤 같은 대용량 로컬 원천 범위에서 외부점수 생성부터 학습·예측·평가까지
+재실행했다. 학습구간 1,829,647행 중 공급위험 비영행은 9,947개(0.5437%)였다. 공급뉴스·
+원자재·무역은 연결됐지만 질병 수요위험은 여전히 0개였다. 점수행이 생겼다는 사실만으로
+예측력이 입증되는 것은 아니며 실제 평가도 수요전용 모형을 이기지 못했다. 연결·제외 실제
+사례는 별도 부록에 정리했다.[주 5]
 
 현재 로컬 품목이 표준품목에 연결되지 않아도 자체 수요이력은 존재한다. 그런 품목은 기관·부서·
 로컬 품목 단위 수요예측에는 유지하고 품목 간 통합학습·외부위험 전파만 차단한다.
@@ -248,7 +248,7 @@ negative amount / 음수 절댓값               = Σ |min(normal_outbound, 0)|
 ```
 
 논문은 수식과 평가방법의 방향을 제공한다. TeamLex의 계수와 성능은 논문을 인용했다는 사실이
-아니라 정보원 데이터의 시간순 검증으로 판단한다.[^ref-time]
+아니라 정보원 데이터의 시간순 검증으로 판단한다.[주 15]
 
 ## 4. 예측모형은 어떻게 구성했는가
 
@@ -260,7 +260,7 @@ negative amount / 음수 절댓값               = Σ |min(normal_outbound, 0)|
 
 ### 4.2 LightGBM 입력정보
 
-수요전용 LightGBM은 총 51개 후보 특성을 다음 범주로 사용한다.[^code-model]
+수요전용 LightGBM은 총 51개 후보 특성을 다음 범주로 사용한다.[주 9]
 
 - **시계열 이력**: 1·2·3·6·12개월 전 수요, 최근 3·6·12개월 평균·표준편차, 중앙값, 누적평균
 - **간헐성**: 최근 6·12개월 0수요 비율, 관측월 수, 연속구간 이력 길이
@@ -288,7 +288,7 @@ negative amount / 음수 절댓값               = Σ |min(normal_outbound, 0)|
 | L1 규제 | 0 | 0.02041 | 불필요한 복잡도를 줄이는 규제 |
 
 검증 조정값은 2024년 3·4분기와 2025년 1·2분기의 네 시간순 검증구간을 합친 WAPE를
-최소화하도록 60회 탐색했다. 시험기간은 설정 선택에 사용하지 않았다.[^data-tuning] 트리 수가
+최소화하도록 60회 탐색했다. 시험기간은 설정 선택에 사용하지 않았다.[주 8] 트리 수가
 약 12배여서 학습시간은 16.4초에서 166.1초로 약 10.13배 증가했다.
 
 ### 4.4 수요패턴 선택기
@@ -315,7 +315,7 @@ Q = max(S-IP, 0)                  제안발주량
 
 `Cu(underage cost, 과소재고비)`는 부족 손실, `Co(overage cost, 과다재고비)`는 잔여 손실이다.
 현재 `Co:Cu=1:9`는 실제 비용이 아니라 실험 가정이다. 따라서 **비용비가 주어졌을 때의
-조건부 최적식**이며 기관별 실제 경제적 최적발주량이라고 단정하지 않는다.[^ref-newsvendor]
+조건부 최적식**이며 기관별 실제 경제적 최적발주량이라고 단정하지 않는다.[주 13]
 
 ### 5.2 실제 계산 예시
 
@@ -358,7 +358,7 @@ monthly risk / 월 위험점수 = 1 - exp(-Σ article score / p90 scale)
 ```
 
 `wk`는 출처신뢰도·사건심각도·관련성 항목점수, `αk`는 항목별 영향력, `p90 scale`은 같은
-위험군에서 상위 10% 경계로 만든 상대척도다. 기사점수는 확률이 아니다.[^ref-news]
+위험군에서 상위 10% 경계로 만든 상대척도다. 기사점수는 확률이 아니다.[주 14]
 
 ### 6.3 원자재 변동성과 Noisy-OR
 
@@ -381,10 +381,15 @@ monthly risk / 월 위험점수 = 1 - exp(-Σ article score / p90 scale)
 최신 24개월 p값은 0.4617이었고, 90개 경로는 다중검정 보정 후 유의한 경로가 0개였다.
 MFDS 공급중단 1,936건 중 마스터 매칭은 839건이었으나 영향 사용량 비중은 1.62%였다.
 
-수요전용 스냅샷의 외부열은 모두 0이어서 관련 모형을 선택할 수 없었다. 현재 재실행은
-뉴스·원자재·무역·Module C 점수 생성까지 성공했지만 Module C 품질판정은 PASS 0,
-REVIEW 4,647, BLOCKED 322였다. 특성생성·학습·평가가 끝나더라도 새 독립기간의 신호별
-제거실험(ablation)을 통과하기 전에는 병렬 시험값으로만 제공한다.[^data-external-active]
+재실행 결과는 다음과 같다. 검증 WAPE는 수요전용 L1 36.965%, 원자재 전용 L1 36.909%로
+원자재 모형이 0.056%p 낮았다. 그러나 2025-08~12 재사용 평가에서는 수요전용 L1 35.714%,
+원자재 전용 L1 35.740%로 원자재 모형이 0.026%p 높았다. 같은 Tweedie 계열에서도 수요전용
+37.272%에 비해 뉴스 37.295%, 뉴스+원자재 37.290%, Module C 37.291%로 개선되지 않았다.
+
+Module C를 쓴 재고조합은 90% 서비스수준 보정구간에서 선택됐고 재사용 평가의 단위 충족률은
+93.469%, 목표재고/실수요 비율은 1.609였다. 다만 이는 한 달 수요충족 proxy이며 실제 조달
+리드타임 시뮬레이션이 아니다. 품질판정도 PASS 0, REVIEW 4,647, BLOCKED 322이므로 외부위험은
+병렬 시험값으로만 제공한다.[주 5]
 
 ## 7. 재고정책 검증 실험과 자동 권고 차단 규칙
 
@@ -425,7 +430,7 @@ REVIEW 4,647, BLOCKED 322였다. 특성생성·학습·평가가 끝나더라도
 
 ### 8.1 현재 비교 가능한 예측결과
 
-8월 17일 수요전용 스냅샷의 동일 백테스트 605,438행 결과다.[^data-demand-snapshot]
+8월 17일 수요전용 스냅샷의 동일 백테스트 605,438행 결과다.[주 6]
 
 | 모형 | WAPE | MAE | RMSE | BIAS% | 해석 |
 |---|---:|---:|---:|---:|---|
@@ -433,10 +438,12 @@ REVIEW 4,647, BLOCKED 322였다. 특성생성·학습·평가가 끝나더라도
 | 검증 조정 수요전용 LightGBM | **35.714%** | **48.621** | 206.591 | -9.617% | WAPE·MAE 최저, 과소예측 편향 남음 |
 | 시간순 혼합 선택기 | 35.726% | 48.636 | **199.341** | **-7.839%** | WAPE 0.012%p 열세, RMSE·BIAS 우세 |
 | Tweedie LightGBM | 37.272% | 50.741 | 188.642 | -1.971% | 큰 오차·편향 완화 후보, WAPE 열세 |
+| 원자재 전용 LightGBM | 35.740% | 48.656 | 206.274 | -9.639% | 검증에서는 우세했으나 재사용 평가에서 수요전용보다 0.026%p 열세 |
+| Module C LightGBM | 37.291% | 50.767 | 188.528 | -1.702% | Tweedie 수요전용보다 0.019%p 열세 |
 
 2025-10~12의 359,335행만 보면 수요전용 LightGBM WAPE는 35.703%, 패턴별 혼합 선택기는
 35.801%였다. 혼합 선택기는 WAPE가 0.098%p 나빠졌지만 RMSE는 208.583에서 201.186으로,
-BIAS%는 -7.592%에서 -5.890%로 개선됐다.[^data-ensemble]
+BIAS%는 -7.592%에서 -5.890%로 개선됐다.[주 7]
 
 따라서 WAPE를 1순위로 둘 때 주모형은 단일 수요전용 LightGBM이다. 혼합 선택기는 큰 오차와
 과소예측을 줄일 가능성이 있으므로 **재고정책용 도전모형**으로 남긴다. 둘 다 이미 확인한
@@ -462,7 +469,7 @@ BIAS%는 -7.592%에서 -5.890%로 개선됐다.[^data-ensemble]
 | 주 수요예측 | 검증 조정 LightGBM 수요전용 | 전체·재사용 평가에서 가장 낮은 WAPE | 신뢰구간·새 독립기간 |
 | 단순 비교기준 | 지난달·3개월 평균 등 6개 | 복잡한 모형의 추가가치 감시 | 동일 행 비교 유지 |
 | 재고정책 도전모형 | ADI·CV² 패턴별 혼합 선택기 | WAPE는 0.098%p 열세지만 BIAS·RMSE 개선 | 동일 실제 초기재고 비교 |
-| 외부위험 | 병렬 시험값만 | 점수는 생성됐으나 품질 PASS·모형효과 미확정 | 실행완료·승인 매핑·제거실험 |
+| 외부위험 | 병렬 시험값만 | 입력·학습은 복구됐으나 재사용 평가 WAPE 개선 없음 | 품질 PASS·새 독립기간·제거실험 |
 | 자동발주 | 선택하지 않음 | 운영근거와 승인절차 부족 | 주문·입고·미충족·비용·신규기간 |
 
 ## 9. 문제와 개선 우선순위
@@ -471,7 +478,7 @@ BIAS%는 -7.592%에서 -5.890%로 개선됐다.[^data-ensemble]
 
 1. 2025년 하반기를 이미 여러 번 확인해 최종 독립 시험기간이 없다.
 2. 과거 로컬 품목 29,003개를 현재 대표품목에 엄격 연결하지 못했다.
-3. 수요전용 스냅샷의 외부위험 15개 입력열이 모두 0이었고, 현재 재실행은 학습·평가 중이다.
+3. 외부신호 비영률이 학습행의 약 0.54%로 낮고 질병 수요위험은 여전히 0이다.
 4. 잠정 선택모형도 전체 백테스트 BIAS% -9.617%의 과소예측 편향이 남는다.
 5. 발주잔량·부분입고·미충족 자료가 없어 실제 재고포지션을 완전히 재현하지 못한다.
 6. `Co:Cu=1:9`가 실제 보유·폐기·긴급구매 비용에서 추정된 값이 아니다.
@@ -480,7 +487,7 @@ BIAS%는 -7.592%에서 -5.890%로 개선됐다.[^data-ensemble]
 
 ### 9.2 개선 우선순위
 
-1. 외부위험 전수 재실행 완료 후 외부모형 지표·행 수·commit을 별도 실행으로 고정한다.
+1. 완료된 외부위험 실행의 입력 hash·행 수·commit과 결과표를 별도 실행 manifest로 고정한다.
 2. 수요전용 LightGBM과 패턴별 혼합 선택기를 동일 실제 초기재고에서 비교한다.
 3. 블록 부트스트랩으로 WAPE·BIAS·재고성과 차이의 불확실성을 제시한다.
 4. 비용비, 리드타임과 안전재고 상한을 격자로 바꿔 민감도 곡선을 만든다.
@@ -529,7 +536,7 @@ BIAS%는 -7.592%에서 -5.890%로 개선됐다.[^data-ensemble]
 
 스크립트는 Parquet을 읽기만 하며 기관·로컬 품목 키를 SHA-256 앞 8자리로 가명화한다.
 로컬 물품재고 DAT는 현재 13개, 총 2,572,633,929 bytes다. 외부 제출 시 파일별 byte와
-SHA-256을 실행 manifest에 포함한다.[^data-manifest] 약성분 원본은 동일 raw 디렉터리에 남아
+SHA-256을 실행 manifest에 포함한다.[주 10] 약성분 원본은 동일 raw 디렉터리에 남아
 있지 않아 제출 전 파일명·byte·SHA-256을 복구해야 한다.
 
 ## 12. 최종 결론
@@ -544,88 +551,90 @@ SHA-256을 실행 manifest에 포함한다.[^data-manifest] 약성분 원본은 
 `최적모형 확정`이 아니라 `현재 증거에서 WAPE가 가장 낮은 연구모형`으로 표현한다. 패턴별
 혼합 선택기는 RMSE와 BIAS가 더 좋아 재고성과를 확인할 도전모형으로 남긴다.
 
-외부위험은 수요전용 스냅샷에서는 입력이 연결되지 않았고, 현재 재실행에서는 점수 생성까지
-복구됐지만 품질 PASS와 예측효과가 확정되지 않았다. 따라서 관련 계산은 **실제 권고와 분리된
-병렬 시험값**으로만 제공한다. 자동 권고 차단 규칙은 오래된 재고, 누락, 승인되지 않은 매핑과
-검증 미통과가 발주권고로 넘어가지 않게 한다.
+외부위험은 재실행에서 입력·학습·평가가 복구됐지만 WAPE 개선이 재사용 평가에서 재현되지 않았고
+품질 PASS도 0건이었다. 따라서 관련 계산은 **실제 권고와 분리된 병렬 시험값**으로만 제공한다.
+자동 권고 차단 규칙은 오래된 재고, 누락, 승인되지 않은 매핑과 검증 미통과가 발주권고로
+넘어가지 않게 한다.
 
-다음 단계는 공식을 계속 추가하는 일이 아니다. 외부위험 재실행을 수요전용 스냅샷과 분리해
-고정하고 동일조건 재고실험과 불확실성 분석을 끝낸 뒤, 공식 매핑·주문·입고·비용자료와 새
-평가기간이 확보될 때 운영 가능성을 다시 판정하는 것이다.
+다음 단계는 공식을 계속 추가하는 일이 아니다. 완료된 외부위험 재실행을 수요전용 스냅샷과
+분리해 고정하고 동일조건 재고실험과 불확실성 분석을 끝낸 뒤, 공식 매핑·주문·입고·비용자료와
+새 평가기간이 확보될 때 운영 가능성을 다시 판정하는 것이다.
 
 ## 각주와 참고문헌
 
-[^data-current]: `outputs/stock_preprocessing_report.json`의 `stock-preprocessing-v1.2`,
+**주 1.** `outputs/stock_preprocessing_report.json`의 `stock-preprocessing-v1.2`,
     `data/processed/stock_monthly.parquet`, `data/processed/stock_monthly_2018_2019_auxiliary.parquet`
     에서 발췌했다. 원천 일별 행 수와 단가 관측치는 전수 품질검사 결과다.
 
-[^data-negative]: `data/processed/stock_monthly.parquet`에서
+**주 2.** `data/processed/stock_monthly.parquet`에서
     `negative_normal_outbound_count > 0`으로 추출했다. 사용 열과 가명화 방식은
     `scripts/analysis/report_data_examples.py`에 있다.
 
-[^data-mapping]: `outputs/stock_standard_item_mapping_report.json`과
+**주 3.** `outputs/stock_standard_item_mapping_report.json`과
     `data/processed/stock_standard_item_mapping.parquet`에서
     `data_period='historical' AND historical_training_eligible=false`로 추출했다.
     `historical_name_fallback`은 과거 이름 기반 임시 표준키이며 엄격 연결이 아니다.
 
-[^data-external]:
+**주 4.**
     `outputs/experiment_snapshots/demand_only_20260817/external_signal_coverage_report.json`의
     수요전용 스냅샷 결과다. 학습구간 1,829,647행에서 뉴스 4개, 원자재 3개, Module C 8개
     열의 비영 관측 수가 모두 0이었다. 특성생성 당시 외부위험 점수파일이 연결되지 않은 실행을
     별도로 보존한 것이다.
 
-[^data-external-active]: `outputs/background_external_risk_experiment_active_20260817.stdout.log`와
-    `.stderr.log`의 2026-08-17 재실행 기록이다. 뉴스 110,256행, 원자재 316,986행, 무역
-    20,345행, Module C 316,986행이 생성됐다. `PASS=0, REVIEW=4,647, BLOCKED=322`는
-    Module C 품질판정이며 모델 성능을 뜻하지 않는다. 알루미늄 미매핑 기사 등 자세한 사례는
-    `docs/2026-08-17_05_DATA_CONNECTION_AND_EXCLUSION_CASES.md`에 있다.
+**주 5.** `outputs/background_external_risk_experiment_active_20260817.stdout.log`와 `.stderr.log`,
+    `outputs/external_signal_coverage_report.json`, `outputs/stock_model_validation_report.csv`,
+    `outputs/stock_evaluation_report.csv`, `outputs/stock_combination_policy.json`의 2026-08-17
+    재실행 기록이다. 뉴스 110,256행, 원자재 316,986행, 무역 20,345행, Module C 316,986행이
+    생성됐다. 최초 마지막 조합 단계는 선택적 열 로딩 오류로 종료됐으나 PR #99 수정 뒤 동일
+    예측파일로 재실행해 정책 JSON 생성을 확인했다. `PASS=0, REVIEW=4,647, BLOCKED=322`는
+    Module C 품질판정이며 모델 성능을 뜻하지 않는다. 미매핑 사례는 별도 사례 부록에 있다.
 
-[^data-demand-snapshot]:
+**주 6.**
     `outputs/experiment_snapshots/demand_only_20260817/stock_evaluation_report.csv`의 동일
     605,438행 비교다. 수요전용 LightGBM WAPE 35.7142235%, 최근 3개월 평균 40.0216027%,
     시간순 혼합 선택기 35.7257881%다. 이 결과는 외부위험 재실행에 덮어쓰이지 않도록 별도
     디렉터리에 보존했다.
 
-[^data-ensemble]:
+**주 7.**
     `outputs/experiment_snapshots/demand_only_20260817/forecast_ensemble_temporal_report.json`.
     선택은 2025-08~09 검증자료에서 했고 2025-10~12에 평가했지만, 해당 평가기간은 이전
     실험에서도 확인했으므로 `clean_final_test=false`인 재사용 평가다.
 
-[^data-tuning]: `outputs/tuned_hyperparameters_stock_model_a_usage_only.json`, 버전
+**주 8.** `outputs/tuned_hyperparameters_stock_model_a_usage_only.json`, 버전
     `hyperparameter-tuning-v2.0-rolling-folds`에서 발췌했다. 60회 탐색, 4개 시간순 검증구간,
     `selection_did_not_use_test=true`로 기록돼 있다.
 
-[^code-model]: `src/modeling/training.py`의 특성선택·모형설정·전처리 함수와
+**주 9.** `src/modeling/training.py`의 특성선택·모형설정·전처리 함수와
     `src/config.py`의 범주형 특성·모형 변형 정의를 기준으로 설명했다.
 
-[^data-manifest]: 원본은 2024~2025 `익스포트_0_수정.DAT`~`익스포트_9_수정.DAT` 10개와
+**주 10.** 원본은 2024~2025 `익스포트_0_수정.DAT`~`익스포트_9_수정.DAT` 10개와
     2018~2019 수정 DAT 3개다. 총 크기는 2,572,633,929 bytes이며 제출 manifest에 파일별
     SHA-256을 포함한다.
 
-[^ref-syntetos]: Syntetos, Boylan & Croston (2005), *On the categorization of demand
+**주 11.** Syntetos, Boylan & Croston (2005), *On the categorization of demand
     patterns*. 원문 핵심 표현 “average inter-demand interval and the squared coefficient of
     variation”을 ADI·CV² 분류의 근거로 사용했다. 임계값과 최종 예측기는 내부 검증 대상이다.
     [DOI](https://doi.org/10.1057/palgrave.jors.2601841)
 
-[^ref-mit-rs]: MIT OpenCourseWare, *Logistics Systems, Lecture 11*. 원문 핵심 표현
+**주 12.** MIT OpenCourseWare, *Logistics Systems, Lecture 11*. 원문 핵심 표현
     “Order S-IP every R time periods.”를 `(R,S)` 구조의 근거로 사용했다. 실제 `IP`에는
     발주잔량과 미충족 자료가 필요하다.
     [강의자료](https://ocw.mit.edu/courses/esd-260j-logistics-systems-fall-2006/8b53c45fd26ffff706d815131e8d177e_lect11.pdf)
 
-[^ref-newsvendor]: Olivares, Terwiesch & Cassorla (2008), *Structural Estimation of the
+**주 13.** Olivares, Terwiesch & Cassorla (2008), *Structural Estimation of the
     Newsvendor Model*을 과다·과소 비용비와 최적 분위수의 수식 근거로 사용했다.
     `Co:Cu=1:9`는 논문 값이 아니라 TeamLex 가정이다. Koenker & Bassett (1978)은 향후
     비용비별 분위수 손실 평가의 방법론 근거다.
     [Wharton PDF](https://faculty.wharton.upenn.edu/wp-content/uploads/2012/04/8-Structural-Estimation-of-Newsvendor.pdf),
     [Econometrica DOI](https://doi.org/10.2307/1913643)
 
-[^ref-news]: Baker, Bloom & Davis (2016)는 뉴스 빈도 기반 불확실성, Caldara & Iacoviello
+**주 14.** Baker, Bloom & Davis (2016)는 뉴스 빈도 기반 불확실성, Caldara & Iacoviello
     (2022)는 뉴스 기반 지정학 위험, Freifeld et al. (2008)의 HealthMap은 복수 출처와 사람
     검토의 원리 근거다. TeamLex가 해당 지수를 재현했거나 기사점수가 공급중단 확률이라는 뜻은
     아니다. [EPU](https://www.policyuncertainty.com/media/BakerBloomDavis.pdf),
     [GPR](https://www.federalreserve.gov/econres/ifdp/measuring-geopolitical-risk.htm),
     [HealthMap](https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.0050151)
 
-[^ref-time]: Bergmeir & Benítez (2012), *On the use of cross-validation for time series
+**주 15.** Bergmeir & Benítez (2012), *On the use of cross-validation for time series
     predictor evaluation*. 시간순 검증설계의 근거다. 이 문헌이 2025년 하반기가 이미 관찰됐다는
     한계를 없애주지는 않는다. [DOI](https://doi.org/10.1016/j.ins.2011.12.028)

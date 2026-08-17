@@ -22,6 +22,9 @@ DEFAULT_DOCUMENTS = (
 
 FOOTNOTE_REFERENCE = re.compile(r"\[\^([^\]]+)\]")
 FOOTNOTE_DEFINITION = re.compile(r"^\[\^([^\]]+)\]:", re.MULTILINE)
+NUMBERED_NOTE_BLOCK = re.compile(r"\[([^\]]*주\s*\d+[^\]]*)\]")
+NUMBERED_NOTE_ID = re.compile(r"주\s*(\d+)")
+NUMBERED_NOTE_DEFINITION = re.compile(r"^\*\*주\s*(\d+)\.\*\*", re.MULTILINE)
 HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 SECRET_ASSIGNMENT = re.compile(
@@ -111,6 +114,29 @@ def check_document(path: Path) -> list[str]:
         errors.append(f"{relative}: 사용되지 않은 각주 {unused}")
     if duplicate_definitions:
         errors.append(f"{relative}: 중복 각주 정의 {duplicate_definitions}")
+
+    numbered_references = {
+        note_id
+        for block in NUMBERED_NOTE_BLOCK.findall(text)
+        for note_id in NUMBERED_NOTE_ID.findall(block)
+    }
+    numbered_definitions = NUMBERED_NOTE_DEFINITION.findall(text)
+    numbered_definition_set = set(numbered_definitions)
+    numbered_undefined = sorted(numbered_references - numbered_definition_set)
+    numbered_unused = sorted(numbered_definition_set - numbered_references)
+    numbered_duplicates = sorted(
+        note_id
+        for note_id, count in Counter(numbered_definitions).items()
+        if count > 1
+    )
+    if numbered_undefined:
+        errors.append(f"{relative}: 정의되지 않은 번호형 주석 {numbered_undefined}")
+    if numbered_unused:
+        errors.append(f"{relative}: 사용되지 않은 번호형 주석 {numbered_unused}")
+    if numbered_duplicates:
+        errors.append(f"{relative}: 중복 번호형 주석 {numbered_duplicates}")
+    if FOOTNOTE_REFERENCE.search(text) or FOOTNOTE_DEFINITION.search(text):
+        errors.append(f"{relative}: 뷰어 호환성이 낮은 [^id] 확장 각주 문법 잔류")
 
     for target in MARKDOWN_LINK.findall(text):
         clean = target.strip().split("#", 1)[0]
