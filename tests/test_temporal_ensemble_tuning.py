@@ -87,6 +87,30 @@ class TemporalEnsembleTuningTest(unittest.TestCase):
         )
         self.assertEqual(loaded["version"], "test")
 
+    def test_prediction_skips_policy_with_unavailable_model(self):
+        frame = pd.DataFrame({"model_a_pred": [10.0]})
+        policy = {
+            "version": "stale-test",
+            "apply_to_prediction": True,
+            "selected_weights": {
+                "model_a_pred": 0.5,
+                "skipped_model_pred": 0.5,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "policy.json"
+            path.write_text(json.dumps(policy), encoding="utf-8")
+            with patch(
+                "src.modeling.prediction."
+                "FORECAST_ENSEMBLE_POLICY_PATH",
+                path,
+            ):
+                result, loaded = _apply_temporal_ensemble(frame)
+
+        self.assertIsNone(loaded)
+        self.assertNotIn("temporal_ensemble_pred", result.columns)
+        self.assertEqual(result["model_a_pred"].tolist(), [10.0])
+
     def test_pattern_router_uses_segment_weights(self):
         frame = pd.DataFrame(
             {
