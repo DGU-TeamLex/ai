@@ -17,14 +17,14 @@ GKG 원본 파일은 `data.gdeltproject.org` 에 그냥 열려 있다. 인증이
 ## 표본 설계
 
 전량은 96파일/일 x 548일 = 약 52,600파일 = 263GB 다운로드다. 우리 뉴스 위험은
-**월 단위 집계**이므로 전수가 필요하지 않다. 매시 정각 슬라이스 하나씩
-(하루 24파일) 체계적 표본을 쓴다.
+**월 단위 집계**이므로 전수가 필요하지 않다. 매시간 quarter-hour 하나씩
+(하루 24파일) 날짜·시간에 따라 순환하는 체계적 표본을 쓴다.
 
     표본률 = 24/96 = 1/4,  다운로드 약 66GB,  예상 매칭 약 1.3만 건
 
-시각 고정 표본이라 요일·시간대 편향이 월 간 일정하게 유지된다. 월별 **상대**
-변화를 보는 우리 용도에는 이것으로 충분하다. 절대 건수를 쓰려면 표본률로
-보정해야 하며, 그 사실을 산출물에 `sample_rate` 로 남긴다.
+quarter-hour를 순환해 특정 발행주기가 계속 빠지는 편향을 줄인다. 월별 **상대**
+변화를 보는 용도이며, 절대 건수를 쓰려면 표본률로 보정해야 한다. 표본전략과
+표본률은 provenance 산출물에 남긴다.
 
 원본은 저장하지 않는다. 내려받아 걸러내고 버린다(디스크 263GB 를 쓰지 않는다).
 
@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -57,11 +58,16 @@ BASE_URL = "http://data.gdeltproject.org/gdeltv2"
 OUT_DIR = PROJECT_ROOT / "data" / "raw" / "news"
 OUT_PATH = OUT_DIR / "gdelt_supply_disruption_news.csv"
 PROGRESS_PATH = OUT_DIR / ".gdelt_supply_disruption_progress.json"
+REPORT_PATH = OUT_DIR / "gdelt_supply_disruption_collection_report.json"
 
-# 하루 96개 슬라이스 중 매시 정각만. 표본률 1/4.
-MINUTES_SAMPLED = ("0000",)
-SAMPLE_RATE = len(MINUTES_SAMPLED) * 24 / 96
+# 하루 96개 슬라이스 중 매시간 하나를 순환 선택한다. 표본률 1/4.
+MINUTES_AVAILABLE = ("0000", "1500", "3000", "4500")
+SAMPLE_RATE = 24 / 96
 DOWNLOAD_WORKERS = 8
+SLICE_SUCCESS = "success"
+SLICE_RETRYABLE_FAILURE = "retryable_failure"
+SLICE_PERMANENT_MISSING = "permanent_missing"
+COLLECTION_CONTRACT_VERSION = "gdelt-gkg-slice-state-v2"
 
 # 목표는 **공급 차질 사건 탐지** 다. 가격 등락이 아니다.
 #
@@ -206,9 +212,10 @@ def _slice_urls(start: date, end: date) -> list[tuple[str, str]]:
     cursor = start
     while cursor <= end:
         for hour in range(24):
-            for minute in MINUTES_SAMPLED:
-                stamp = f"{cursor:%Y%m%d}{hour:02d}{minute}"
-                urls.append((stamp, f"{BASE_URL}/{stamp}.gkg.csv.zip"))
+            # Rotate the sampled quarter-hour to avoid a fixed :00 cadence bias.
+            minute = MINUTES_AVAILABLE[(cursor.toordinal() + hour) % 4]
+            stamp = f"{cursor:%Y%m%d}{hour:02d}{minute}"
+            urls.append((stamp, f"{BASE_URL}/{stamp}.gkg.csv.zip"))
         cursor += timedelta(days=1)
     return urls
 
@@ -236,25 +243,25 @@ def _classify(title: str) -> tuple[str, str] | None:
     return None
 
 
-def _fetch_slice(stamp: str, url: str) -> list[dict]:
-    """한 슬라이스를 내려받아 걸러진 행만 돌려준다. 원본은 버린다."""
+def _fetch_slice(stamp: str, url: str) -> tuple[str, list[dict]]:
+    """한 슬라이스의 상태와 필터링된 행을 돌려준다."""
     try:
         with urllib.request.urlopen(url, timeout=120) as response:
             payload = response.read()
     except urllib.error.HTTPError as error:
         # 일부 슬라이스는 실제로 존재하지 않는다(수집 중단 구간).
         if error.code == 404:
-            return []
+            return SLICE_PERMANENT_MISSING, []
         raise
     except urllib.error.URLError:
-        return []
+        return SLICE_RETRYABLE_FAILURE, []
 
     try:
         archive = zipfile.ZipFile(io.BytesIO(payload))
         text = archive.read(archive.namelist()[0]).decode("utf-8", "replace")
     except (zipfile.BadZipFile, IndexError):
         LOGGER.warning("깨진 zip: %s", stamp)
-        return []
+        return SLICE_RETRYABLE_FAILURE, []
 
     rows = []
     for record in csv.reader(io.StringIO(text), delimiter="\t"):
@@ -288,36 +295,105 @@ def _fetch_slice(stamp: str, url: str) -> list[dict]:
                 "title_source": title_source,
             }
         )
-    return rows
+    return SLICE_SUCCESS, rows
 
 
-def _load_progress() -> set[str]:
+def _collection_contract_hash(start: str, end: str) -> str:
+    payload = {
+        "version": COLLECTION_CONTRACT_VERSION,
+        "start": start,
+        "end": end,
+        "sample_rate": SAMPLE_RATE,
+        "minutes_available": list(MINUTES_AVAILABLE),
+        "subject_patterns": {
+            key: value.pattern for key, value in sorted(SUBJECT_PATTERNS.items())
+        },
+        "unambiguous_pattern": UNAMBIGUOUS_PATTERN.pattern,
+        "ambiguous_pattern": AMBIGUOUS_PATTERN.pattern,
+        "industrial_pattern": INDUSTRIAL_PATTERN.pattern,
+        "negative_pattern": NEGATIVE_PATTERN.pattern,
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _load_progress(contract_hash: str) -> dict[str, str]:
     if not PROGRESS_PATH.exists():
-        return set()
+        return {}
     try:
-        return set(json.loads(PROGRESS_PATH.read_text(encoding="utf-8"))["done"])
-    except (json.JSONDecodeError, KeyError):
-        return set()
+        payload = json.loads(PROGRESS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    stored_hash = str(payload.get("collection_contract_hash", ""))
+    if stored_hash and stored_hash != contract_hash:
+        raise ValueError(
+            "GDELT checkpoint contract changed. Move the existing output and "
+            "progress files before starting a different filter, sample, or period."
+        )
+    if "slice_status" in payload:
+        return {
+            str(stamp): str(status)
+            for stamp, status in payload["slice_status"].items()
+        }
+    # Legacy checkpoints only recorded completed slices. Treat them as
+    # successful but rewrite them with explicit state on the next save.
+    return {
+        str(stamp): SLICE_SUCCESS
+        for stamp in payload.get("done", [])
+    }
 
 
-def _save_progress(done: set[str]) -> None:
+def _save_progress(
+    slice_status: dict[str, str],
+    contract_hash: str,
+    start: str,
+    end: str,
+) -> None:
     PROGRESS_PATH.write_text(
-        json.dumps({"done": sorted(done), "sample_rate": SAMPLE_RATE}),
+        json.dumps(
+            {
+                "version": COLLECTION_CONTRACT_VERSION,
+                "collection_contract_hash": contract_hash,
+                "requested_start": start,
+                "requested_end": end,
+                "slice_status": dict(sorted(slice_status.items())),
+                "status_counts": {
+                    status: sum(
+                        value == status for value in slice_status.values()
+                    )
+                    for status in [
+                        SLICE_SUCCESS,
+                        SLICE_RETRYABLE_FAILURE,
+                        SLICE_PERMANENT_MISSING,
+                    ]
+                },
+                "sample_rate": SAMPLE_RATE,
+                "sampling_strategy": "rotating_quarter_hour_one_slice_per_hour",
+                "available_quarter_hours": list(MINUTES_AVAILABLE),
+            }
+        ),
         encoding="utf-8",
     )
 
 
 def collect(start: str, end: str) -> None:
     ensure_dirs(OUT_DIR)
-    done = _load_progress()
+    contract_hash = _collection_contract_hash(start, end)
+    slice_status = _load_progress(contract_hash)
+    terminal = {SLICE_SUCCESS, SLICE_PERMANENT_MISSING}
     targets = [
         (stamp, url)
         for stamp, url in _slice_urls(date.fromisoformat(start), date.fromisoformat(end))
-        if stamp not in done
+        if slice_status.get(stamp) not in terminal
     ]
+    completed = sum(status in terminal for status in slice_status.values())
     LOGGER.info(
         "대상 슬라이스 %s개 (완료 %s개 건너뜀), 표본률 %.2f",
-        f"{len(targets):,}", f"{len(done):,}", SAMPLE_RATE,
+        f"{len(targets):,}", f"{completed:,}", SAMPLE_RATE,
     )
 
     write_header = not OUT_PATH.exists()
@@ -338,23 +414,30 @@ def collect(start: str, end: str) -> None:
             for index, future in enumerate(as_completed(futures), start=1):
                 stamp = futures[future]
                 try:
-                    rows = future.result()
+                    status, rows = future.result()
                 except Exception as error:  # noqa: BLE001 - 한 슬라이스 실패로 전체를 멈추지 않는다
                     LOGGER.warning("슬라이스 실패 %s: %s", stamp, error)
+                    slice_status[stamp] = SLICE_RETRYABLE_FAILURE
                     continue
-                writer.writerows(rows)
-                kept += len(rows)
-                done.add(stamp)
+                slice_status[stamp] = status
+                if status == SLICE_SUCCESS:
+                    writer.writerows(rows)
+                    kept += len(rows)
                 if index % 200 == 0:
                     sink.flush()
-                    _save_progress(done)
+                    _save_progress(
+                        slice_status,
+                        contract_hash,
+                        start,
+                        end,
+                    )
                     elapsed = (datetime.now() - started).total_seconds() / 60
                     remaining = (len(targets) - index) * elapsed / index
                     LOGGER.info(
                         "%s/%s 슬라이스 | 누적 %s건 | %.0f분 경과 | 남은 %.0f분",
                         f"{index:,}", f"{len(targets):,}", f"{kept:,}", elapsed, remaining,
                     )
-    _save_progress(done)
+    _save_progress(slice_status, contract_hash, start, end)
     LOGGER.info("수집 완료: %s건 → %s", f"{kept:,}", OUT_PATH)
 
 
@@ -368,6 +451,33 @@ def finalize() -> None:
     monthly = frame.groupby(pd.to_datetime(frame["date"]).dt.to_period("M")).size()
     LOGGER.info("월별 기사 수:\n%s", monthly.to_string())
     LOGGER.info("카테고리:\n%s", frame["category"].value_counts().to_string())
+    REPORT_PATH.write_text(
+        json.dumps(
+            {
+                "version": "gdelt-gkg-archive-provenance-v1",
+                "output_path": str(OUT_PATH),
+                "output_sha256": hashlib.sha256(OUT_PATH.read_bytes()).hexdigest(),
+                "rows_before_deduplication": int(before),
+                "rows_after_deduplication": int(len(frame)),
+                "date_min": str(frame["date"].min()) if not frame.empty else "",
+                "date_max": str(frame["date"].max()) if not frame.empty else "",
+                "sample_rate": SAMPLE_RATE,
+                "sampling_strategy": "rotating_quarter_hour_one_slice_per_hour",
+                "monthly_rows": {str(key): int(value) for key, value in monthly.items()},
+                "category_rows": {
+                    str(key): int(value)
+                    for key, value in frame["category"].value_counts().items()
+                },
+                "title_source_rows": {
+                    str(key): int(value)
+                    for key, value in frame["title_source"].value_counts().items()
+                },
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 def main() -> None:

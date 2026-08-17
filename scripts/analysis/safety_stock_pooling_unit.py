@@ -55,28 +55,49 @@ def _coefficient_of_variation(block: pd.Series) -> float:
     return float(block.std() / mean) if mean and np.isfinite(mean) and mean > 0 else np.nan
 
 
-def main() -> None:
-    import json
-
-    columns = ["stock_item_key", "year_month", "consumption_qty", "item_code",
-               "standard_item_family_id", "standard_item_subtype_id",
-               "standard_item_group_id", "data_period"]
-    panel = pd.read_parquet(FEATURE_PATH, columns=columns)
-    panel = panel[panel["data_period"].astype(str).eq("current")]
+def analyze_pooling_candidates(panel: pd.DataFrame) -> dict:
+    panel = panel.copy()
     panel["institution"] = panel["stock_item_key"].astype(str).str.split("::").str[0]
+    representative = panel["representative_item_id"].astype("string").fillna("").str.strip()
+    panel["representative_item_id"] = representative.where(
+        representative.ne(""),
+        "UNRESOLVED::" + panel["stock_item_key"].astype(str),
+    )
     # 표준품목 3계층: subtype(잘다) < family < group(크다). #45 의 3계층 폴백과 같은 취지다.
     for column, label in (("standard_item_subtype_id", "subtype"),
                           ("standard_item_family_id", "family"),
                           ("standard_item_group_id", "group")):
         panel[label] = panel[column].astype(str).replace({"": "UNKNOWN", "None": "UNKNOWN"}).fillna("UNKNOWN")
-    print(f"패널 {len(panel):,}행  기관 {panel['institution'].nunique():,}  "
-          f"물품 {panel['item_code'].nunique():,}")
-    print(f"  subtype {panel['subtype'].nunique():,}  family {panel['family'].nunique():,}  "
-          f"group {panel['group'].nunique():,}")
+
+    series_month = (
+        panel.groupby(
+            [
+                "institution",
+                "representative_item_id",
+                "subtype",
+                "family",
+                "group",
+                "year_month",
+            ],
+            as_index=False,
+            observed=True,
+        )["consumption_qty"]
+        .sum()
+    )
+    series_keys = ["institution", "representative_item_id"]
+    series_stats = (
+        series_month.groupby(series_keys, as_index=False, observed=True)
+        .agg(
+            series_cv=("consumption_qty", _coefficient_of_variation),
+            subtype=("subtype", "first"),
+            family=("family", "first"),
+            group=("group", "first"),
+        )
+    )
 
     candidates = {
-        "기관x품목 (현행)": ["institution", "item_code"],
-        "품목": ["item_code"],
+        "기관x대표품목 (현행)": ["institution", "representative_item_id"],
+        "대표품목": ["representative_item_id"],
         "기관x subtype": ["institution", "subtype"],
         "subtype": ["subtype"],
         "기관x family": ["institution", "family"],
@@ -84,39 +105,72 @@ def main() -> None:
         "group": ["group"],
     }
 
-    print(f"\n{'단위':<18}{'조합수':>10}{'월수 중앙':>10}{'12개월+':>9}{'CV 중앙':>9}{'CV 산포':>9}")
     report = {}
     for label, keys in candidates.items():
-        grouped = panel.groupby(keys, observed=True)["consumption_qty"]
-        months = grouped.size()
-        # 동질성: 그룹 안에서 월별 수요의 변동계수
-        cv = grouped.apply(_coefficient_of_variation)
+        months = series_month.groupby(keys, observed=True)[
+            "year_month"
+        ].nunique()
+        group_cv_iqr = series_stats.groupby(keys, observed=True)[
+            "series_cv"
+        ].apply(
+            lambda values: (
+                values.dropna().quantile(0.75)
+                - values.dropna().quantile(0.25)
+                if len(values.dropna())
+                else np.nan
+            )
+        )
         enough = float(months.ge(MIN_MONTHS).mean())
-        # CV 의 산포(IQR)가 크면 그룹 안이 이질적이라는 뜻이다.
-        cv_valid = cv.dropna()
-        spread = float(cv_valid.quantile(0.75) - cv_valid.quantile(0.25)) if len(cv_valid) else np.nan
+        valid_iqr = group_cv_iqr.dropna()
         report[label] = {
             "groups": int(len(months)),
             "median_months": float(months.median()),
             "share_ge_12_months": enough,
-            "median_cv": float(cv_valid.median()) if len(cv_valid) else None,
-            "cv_iqr": spread,
+            "median_within_group_series_cv_iqr": (
+                float(valid_iqr.median()) if len(valid_iqr) else None
+            ),
+            "p90_within_group_series_cv_iqr": (
+                float(valid_iqr.quantile(0.90)) if len(valid_iqr) else None
+            ),
         }
-        print(f"  {label:<16}{len(months):>10,}{months.median():>10.0f}"
-              f"{enough:>9.1%}{report[label]['median_cv'] or np.nan:>9.2f}{spread:>9.2f}")
+    return report
+
+
+def main() -> None:
+    import json
+
+    columns = ["stock_item_key", "year_month", "consumption_qty",
+               "representative_item_id", "standard_item_family_id",
+               "standard_item_subtype_id", "standard_item_group_id",
+               "data_period"]
+    panel = pd.read_parquet(FEATURE_PATH, columns=columns)
+    panel = panel[panel["data_period"].astype(str).eq("current")]
+    report = analyze_pooling_candidates(panel)
+    print(f"패널 {len(panel):,}행")
+    print(f"\n{'단위':<22}{'조합수':>10}{'월수 중앙':>10}{'12개월+':>9}{'CV IQR':>10}")
+    for label, values in report.items():
+        spread = values["median_within_group_series_cv_iqr"]
+        print(
+            f"  {label:<20}{values['groups']:>10,}"
+            f"{values['median_months']:>10.0f}"
+            f"{values['share_ge_12_months']:>9.1%}"
+            f"{spread if spread is not None else np.nan:>10.2f}"
+        )
 
     print(f"\n해석")
-    현행 = report["기관x품목 (현행)"]
+    현행 = report["기관x대표품목 (현행)"]
     print(f"  현행은 조합당 중앙 {현행['median_months']:.0f}개월, "
           f"{현행['share_ge_12_months']:.1%} 만 12개월 이상이다.")
     best = max(
-        (k for k in report if k != "기관x품목 (현행)"),
+        (k for k in report if k != "기관x대표품목 (현행)"),
         key=lambda k: report[k]["share_ge_12_months"],
     )
     print(f"  표본이 가장 넉넉한 것은 '{best}' "
           f"({report[best]['share_ge_12_months']:.1%} 가 12개월 이상)")
-    print(f"  다만 CV 산포가 {현행['cv_iqr']:.2f} → {report[best]['cv_iqr']:.2f} 로 "
-          f"{'커진다' if report[best]['cv_iqr'] > 현행['cv_iqr'] else '작아진다'}")
+    print(
+        "  동질성은 그룹 안 개별 기관×대표품목 CV의 IQR로 비교한다. "
+        "최종 단위 선택은 별도 holdout의 서비스수준·품절월·평균재고가 필요하다."
+    )
 
     OUT_PATH.write_text(
         json.dumps({"min_months": MIN_MONTHS, "candidates": report},

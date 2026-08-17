@@ -7,11 +7,11 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pandas as pd
 
-from src.news.news_risk_scorer import build_news_risk_outputs
+from src.news.news_risk_scorer import _combine_weights, build_news_risk_outputs
 from src.news.news_collector import (
     _find_recent_gdelt_ngram_batches,
     _news_from_gdelt_ngram_batch,
@@ -21,6 +21,13 @@ from src.news.news_collector import (
     load_news_csv,
 )
 from src.news.news_llm_analyzer import analyze_news_row
+from src.news.gdelt_archive_collector import (
+    SLICE_PERMANENT_MISSING,
+    SLICE_RETRYABLE_FAILURE,
+    _collection_contract_hash,
+    _fetch_slice,
+    _slice_urls,
+)
 
 
 MAPPING = pd.DataFrame(
@@ -67,6 +74,18 @@ def infectious_news(date: str, article_id: str, cluster_id: str | None = None) -
 
 
 class NewsRiskScorerTest(unittest.TestCase):
+    def test_weighted_geometric_mean_respects_dimension_exponents(self):
+        weights = {"event_type": 0.25, "source": 1.0}
+
+        equal = _combine_weights(weights)
+        event_heavy = _combine_weights(
+            weights,
+            {"event_type": 0.9, "source": 0.1},
+        )
+
+        self.assertAlmostEqual(equal, 0.5)
+        self.assertLess(event_heavy, equal)
+
     def test_unique_article_has_full_novelty_and_only_matches_related_items(self):
         scores, audit = build_news_risk_outputs(
             news=pd.DataFrame([infectious_news("2024-01-10", "a1")]),
@@ -144,8 +163,138 @@ class NewsRiskScorerTest(unittest.TestCase):
         self.assertTrue(scores.empty)
         self.assertTrue(audit.empty)
 
+    def test_supply_wide_event_uses_explicit_stock_item_universe(self):
+        news = pd.DataFrame(
+            [
+                {
+                    "date": "2024-01-10",
+                    "title": "항만 파업으로 의료물품 운송 차질",
+                    "summary": "전반적인 수입 지연이 예상된다.",
+                    "source": "Reuters",
+                    "country": "Global",
+                    "url": "https://www.reuters.com/test-supply-wide",
+                }
+            ]
+        )
+        analysis = {
+            "event_type": "port_or_logistics_disruption",
+            "risk_direction": "supply_decrease",
+            "disease_or_material": "general_material",
+            "country": "Global",
+            "severity": "high",
+            "confidence": 0.9,
+            "source_type": "news_agency",
+            "external_event_codes": ["PORT_DISRUPTION"],
+            "material_meta_codes": [],
+            "demand_risk_meta_codes": [],
+            "related_medical_items": [],
+        }
+        universe = {"INST::DEPT::RESP1", "INST::DEPT::LATEX1"}
+
+        with patch(
+            "src.news.news_risk_scorer.analyze_news_row",
+            return_value=analysis,
+        ):
+            scores, audit = build_news_risk_outputs(
+                news=news,
+                mapping=MAPPING,
+                country_weights=COUNTRY_WEIGHTS,
+                stock_item_universe=universe,
+            )
+
+        self.assertEqual(set(scores["stock_item_key"]), universe)
+        self.assertTrue((scores["supply_news_risk"] > 0).all())
+        self.assertTrue(
+            scores["news_event_codes"].str.contains("PORT_DISRUPTION").all()
+        )
+        self.assertEqual(set(audit["stock_item_key"]), {"__ALL_ITEMS__"})
+
 
 class NewsCollectorTest(unittest.TestCase):
+    def test_archive_sampling_rotates_quarter_hour(self):
+        sample_date = pd.Timestamp("2025-01-01").date()
+        slices = _slice_urls(sample_date, sample_date)
+
+        self.assertEqual(len(slices), 24)
+        self.assertEqual(
+            {stamp[-4:] for stamp, _ in slices},
+            {"0000", "1500", "3000", "4500"},
+        )
+
+    def test_archive_network_failure_is_retryable_not_complete(self):
+        with patch(
+            "src.news.gdelt_archive_collector.urllib.request.urlopen",
+            side_effect=URLError("temporary"),
+        ):
+            status, rows = _fetch_slice(
+                "202501010000",
+                "https://example.invalid/archive.zip",
+            )
+
+        self.assertEqual(status, SLICE_RETRYABLE_FAILURE)
+        self.assertEqual(rows, [])
+
+    def test_archive_404_is_permanent_missing(self):
+        error = HTTPError(
+            "https://example.invalid/archive.zip",
+            404,
+            "not found",
+            {},
+            None,
+        )
+        with patch(
+            "src.news.gdelt_archive_collector.urllib.request.urlopen",
+            side_effect=error,
+        ):
+            status, rows = _fetch_slice(
+                "202501010000",
+                "https://example.invalid/archive.zip",
+            )
+
+        self.assertEqual(status, SLICE_PERMANENT_MISSING)
+        self.assertEqual(rows, [])
+
+    def test_archive_corrupt_zip_is_retryable(self):
+        with patch(
+            "src.news.gdelt_archive_collector.urllib.request.urlopen",
+            return_value=io.BytesIO(b"not-a-zip"),
+        ):
+            status, rows = _fetch_slice(
+                "202501010000",
+                "https://example.invalid/archive.zip",
+            )
+
+        self.assertEqual(status, SLICE_RETRYABLE_FAILURE)
+        self.assertEqual(rows, [])
+
+    def test_archive_contract_hash_changes_with_period(self):
+        first = _collection_contract_hash("2024-01-01", "2024-01-31")
+        second = _collection_contract_hash("2024-01-01", "2024-02-29")
+
+        self.assertNotEqual(first, second)
+
+    def test_news_normalization_deduplicates_tracking_urls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "news.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "date": "2025-01-01",
+                        "title": "Supply disruption",
+                        "url": "https://EXAMPLE.com/article/?utm_source=a",
+                    },
+                    {
+                        "date": "2025-01-01",
+                        "title": "Supply disruption",
+                        "url": "https://example.com/article?utm_source=b",
+                    },
+                ]
+            ).to_csv(path, index=False)
+
+            result = load_news_csv(path)
+
+        self.assertEqual(len(result), 1)
+
     def test_gdelt_ngram_parser_requires_topic_and_risk_context(self):
         with tempfile.TemporaryDirectory() as directory:
             ngram_path = Path(directory) / "batch.ngrams.txt.gz"
@@ -545,17 +694,15 @@ class SyntheticNewsGuardTest(unittest.TestCase):
 
         self.assertEqual(len(news), 10)
 
-    def test_minority_placeholder_urls_do_not_block(self):
-        """일부 기사에 URL 이 없거나 자리표시자여도 전체를 막지는 않는다."""
+    def test_minority_placeholder_urls_are_rejected_in_strict_mode(self):
         rows = [self._row(f"https://www.yna.co.kr/view/{index}") for index in range(9)]
         rows.append(self._row("https://example.test/1"))
         with tempfile.TemporaryDirectory() as directory:
             path = self._write(directory, rows)
             with patch.dict(os.environ, {}, clear=False):
                 os.environ.pop("NEWS_ALLOW_SYNTHETIC", None)
-                news = collect_news(provider="csv", data_path=path)
-
-        self.assertEqual(len(news), 10)
+                with self.assertRaises(ValueError):
+                    collect_news(provider="csv", data_path=path)
 
     def test_sample_provider_is_also_guarded(self):
         """sample provider 도 운영 산출물을 만든다. 같은 게이트를 통과해야 한다."""

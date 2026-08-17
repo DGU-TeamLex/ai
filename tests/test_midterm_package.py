@@ -129,8 +129,15 @@ class MidtermPackageTest(unittest.TestCase):
             (current["target_stock"] == current["simple_base_stock"]).all()
         )
         self.assertTrue(
-            (combined["target_stock"] > combined["simple_base_stock"]).all()
+            (combined["target_stock"] == combined["simple_base_stock"]).all()
         )
+        self.assertTrue(
+            (
+                combined["shadow_risk_target_stock"]
+                > combined["simple_base_stock"]
+            ).all()
+        )
+        self.assertFalse(result["module_c_operational_adjustment_enabled"].any())
         self.assertFalse(result["operational_use_allowed"].any())
 
     def test_decision_evidence_records_selected_model_and_missing_variant(self):

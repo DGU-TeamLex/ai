@@ -1,0 +1,31 @@
+{
+  "version": "inventory-newsvendor-experimental-v1.0",
+  "status": "experimental_relative_cost_policy",
+  "method": "periodic_review_newsvendor_with_forecast_uncertainty",
+  "costs": {
+    "overage_cost_per_excess_unit": 1.0,
+    "underage_cost_per_unfilled_unit": 9.0,
+    "supply_risk_underage_multiplier_max": 1.0
+  },
+  "uncertainty": {
+    "preferred_columns": [
+      "forecast_error_std",
+      "residual_std",
+      "rolling_std_6",
+      "rolling_std_3",
+      "rolling_std_12"
+    ],
+    "fallback_safety_stock_rate": 0.2,
+    "supply_uncertainty_multiplier_max": 0.5,
+    "minimum_critical_ratio": 0.5,
+    "maximum_critical_ratio": 0.995
+  },
+  "formula": {
+    "critical_ratio": "Cu / (Cu + Co)",
+    "service_z": "Phi^-1(critical_ratio)",
+    "protection_sigma": "monthly_error_std * sqrt(protection_days / 30)",
+    "safety_stock": "service_z * protection_sigma",
+    "target_stock": "forecast_protection_demand + safety_stock",
+    "recommended_order": "max(target_stock - inventory_position, 0)"
+  }
+}

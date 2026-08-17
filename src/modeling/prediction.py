@@ -142,6 +142,10 @@ def _load_feature_table(manifest: list[dict]) -> pd.DataFrame:
         "history_months",
         "demand_qty",
         TARGET_COLUMN,
+        "rolling_std_3",
+        "rolling_std_6",
+        "rolling_std_12",
+        "average_unit_price",
         "lag_1",
         "rolling_mean_3",
         "rolling_median_3",
@@ -354,6 +358,10 @@ def _build_prediction_frame(
         "month_end_stock",
         "history_months",
         TARGET_COLUMN,
+        "rolling_std_3",
+        "rolling_std_6",
+        "rolling_std_12",
+        "average_unit_price",
         *RISK_COLUMNS,
         *prediction_columns,
     ]
@@ -388,26 +396,34 @@ def _build_prediction_frame(
         manifest_by_prediction = {
             f"{row['model']}_pred": row for row in manifest
         }
-        output["external_demand_signal_in_forecast"] = any(
-            float(weight) > 0
-            and (
-                manifest_by_prediction.get(column, {}).get(
-                    "uses_news",
-                    False,
-                )
-                or manifest_by_prediction.get(column, {}).get(
-                    "uses_commodity",
-                    False,
-                )
-                or manifest_by_prediction.get(column, {}).get(
-                    "uses_module_c",
-                    False,
+        fallback_weights = ensemble_policy["selected_weights"]
+        pattern_weights = ensemble_policy.get("pattern_weights", {})
+        effective_external_weight = pd.Series(0.0, index=output.index)
+        effective_module_c_weight = pd.Series(0.0, index=output.index)
+        patterns = output["demand_pattern"].fillna("new_series").astype(str)
+        for pattern_name in patterns.unique():
+            weights = (
+                pattern_weights.get(pattern_name, fallback_weights)
+                if ensemble_policy.get("selected_strategy") == "pattern_weight_router"
+                else fallback_weights
+            )
+            mask = patterns.eq(pattern_name)
+            effective_external_weight.loc[mask] = sum(
+                float(weight)
+                for column, weight in weights.items()
+                if any(
+                    manifest_by_prediction.get(column, {}).get(flag, False)
+                    for flag in ["uses_news", "uses_commodity", "uses_module_c"]
                 )
             )
-            for column, weight in ensemble_policy[
-                "selected_weights"
-            ].items()
-        )
+            effective_module_c_weight.loc[mask] = sum(
+                float(weight)
+                for column, weight in weights.items()
+                if manifest_by_prediction.get(column, {}).get("uses_module_c", False)
+            )
+        output["external_signal_effective_weight"] = effective_external_weight
+        output["module_c_effective_weight"] = effective_module_c_weight
+        output["external_demand_signal_in_forecast"] = effective_external_weight.gt(0)
         output["forecast_ensemble_policy_version"] = (
             ensemble_policy["version"]
         )

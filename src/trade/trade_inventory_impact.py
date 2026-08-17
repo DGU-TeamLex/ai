@@ -82,6 +82,12 @@ def build_trade_inventory_impact(
         current_stock_col="current_stock",
         module_c_config=config,
     )
+    operational_adjustment_enabled = bool(
+        config["inventory_adjustment"].get(
+            "operational_adjustment_enabled",
+            False,
+        )
+    )
 
     impact = current.copy()
     impact["counterfactual_supply_risk_without_trade"] = base_supply_risk
@@ -119,6 +125,37 @@ def build_trade_inventory_impact(
             - impact[counterfactual_column]
         ).clip(lower=0.0)
 
+    for actual_column, counterfactual_column, impact_column in [
+        (
+            "shadow_risk_target_stock",
+            "counterfactual_shadow_target_stock",
+            "trade_attributable_shadow_target_stock",
+        ),
+        (
+            "shadow_risk_adjusted_safety_stock",
+            "counterfactual_shadow_safety_stock",
+            "trade_attributable_shadow_safety_stock",
+        ),
+        (
+            "shadow_risk_buffer",
+            "counterfactual_shadow_risk_buffer",
+            "trade_attributable_shadow_risk_buffer",
+        ),
+    ]:
+        if actual_column not in impact.columns or actual_column not in no_trade.columns:
+            continue
+        impact[counterfactual_column] = pd.to_numeric(
+            no_trade[actual_column],
+            errors="coerce",
+        ).fillna(0.0)
+        impact[impact_column] = (
+            pd.to_numeric(
+                impact[actual_column],
+                errors="coerce",
+            ).fillna(0.0)
+            - impact[counterfactual_column]
+        ).clip(lower=0.0)
+
     trade_risk = pd.to_numeric(
         impact["module_c_trade_risk"],
         errors="coerce",
@@ -126,6 +163,13 @@ def build_trade_inventory_impact(
     affected = impact[trade_risk.gt(0)].copy()
     target_delta = affected["trade_attributable_target_stock"]
     order_delta = affected["trade_attributable_recommended_order"]
+    shadow_target_delta = pd.to_numeric(
+        affected.get(
+            "trade_attributable_shadow_target_stock",
+            pd.Series(0.0, index=affected.index),
+        ),
+        errors="coerce",
+    ).fillna(0.0)
     sample_columns = [
         column
         for column in [
@@ -145,6 +189,9 @@ def build_trade_inventory_impact(
             "target_stock",
             "counterfactual_target_stock",
             "trade_attributable_target_stock",
+            "shadow_risk_target_stock",
+            "counterfactual_shadow_target_stock",
+            "trade_attributable_shadow_target_stock",
             "risk_adjusted_safety_stock",
             "counterfactual_safety_stock",
             "trade_attributable_safety_stock",
@@ -170,6 +217,7 @@ def build_trade_inventory_impact(
         "report_version": REPORT_VERSION,
         "module_c_config_version": config["version"],
         "calibration_status": config["calibration_status"],
+        "operational_adjustment_enabled": operational_adjustment_enabled,
         "comparison": (
             f"current_{config['version']}_vs_same_policy_"
             "with_trade_signal_zero"
@@ -186,9 +234,15 @@ def build_trade_inventory_impact(
         ),
         "trade_risk_max": float(trade_risk.max()) if len(impact) else 0.0,
         "target_stock_increased_rows": int(target_delta.gt(1e-9).sum()),
+        "shadow_target_stock_increased_rows": int(
+            shadow_target_delta.gt(1e-9).sum()
+        ),
         "recommended_order_increased_rows": int(order_delta.gt(1e-9).sum()),
         "trade_attributable_target_stock_mixed_unit_sum": float(
             target_delta.sum()
+        ),
+        "trade_attributable_shadow_target_stock_mixed_unit_sum": float(
+            shadow_target_delta.sum()
         ),
         "trade_attributable_safety_stock_mixed_unit_sum": float(
             affected["trade_attributable_safety_stock"].sum()

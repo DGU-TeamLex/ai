@@ -126,6 +126,23 @@ class CombinationExperimentTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["UNIT_FILL_RATE"], 100 * 20 / 30)
         self.assertEqual(metrics["UNDERAGE_SUM"], 10.0)
 
+    def test_current_system_reference_uses_existing_target_stock(self):
+        frame = pd.DataFrame(
+            {
+                "actual_usage": [10.0, 20.0],
+                "target_stock": [12.0, 18.0],
+                "demand_pattern": ["smooth", "lumpy"],
+            }
+        )
+        buffer, target = apply_buffer(
+            frame,
+            "current_system_reference",
+            "existing_target_stock",
+            0.90,
+        )
+        np.testing.assert_allclose(buffer, [0.0, 0.0])
+        np.testing.assert_allclose(target, [12.0, 18.0])
+
 
 if __name__ == "__main__":
     unittest.main()
