@@ -9,8 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import time
-from urllib.parse import urlencode
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -190,33 +189,35 @@ GDELT_NGRAM_RISK_PATTERN = _keyword_pattern(GDELT_NGRAM_RISK_KEYWORDS)
 
 
 # 자리표시자 URL 스킴/도메인. 실제 기사라면 여기 걸릴 수 없다.
-SYNTHETIC_URL_MARKERS = (
-    "sample://",
-    "test://",
-    "example.test",
-    "example.com",
-    "example.org",
-    "localhost",
+SYNTHETIC_URL_SCHEMES = frozenset({"sample", "test"})
+SYNTHETIC_URL_HOSTS = frozenset(
+    {"example.test", "example.com", "example.org", "localhost"}
 )
 SYNTHETIC_SOURCE_MARKERS = ("sample", "synthetic", "dummy", "fixture")
-# 합성 판정 임계. 일부 기사에 URL 이 없어 Unknown 인 경우까지 막지 않도록
-# "대다수가 자리표시자" 일 때만 차단한다.
-SYNTHETIC_RATIO_THRESHOLD = 0.8
+
+
+def _synthetic_mask(news: pd.DataFrame) -> pd.Series:
+    """자리표시자 URL/출처 행을 scheme과 hostname으로 판정한다."""
+    if news.empty:
+        return pd.Series(False, index=news.index, dtype=bool)
+    flagged = pd.Series(False, index=news.index)
+    if "url" in news.columns:
+        parsed = news["url"].astype("string").fillna("").map(urlparse)
+        flagged |= parsed.map(
+            lambda value: value.scheme.lower() in SYNTHETIC_URL_SCHEMES
+            or (value.hostname or "").lower() in SYNTHETIC_URL_HOSTS
+        )
+    if "source" in news.columns:
+        source = news["source"].astype("string").fillna("").str.lower().str.strip()
+        flagged |= source.isin(SYNTHETIC_SOURCE_MARKERS)
+    return flagged
 
 
 def _synthetic_share(news: pd.DataFrame) -> float:
     """자리표시자 URL/출처 비율. 0.0~1.0."""
     if news.empty:
         return 0.0
-    flagged = pd.Series(False, index=news.index)
-    if "url" in news.columns:
-        url = news["url"].astype("string").fillna("").str.lower()
-        for marker in SYNTHETIC_URL_MARKERS:
-            flagged |= url.str.contains(marker, regex=False)
-    if "source" in news.columns:
-        source = news["source"].astype("string").fillna("").str.lower().str.strip()
-        flagged |= source.isin(SYNTHETIC_SOURCE_MARKERS)
-    return float(flagged.mean())
+    return float(_synthetic_mask(news).mean())
 
 
 def _guard_synthetic_news(news: pd.DataFrame, origin: str) -> pd.DataFrame:
@@ -231,9 +232,11 @@ def _guard_synthetic_news(news: pd.DataFrame, origin: str) -> pd.DataFrame:
     파이프라인 동작 확인 목적이면 NEWS_ALLOW_SYNTHETIC=true 로 명시적으로 켠다.
     켜면 경고를 남기므로 산출물의 출처가 로그에 드러난다.
     """
-    share = _synthetic_share(news)
-    if share < SYNTHETIC_RATIO_THRESHOLD:
+    flagged = _synthetic_mask(news)
+    count = int(flagged.sum())
+    if count == 0:
         return news
+    share = count / len(news)
 
     allowed = os.getenv("NEWS_ALLOW_SYNTHETIC", "false").strip().lower() == "true"
     if allowed:
@@ -250,7 +253,8 @@ def _guard_synthetic_news(news: pd.DataFrame, origin: str) -> pd.DataFrame:
     raise ValueError(
         f"합성/샘플 뉴스가 운영 점수 경로로 들어오려 한다 ({origin}). "
         f"{len(news):,}행 중 {share:.0%} 가 자리표시자 URL/출처다"
-        f"(예: {SYNTHETIC_URL_MARKERS[:3]}). "
+        f"(scheme={sorted(SYNTHETIC_URL_SCHEMES)}, "
+        f"host={sorted(SYNTHETIC_URL_HOSTS)[:3]}). "
         "실제 뉴스를 넣거나, 파이프라인 동작 확인이 목적이면 "
         "NEWS_ALLOW_SYNTHETIC=true 를 명시할 것."
     )
@@ -308,9 +312,42 @@ def _normalize_news(news: pd.DataFrame) -> pd.DataFrame:
     result = result[result["date"].notna() & result["title"].ne("")].copy()
     result["date"] = result["date"].dt.strftime("%Y-%m-%d")
 
-    identity = result["url"].where(
-        result["url"].ne(""),
-        result["date"] + "|" + result["source"] + "|" + result["title"],
+    def canonical_url(value: str) -> str:
+        if not value:
+            return ""
+        parts = urlsplit(value.strip())
+        query = urlencode(
+            [
+                (key, item)
+                for key, item in parse_qsl(parts.query, keep_blank_values=True)
+                if not key.lower().startswith("utm_")
+                and key.lower() not in {"fbclid", "gclid", "ref", "source"}
+            ]
+        )
+        return urlunsplit(
+            (
+                parts.scheme.lower(),
+                parts.netloc.lower(),
+                parts.path.rstrip("/"),
+                query,
+                "",
+            )
+        )
+
+    canonical = result["url"].map(canonical_url)
+    normalized_title = (
+        result["title"]
+        .str.lower()
+        .str.replace(r"[^0-9a-z가-힣]+", " ", regex=True)
+        .str.strip()
+    )
+    identity = canonical.where(
+        canonical.ne(""),
+        result["date"]
+        + "|"
+        + result["source"].str.lower()
+        + "|"
+        + normalized_title,
     )
     result = result.loc[~identity.duplicated()].sort_values(["date", "source", "title"])
     return result[NEWS_COLUMNS].reset_index(drop=True)

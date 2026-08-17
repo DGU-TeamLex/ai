@@ -454,12 +454,19 @@ def build_final_inventory_output(
     adjusted["target_stock_delta"] = (
         adjusted["target_stock"] - adjusted["simple_base_stock"]
     )
+    adjusted["shadow_target_stock_delta"] = (
+        adjusted["shadow_risk_target_stock"] - adjusted["simple_base_stock"]
+    )
     adjusted["recommended_order_delta"] = (
         adjusted["recommended_order"] - adjusted["simple_recommended_order"]
     )
     adjusted.loc[
         adjusted["target_stock_delta"].abs().le(0.005),
         "target_stock_delta",
+    ] = 0.0
+    adjusted.loc[
+        adjusted["shadow_target_stock_delta"].abs().le(0.005),
+        "shadow_target_stock_delta",
     ] = 0.0
     adjusted.loc[
         adjusted["recommended_order_delta"].abs().le(0.005),
@@ -500,10 +507,18 @@ def build_final_inventory_output(
         "target_stock",
         "target_stock_delta",
         "target_stock_increase_pct",
+        "shadow_risk_adjusted_predicted_usage",
+        "shadow_effective_lead_time_days",
+        "shadow_risk_adjusted_safety_stock",
+        "shadow_risk_buffer",
+        "shadow_risk_target_stock",
+        "shadow_target_stock_delta",
         "inventory_position",
         "recommended_order",
         "recommended_order_delta",
         "module_c_policy_applied",
+        "module_c_operational_adjustment_enabled",
+        "module_c_policy_block_reason",
         "module_c_config_version",
         "module_c_calibration_status",
         "quantity_unit_status",

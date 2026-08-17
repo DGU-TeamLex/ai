@@ -1,38 +1,11 @@
-"""원자재 매핑을 표준품목 축으로 접는다 — 접을 수 있는 코드군만 (ai#62).
+"""원자재 매핑을 승인 대표품목 축으로 접고 재고키로 fanout한다 (ai#62).
 
-## 왜
+원자재는 물품의 속성이지만 기존 매핑은 기관·부서·물품별로 중복되어 있다.
+`USE`는 기관이 자체 부여한 로컬 코드이므로 코드 문자열만으로 전역 통합하지 않는다.
 
-원자재는 물품의 속성인데 매핑을 `기관::부서::물품` 축에 걸고 있다.
-
-    승인 매핑 634,806행  /  고유 stock_item_key 416,128  /  고유 물품코드 17,155
-    → 같은 물품을 24.3배 중복 매핑
-
-주사기가 무엇으로 만들어졌는지는 어느 보건소에 있든 같다.
-
-## 그런데 전부 접을 수는 없다
-
-접두사별로 재면 코드군마다 성질이 다르다.
-
-    접두사   물품수    행수     원자재 충돌   품명 충돌   표준키 충돌
-    USE     6,728  360,728     90.2%      87.4%      87.4%
-    W       5,653  127,710     31.9%      18.5%      16.7%
-    WMD     1,529   23,072     39.0%      22.5%      22.0%
-    WA      2,130  103,437     59.2%      29.2%      23.2%
-
-`USE` 는 기관이 자체 부여한 지역코드다. 코드값 자체에 전역적 의미가 없다.
-
-    USE0000037  "삼남로페라마이드"  →  ACETAMINOPHEN, ALUMINUM, AMLODIPINE ...
-
-로페라마이드에 암로디핀이 붙을 리 없다. 표준품목 축으로 바꿔도 87.4% 가 여러
-표준키로 갈리므로 **어떤 축으로도 접을 수 없다.**
-
-## 그래서 부분 적용한다
-
-충돌률이 낮은 `W`·`WMD` 만 표준품목 축으로 접고 나머지는 현행을 유지한다.
-표준품목 축을 쓰는 이유는 물품 축보다 충돌이 더 낮기 때문이다(W 16.7% vs 18.5%).
-
-접을 때 충돌이 남는 물품은 **접지 않고 남긴다.** 임의로 하나를 고르면 조용히
-틀린 매핑이 된다. 남은 것은 사람이 봐야 한다.
+현재기간의 승인된 `representative_item_id → institution::item → stock_item_key` 연결을
+사용한다. 대표품목에서 원자재가 하나로 합의된 경우만 fanout하고 충돌·미매핑은 별도
+파일로 격리한다. 이 연결은 exact 제품 BOM이 아니라 대표품목 수준 원자재 proxy다.
 
 실행:
     python scripts/analysis/material_mapping_standard_axis.py
@@ -50,8 +23,6 @@ from src.config import STOCK_MATERIAL_MAPPING_PATH  # noqa: E402
 STANDARD_MAP_PATH = ROOT / "data" / "processed" / "stock_standard_item_mapping.parquet"
 OUT_PATH = ROOT / "outputs" / "material_mapping_standard_axis.csv"
 CONFLICT_PATH = ROOT / "outputs" / "material_mapping_standard_axis_conflicts.csv"
-# 접을 코드군. 충돌률이 낮아 표준품목 축이 성립하는 것만.
-FOLDABLE_PREFIXES = ("W", "WMD")
 MATERIAL_COLUMNS = [
     "raw_material_meta_code",
     "raw_material_risk_meta_code",
@@ -66,47 +37,44 @@ def main() -> None:
                  "exposure_score", "mapping_confidence", *MATERIAL_COLUMNS],
     )
     standard = pd.read_parquet(
-        STANDARD_MAP_PATH, columns=["local_item_key", "standard_item_key"]
+        STANDARD_MAP_PATH,
+        columns=["data_period", "local_item_key", "representative_item_id"],
     )
+    standard = standard[
+        standard["data_period"].astype(str).eq("current")
+    ].drop(columns="data_period")
     print(f"원자재 매핑 {len(mapping):,}행  표준품목 매핑 {len(standard):,}행")
 
-    mapping["item_code"] = mapping["stock_item_key"].astype(str).str.split("::").str[-1]
-    # 접두사는 가장 긴 것부터 맞춘다. WMD 가 W 로 잡히면 안 된다.
-    mapping["prefix"] = ""
-    for prefix in sorted(FOLDABLE_PREFIXES, key=len, reverse=True):
-        unset = mapping["prefix"].eq("")
-        matches = mapping["item_code"].str.match(rf"^{prefix}\d")
-        mapping.loc[unset & matches, "prefix"] = prefix
-
-    foldable = mapping[mapping["prefix"].ne("")].copy()
-    kept = mapping[mapping["prefix"].eq("")]
-    print(f"\n접기 대상 {len(foldable):,}행 ({len(foldable)/len(mapping):.1%})"
-          f"  현행 유지 {len(kept):,}행")
-    for prefix in FOLDABLE_PREFIXES:
-        block = foldable[foldable["prefix"].eq(prefix)]
-        print(f"  {prefix:<5}{len(block):>9,}행  물품 {block['item_code'].nunique():,}종")
-
-    standard["item_code"] = standard["local_item_key"].astype(str).str.split("::").str[-1]
-    lookup = standard.drop_duplicates(["item_code", "standard_item_key"])
-    folded = foldable.merge(
-        lookup[["item_code", "standard_item_key"]], on="item_code", how="left"
+    key_parts = mapping["stock_item_key"].astype(str).str.split("::")
+    mapping["local_item_key"] = (
+        key_parts.str[0] + "::" + key_parts.str[-1]
     )
-    unmatched = folded["standard_item_key"].isna()
+    mapping["item_code"] = mapping["stock_item_key"].astype(str).str.split("::").str[-1]
+    if standard["local_item_key"].duplicated().any():
+        raise ValueError("Standard mapping is not unique by local_item_key")
+    folded = mapping.merge(
+        standard[["local_item_key", "representative_item_id"]],
+        on="local_item_key",
+        how="left",
+        validate="many_to_one",
+    )
+    unmatched = folded["representative_item_id"].isna()
     print(f"\n표준키 매칭 {(~unmatched).mean():.1%}  미매칭 {int(unmatched.sum()):,}행")
-    folded = folded[~unmatched]
+    unmatched_rows = folded[unmatched].copy()
+    folded = folded[~unmatched].copy()
 
-    # 표준키마다 원자재가 하나로 모이는지 확인한다. 갈리면 접지 않는다.
-    grouped = folded.groupby("standard_item_key")["raw_material_meta_code"]
+    # 대표품목마다 원자재가 하나로 모이는지 확인한다. 갈리면 접지 않는다.
+    grouped = folded.groupby("representative_item_id")["raw_material_meta_code"]
     unique_counts = grouped.nunique()
     clean_keys = unique_counts[unique_counts.eq(1)].index
     conflict_keys = unique_counts[unique_counts.gt(1)].index
-    print(f"\n표준키 {len(unique_counts):,}개")
+    print(f"\n대표품목 {len(unique_counts):,}개")
     print(f"  원자재가 하나로 모임  {len(clean_keys):,} ({len(clean_keys)/len(unique_counts):.1%})")
     print(f"  갈림(접지 않음)      {len(conflict_keys):,} ({len(conflict_keys)/len(unique_counts):.1%})")
 
-    clean = folded[folded["standard_item_key"].isin(clean_keys)]
+    clean = folded[folded["representative_item_id"].isin(clean_keys)]
     result = (
-        clean.groupby("standard_item_key", as_index=False)
+        clean.groupby("representative_item_id", as_index=False)
         .agg(
             item_name=("item_name", "first"),
             raw_material_meta_code=("raw_material_meta_code", "first"),
@@ -115,15 +83,23 @@ def main() -> None:
             mapping_weight=("mapping_weight", "median"),
             exposure_score=("exposure_score", "median"),
             source_rows=("stock_item_key", "size"),
+            source_stock_items=("stock_item_key", "nunique"),
+            source_local_items=("local_item_key", "nunique"),
         )
     )
+    result["relation_type"] = "representative_item_material_proxy"
+    result["evidence_scope"] = (
+        "inherited_stock_mapping_not_exact_product_bom"
+    )
     result["review_status"] = "pending"
-    result["mapping_version"] = "material-standard-axis-v1-pending-review"
+    result["mapping_version"] = (
+        "material-representative-axis-v2-pending-review"
+    )
     result.to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
 
     conflicts = (
-        folded[folded["standard_item_key"].isin(conflict_keys)]
-        .groupby("standard_item_key")
+        folded[folded["representative_item_id"].isin(conflict_keys)]
+        .groupby("representative_item_id")
         .agg(
             item_names=("item_name", lambda s: " | ".join(sorted(set(s.astype(str)))[:3])),
             materials=("raw_material_meta_code",
@@ -134,13 +110,40 @@ def main() -> None:
         .sort_values("rows", ascending=False)
         .reset_index()
     )
+    conflicts["conflict_reason"] = "multiple_materials_for_representative_item"
+    if not unmatched_rows.empty:
+        unmatched_output = (
+            unmatched_rows.groupby("local_item_key", as_index=False)
+            .agg(
+                item_names=(
+                    "item_name",
+                    lambda values: " | ".join(
+                        sorted(set(values.astype(str)))[:3]
+                    ),
+                ),
+                materials=(
+                    "raw_material_meta_code",
+                    lambda values: " | ".join(
+                        sorted(set(values.astype(str)))[:5]
+                    ),
+                ),
+                material_count=("raw_material_meta_code", "nunique"),
+                rows=("stock_item_key", "size"),
+            )
+            .rename(columns={"local_item_key": "representative_item_id"})
+        )
+        unmatched_output["conflict_reason"] = (
+            "missing_representative_item_mapping"
+        )
+        conflicts = pd.concat(
+            [conflicts, unmatched_output],
+            ignore_index=True,
+        )
     conflicts.to_csv(CONFLICT_PATH, index=False, encoding="utf-8-sig")
 
     print(f"\n축소 효과")
-    print(f"  접기 전 {len(foldable):,}행  →  접은 뒤 {len(result):,}종"
-          f"  ({len(foldable)/max(len(result),1):.1f}배)")
-    print(f"  전체 매핑 {len(mapping):,}행  →  {len(kept):,} + {len(result):,}"
-          f" = {len(kept)+len(result):,}행")
+    print(f"  접기 전 {len(mapping):,}행  →  접은 뒤 {len(result):,}종"
+          f"  ({len(mapping)/max(len(result),1):.1f}배)")
 
     print(f"\n갈리는 표준키 상위 5 (사람이 봐야 한다)")
     for row in conflicts.head(5).itertuples():

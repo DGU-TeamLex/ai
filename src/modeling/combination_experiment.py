@@ -563,8 +563,20 @@ def apply_buffer(
     service_level: float,
     fitted: dict[str, object] | None = None,
 ) -> tuple[pd.Series, pd.Series]:
-    prediction = pd.to_numeric(frame[prediction_col], errors="coerce").fillna(0.0)
-    if method == "none":
+    if (
+        prediction_col == "current_system_reference"
+        and method == "existing_target_stock"
+    ):
+        if "target_stock" not in frame.columns:
+            raise ValueError("Current system reference requires target_stock")
+        prediction = pd.to_numeric(
+            frame["target_stock"], errors="coerce"
+        ).fillna(0.0)
+    else:
+        prediction = pd.to_numeric(
+            frame[prediction_col], errors="coerce"
+        ).fillna(0.0)
+    if method in {"none", "existing_target_stock"}:
         buffer = pd.Series(0.0, index=frame.index)
     elif method == "fixed_20pct":
         buffer = prediction * 0.20
@@ -782,7 +794,7 @@ def _segment_evaluation(
     service_level: float,
     fitted_buffer: dict[str, object] | None,
 ) -> pd.DataFrame:
-    _, target = apply_buffer(
+    buffer, target = apply_buffer(
         evaluation,
         forecast_strategy,
         buffer_method,
@@ -790,6 +802,7 @@ def _segment_evaluation(
         fitted=fitted_buffer,
     )
     working = evaluation.copy()
+    working["_prediction"] = target - buffer
     working["_target"] = target
     rows = []
     for pattern, group in working.groupby(
@@ -804,7 +817,7 @@ def _segment_evaluation(
                 "buffer_method": buffer_method,
                 **regression_metrics(
                     group["actual_usage"],
-                    group[forecast_strategy],
+                    group["_prediction"],
                 ),
                 **{
                     f"INVENTORY_{key}": value
@@ -848,7 +861,7 @@ def _sample_output(
     ]
     sample = evaluation[[column for column in columns if column in evaluation.columns]].copy()
     sample["selected_forecast_strategy"] = forecast_strategy
-    sample["selected_point_forecast"] = evaluation[forecast_strategy]
+    sample["selected_point_forecast"] = target - buffer
     sample["selected_buffer_method"] = buffer_method
     sample["selected_safety_buffer"] = buffer
     sample["selected_target_stock_proxy"] = target
@@ -1031,7 +1044,7 @@ def run_combination_experiment(
     ]
     policy = {
         "version": EXPERIMENT_VERSION,
-        "status": "holdout_evaluated_not_operational",
+        "status": "reused_evaluation_slice_not_operational",
         "source": str(backtest_path),
         "calibration_months": calibration_months,
         "evaluation_months": evaluation_months,
@@ -1039,8 +1052,18 @@ def run_combination_experiment(
         "evaluated_service_levels": evaluated_service_levels,
         "selection_rule": (
             "minimum calibration PINBALL_LOSS at target service level; "
-            "evaluation months are untouched holdout"
+            "evaluation months are not used for selection, but were already "
+            "inspected by earlier experiments and are not a final untouched test"
         ),
+        "evaluation_contract": {
+            "role": "diagnostic_reused_evaluation",
+            "clean_final_test": False,
+            "next_clean_test_requirement": (
+                "2026 raw_stock or a future rolling holdout unused by model "
+                "selection, buffer calibration, and policy tuning"
+            ),
+            "policy_parameters_fit_before_evaluation": True,
+        },
         "point_forecast_selection": {
             "strategy": selected_point_strategy,
             "calibration_wape": _json_value(calibration_point["WAPE"]),
@@ -1120,6 +1143,7 @@ def run_combination_experiment(
             "The inventory evaluation is a one-month demand-coverage proxy, not a procurement lead-time simulation.",
             "Actual order-to-receipt lead times, backorders, and lost-sales labels are unavailable.",
             "The evaluation holdout contains only three months.",
+            "The same 2025 evaluation period has been inspected by prior work and cannot be called a clean final test.",
             "Bulk-approved taxonomy may include low-evidence classifications; TSB pooling falls back by demand pattern for small groups.",
         ],
     }

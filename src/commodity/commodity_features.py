@@ -25,18 +25,34 @@ def _asof_return(group: pd.DataFrame, days: int) -> pd.Series:
 
 def _add_group_features(group: pd.DataFrame) -> pd.DataFrame:
     result = group.sort_values("date").copy().reset_index(drop=True)
+    gaps = result["date"].diff().dt.total_seconds().div(86400).dropna()
+    median_gap_days = float(gaps.median()) if not gaps.empty else 30.0
+    if median_gap_days <= 7.0:
+        frequency = "daily"
+        volatility_scale = np.sqrt(30.0)
+        minimum_periods = 2
+    elif median_gap_days <= 15.0:
+        frequency = "weekly"
+        volatility_scale = np.sqrt(30.0 / 7.0)
+        minimum_periods = 2
+    else:
+        frequency = "monthly"
+        volatility_scale = 1.0
+        minimum_periods = 2
+    result["observation_frequency"] = frequency
+    result["median_observation_gap_days"] = median_gap_days
     result["return_7d"] = _asof_return(result, 7)
     result["return_30d"] = _asof_return(result, 30)
 
     observation_return = result["price"].pct_change()
     indexed_return = pd.Series(observation_return.to_numpy(), index=result["date"])
-    time_volatility = indexed_return.rolling("30D", min_periods=2).std().to_numpy()
+    time_volatility = indexed_return.rolling("30D", min_periods=minimum_periods).std().to_numpy()
     observation_volatility = observation_return.rolling(3, min_periods=2).std()
     result["volatility_30d"] = (
         pd.Series(time_volatility)
         .fillna(observation_volatility)
         .fillna(0.0)
-        .mul(np.sqrt(30.0))
+        .mul(volatility_scale)
     )
 
     indexed_price = pd.Series(result["price"].to_numpy(), index=result["date"])

@@ -1,6 +1,20 @@
 # Literature-informed initial weights for news-based risk scoring.
 # These values are starting points, not fixed academic constants.
 
+# Relative influence in log space for the weighted geometric mean.
+# Experimental priors; recalibrate against reviewed events and outcomes.
+article_score_exponents:
+  event_type: 0.18
+  severity: 0.15
+  confidence: 0.12
+  source: 0.08
+  item_relevance: 0.15
+  mapping: 0.08
+  exposure: 0.08
+  country: 0.05
+  recency: 0.06
+  novelty: 0.05
+
 event_type_weight:
   infectious_disease_outbreak: 1.00
   war_or_armed_conflict: 1.00

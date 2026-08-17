@@ -122,6 +122,7 @@ NEWS_RISK_SCORE_PATH = OUTPUT_DIR / "stock_news_risk_scores.csv"
 NEWS_ARTICLE_SCORE_PATH = OUTPUT_DIR / "stock_news_article_scores.csv"
 COMMODITY_RISK_SCORE_PATH = OUTPUT_DIR / "stock_commodity_risk_scores.csv"
 COMMODITY_PRICE_CACHE_PATH = EXTERNAL_MARKET_DATA_DIR / "commodity_prices.csv"
+COMMODITY_COLLECTION_REPORT_PATH = OUTPUT_DIR / "commodity_collection_report.json"
 COMMODITY_RISK_AUDIT_PATH = OUTPUT_DIR / "stock_commodity_risk_audit.csv"
 HSK_REFERENCE_SOURCE_PATH = (
     EXTERNAL_TRADE_DATA_DIR / "reference" / "관세청_HS부호_20260101.xlsx"
@@ -207,6 +208,9 @@ MODEL_COMBINATION_SAMPLE_PATH = (
 )
 FORECAST_ENSEMBLE_POLICY_PATH = (
     MAPPING_DATA_DIR / "forecast_ensemble_policy.json"
+)
+INVENTORY_OPTIMIZATION_POLICY_PATH = (
+    MAPPING_DATA_DIR / "inventory_optimization_policy.json"
 )
 FORECAST_ENSEMBLE_VALIDATION_PATH = (
     OUTPUT_DIR / "forecast_ensemble_validation_candidates.csv"
