@@ -14,6 +14,7 @@ from src.modeling.combination_experiment import (
     fit_pooled_buffer,
     inventory_metrics,
     select_pattern_router,
+    selected_backtest_columns,
 )
 
 
@@ -28,6 +29,27 @@ class CombinationExperimentTest(unittest.TestCase):
         columns = REQUIRED_FORECAST_COLUMNS[1:]
         with self.assertRaisesRegex(ValueError, REQUIRED_FORECAST_COLUMNS[0]):
             available_forecast_columns(columns)
+
+    def test_optional_forecast_selected_from_header_is_loaded(self):
+        optional_forecast = OPTIONAL_FORECAST_COLUMNS[0]
+        header = [
+            "actual_usage",
+            "institution_code",
+            *REQUIRED_FORECAST_COLUMNS,
+            optional_forecast,
+        ]
+        candidates = available_forecast_columns(header)
+
+        selected = selected_backtest_columns(
+            header,
+            required=["actual_usage", *REQUIRED_FORECAST_COLUMNS],
+            optional_metadata=["institution_code", "target_stock"],
+            candidate_forecasts=candidates,
+        )
+
+        self.assertIn(optional_forecast, selected)
+        self.assertIn("institution_code", selected)
+        self.assertNotIn("target_stock", selected)
 
     def test_split_months_reserves_later_months_for_evaluation(self):
         frame = pd.DataFrame(

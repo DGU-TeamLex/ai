@@ -100,6 +100,26 @@ def available_forecast_columns(header: Iterable[str]) -> list[str]:
     return [column for column in BASE_FORECAST_COLUMNS if column in available]
 
 
+def selected_backtest_columns(
+    header: Iterable[str],
+    required: Iterable[str],
+    optional_metadata: Iterable[str],
+    candidate_forecasts: Iterable[str],
+) -> list[str]:
+    """읽을 메타데이터와 실제 가용 예측후보를 함께 반환한다.
+
+    후보 탐색은 CSV 헤더에서 수행되므로, 선택된 선택적 예측열을 ``usecols``에
+    다시 포함해야 한다. 그렇지 않으면 헤더에서는 가용하다고 판단한 외부위험
+    모형이 실제 데이터 프레임에서 사라진다.
+    """
+    available = set(header)
+    return sorted(
+        set(required)
+        | set(candidate_forecasts)
+        | (set(optional_metadata) & available)
+    )
+
+
 def _json_value(value):
     if value is None or pd.isna(value):
         return None
@@ -950,7 +970,12 @@ def run_combination_experiment(
         "item_name",
         "target_stock",
     }
-    usecols = sorted(required | (optional & set(header)))
+    usecols = selected_backtest_columns(
+        header,
+        required,
+        optional,
+        candidate_columns,
+    )
     frame = pd.read_csv(
         backtest_path,
         usecols=usecols,
