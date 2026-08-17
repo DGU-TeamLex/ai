@@ -22,6 +22,14 @@ from .config import (
 from .data_loader import load_stock_data
 from .features import create_features
 from .modeling.data_quality import write_forecast_data_quality_report
+from .modeling.external_risk_features import (
+    COMBINED_SHOCK_COLUMNS,
+    COMMODITY_RAW_COLUMNS,
+    COMMODITY_SHOCK_COLUMNS,
+    NEWS_RAW_COLUMNS,
+    NEWS_SHOCK_COLUMNS,
+    add_external_risk_shock_features,
+)
 from .modeling.standardized_history import attach_standard_item_features
 from .utils import ensure_dirs, write_json
 
@@ -80,27 +88,28 @@ def _load_monthly_stock() -> pd.DataFrame:
 
 def _normalize_yyyymm(df: pd.DataFrame, column: str = "STD_YYYYMM") -> pd.DataFrame:
     result = df.copy()
-    result["year_month"] = pd.to_datetime(result[column].astype(str), errors="coerce").dt.to_period("M").dt.to_timestamp()
-    return result.drop(columns=[column])
+    if column in result.columns:
+        source = result[column].astype(str)
+        result = result.drop(columns=[column])
+    elif "year_month" in result.columns:
+        source = result["year_month"]
+    else:
+        return result
+    result["year_month"] = pd.to_datetime(source, errors="coerce").dt.to_period("M").dt.to_timestamp()
+    return result
 
 
-def _merge_risk(
-    feature_table: pd.DataFrame,
-    path,
-    value_columns: list[str],
-) -> pd.DataFrame:
+def _read_risk_frame(path, value_columns: list[str]) -> pd.DataFrame:
+    """Read a small risk-score output without joining it to stock rows."""
+
+    empty = pd.DataFrame(columns=[*RISK_JOIN_KEYS, *value_columns])
     if not path.exists():
-        # 위험점수 산출물이 없으면 해당 외부신호는 전 행 0 이 된다.
-        # 조용히 넘어가면 모듈 C 를 쓰는 모델이 "신호가 없는 상태"로 학습되고도
-        # 정상처럼 보이므로, 어떤 신호가 왜 비었는지 반드시 남긴다.
         LOGGER.warning(
             "Risk score output not found: %s — %s will be filled with 0.0 for every row",
             path,
             ", ".join(value_columns),
         )
-        feature_table[value_columns] = 0.0
-        return feature_table
-
+        return empty
     header = pd.read_csv(path, nrows=0).columns
     available = [column for column in value_columns if column in header]
     read_columns = [
@@ -117,18 +126,71 @@ def _merge_risk(
             path,
             ", ".join(value_columns),
         )
-        feature_table[value_columns] = 0.0
-        return feature_table
+        return empty
     if not set(RISK_JOIN_KEYS).issubset(risk.columns):
         LOGGER.warning("Ignoring incompatible risk output without raw_stock keys: %s", path)
+        return empty
+    risk["stock_item_key"] = risk["stock_item_key"].astype(str)
+    duplicated = risk.duplicated(RISK_JOIN_KEYS, keep=False)
+    if duplicated.any():
+        LOGGER.warning(
+            "Risk score output has %s duplicate key rows; keeping the last row: %s",
+            int(duplicated.sum()),
+            path,
+        )
+        risk = risk.drop_duplicates(RISK_JOIN_KEYS, keep="last")
+    for column in value_columns:
+        if column not in risk.columns:
+            risk[column] = 0.0
+    return risk[[*RISK_JOIN_KEYS, *value_columns]]
+
+
+def _merge_risk(
+    feature_table: pd.DataFrame,
+    path,
+    value_columns: list[str],
+) -> pd.DataFrame:
+    risk = _read_risk_frame(path, value_columns)
+    if risk.empty:
         feature_table[value_columns] = 0.0
         return feature_table
-    risk["stock_item_key"] = risk["stock_item_key"].astype(str)
-    merged = feature_table.merge(risk[[*RISK_JOIN_KEYS, *available]], on=RISK_JOIN_KEYS, how="left")
-    for column in value_columns:
-        if column not in merged.columns:
-            merged[column] = 0.0
-    return merged
+    return feature_table.merge(risk, on=RISK_JOIN_KEYS, how="left", validate="many_to_one")
+
+
+def _build_external_shock_table() -> pd.DataFrame:
+    """Build shocks on the small signal tables before the 3.7M-row join."""
+
+    news = _read_risk_frame(NEWS_RISK_SCORE_PATH, NEWS_RAW_COLUMNS)
+    commodity = _read_risk_frame(COMMODITY_RISK_SCORE_PATH, COMMODITY_RAW_COLUMNS)
+    if news.empty and commodity.empty:
+        return pd.DataFrame(
+            columns=[
+                *RISK_JOIN_KEYS,
+                *NEWS_RAW_COLUMNS,
+                *COMMODITY_RAW_COLUMNS,
+                *NEWS_SHOCK_COLUMNS,
+                *COMMODITY_SHOCK_COLUMNS,
+                *COMBINED_SHOCK_COLUMNS,
+            ]
+        )
+    if news.empty:
+        combined = commodity.copy()
+    elif commodity.empty:
+        combined = news.copy()
+    else:
+        combined = news.merge(
+            commodity,
+            on=RISK_JOIN_KEYS,
+            how="outer",
+            validate="one_to_one",
+        )
+    for column in [*NEWS_RAW_COLUMNS, *COMMODITY_RAW_COLUMNS]:
+        if column not in combined.columns:
+            combined[column] = 0.0
+    combined[[*NEWS_RAW_COLUMNS, *COMMODITY_RAW_COLUMNS]] = combined[
+        [*NEWS_RAW_COLUMNS, *COMMODITY_RAW_COLUMNS]
+    ].fillna(0.0)
+    return add_external_risk_shock_features(combined)
 
 
 def build_feature_table() -> pd.DataFrame:
@@ -162,8 +224,8 @@ def build_feature_table() -> pd.DataFrame:
         ((lag_1 - lag_12) / lag_12.where(lag_12.ne(0))).fillna(0.0).astype("float32")
     )
 
-    news_columns = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
-    commodity_columns = ["commodity_risk", "material_return_30d", "material_volatility_30d"]
+    news_columns = NEWS_RAW_COLUMNS
+    commodity_columns = COMMODITY_RAW_COLUMNS
     module_c_columns = [
         "module_c_demand_risk",
         "module_c_supply_news_risk",
@@ -174,10 +236,32 @@ def build_feature_table() -> pd.DataFrame:
         "module_c_total_risk",
         "module_c_signal_confidence",
     ]
-    feature_table = _merge_risk(feature_table, NEWS_RISK_SCORE_PATH, news_columns)
-    feature_table = _merge_risk(feature_table, COMMODITY_RISK_SCORE_PATH, commodity_columns)
+    external_shocks = _build_external_shock_table()
+    shock_columns = [
+        *news_columns,
+        *commodity_columns,
+        *NEWS_SHOCK_COLUMNS,
+        *COMMODITY_SHOCK_COLUMNS,
+        *COMBINED_SHOCK_COLUMNS,
+    ]
+    if external_shocks.empty:
+        feature_table[shock_columns] = 0.0
+    else:
+        feature_table = feature_table.merge(
+            external_shocks[[*RISK_JOIN_KEYS, *shock_columns]],
+            on=RISK_JOIN_KEYS,
+            how="left",
+            validate="many_to_one",
+        )
     feature_table = _merge_risk(feature_table, MODULE_C_RISK_SCORE_PATH, module_c_columns)
-    external_columns = [*news_columns, *commodity_columns, *module_c_columns]
+    external_columns = [
+        *news_columns,
+        *commodity_columns,
+        *NEWS_SHOCK_COLUMNS,
+        *COMMODITY_SHOCK_COLUMNS,
+        *COMBINED_SHOCK_COLUMNS,
+        *module_c_columns,
+    ]
     feature_table[external_columns] = feature_table[external_columns].fillna(0.0).astype("float32")
     _log_external_signal_coverage(feature_table, external_columns)
     return feature_table.sort_values(GROUP_KEYS).reset_index(drop=True)
