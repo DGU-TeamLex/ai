@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 
 from ..config import (
     BACKTEST_PREDICTION_PATH,
@@ -84,6 +85,41 @@ STANDARD_ITEM_OUTPUT_COLUMNS = [
     "standardization_match_method",
     "data_period",
 ]
+PREDICTION_REQUIRED_FEATURE_COLUMNS = {
+    "year_month",
+    "forecast_month",
+    *SERIES_KEYS,
+    "item_name",
+    "stock_item_key",
+    "standard_item_key",
+    "standard_item_definition_key",
+    "standard_item_group_id",
+    "standard_item_family_id",
+    "standard_item_subtype_id",
+    "standard_item_specification",
+    "standard_item_unit_code",
+    "standardization_match_method",
+    "data_period",
+    "month_end_stock",
+    "history_months",
+    "demand_qty",
+    TARGET_COLUMN,
+    "rolling_std_3",
+    "rolling_std_6",
+    "rolling_std_12",
+    "lag_1",
+    "rolling_mean_3",
+    "rolling_median_3",
+    "rolling_mean_6",
+    "same_month_last_year",
+    "expanding_mean",
+    *RISK_COLUMNS,
+}
+PREDICTION_OPTIONAL_FEATURE_COLUMNS = {
+    # 전처리 원장에는 있지만 현재 축약 특성표에는 없을 수 있다. 결과 표시용일
+    # 뿐 모형 입력·예측 계산에는 필요하지 않다.
+    "average_unit_price",
+}
 
 
 def attach_current_inventory_status_parameters(
@@ -123,40 +159,28 @@ def attach_current_inventory_status_parameters(
 def _load_feature_table(manifest: list[dict]) -> pd.DataFrame:
     if not FEATURE_TABLE_PATH.exists():
         run_feature_engineering()
-    columns = {
-        "year_month",
-        "forecast_month",
-        *SERIES_KEYS,
-        "item_name",
-        "stock_item_key",
-        "standard_item_key",
-        "standard_item_definition_key",
-        "standard_item_group_id",
-        "standard_item_family_id",
-        "standard_item_subtype_id",
-        "standard_item_specification",
-        "standard_item_unit_code",
-        "standardization_match_method",
-        "data_period",
-        "month_end_stock",
-        "history_months",
-        "demand_qty",
-        TARGET_COLUMN,
-        "rolling_std_3",
-        "rolling_std_6",
-        "rolling_std_12",
-        "average_unit_price",
-        "lag_1",
-        "rolling_mean_3",
-        "rolling_median_3",
-        "rolling_mean_6",
-        "same_month_last_year",
-        "expanding_mean",
-        *RISK_COLUMNS,
-    }
+    columns = set(PREDICTION_REQUIRED_FEATURE_COLUMNS)
+    columns.update(PREDICTION_OPTIONAL_FEATURE_COLUMNS)
     for row in manifest:
         if row.get("method_type") == "machine_learning" and row.get("status") == "ready":
             columns.update(_load_bundle(row["model"])["feature_cols"])
+
+    available = set(pq.ParquetFile(FEATURE_TABLE_PATH).schema_arrow.names)
+    missing_required = sorted(
+        columns - available - PREDICTION_OPTIONAL_FEATURE_COLUMNS
+    )
+    if missing_required:
+        raise ValueError(
+            "Prediction feature table is missing required columns: "
+            f"{missing_required}"
+        )
+    missing_optional = sorted(PREDICTION_OPTIONAL_FEATURE_COLUMNS - available)
+    if missing_optional:
+        LOGGER.info(
+            "Prediction feature table omits optional display columns: %s",
+            ", ".join(missing_optional),
+        )
+    columns.intersection_update(available)
     return pd.read_parquet(
         FEATURE_TABLE_PATH,
         columns=sorted(columns),
@@ -259,9 +283,16 @@ def _apply_temporal_ensemble(
         raise ValueError("Forecast ensemble weights must sum to 1.0")
     missing = sorted(set(weights) - set(frame.columns))
     if missing:
-        raise ValueError(
-            f"Forecast ensemble model columns are missing: {missing}"
+        # 모델 재학습에서 어떤 변형이 품질 게이트로 제외되면 이전 실행의
+        # 앙상블 정책은 더 이상 현재 모델 집합과 호환되지 않는다. 초기 예측은
+        # 새 temporal tuning 의 입력이므로 여기서 오래된 정책 때문에 막지 않고
+        # 단일 모델 예측을 만든 뒤, 다음 단계가 사용 가능한 열로 정책을 갱신한다.
+        LOGGER.warning(
+            "Skipping incompatible forecast ensemble policy; "
+            "model columns are unavailable: %s",
+            ", ".join(missing),
         )
+        return frame, None
     prediction = np.zeros(len(frame), dtype="float64")
     for column, weight in weights.items():
         prediction += (
