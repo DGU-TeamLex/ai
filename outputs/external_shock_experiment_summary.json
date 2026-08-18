@@ -1,0 +1,99 @@
+{
+  "status": "complete",
+  "execution_mode": "full_capacity_isolated_process",
+  "resource_profile": {
+    "experiment_role": "final_full_capacity_ablation",
+    "sample_reduction": false,
+    "feature_reduction": false,
+    "production_hyperparameters_preserved": true,
+    "only_model_change": "n_jobs=1",
+    "n_estimators": 1999,
+    "num_leaves": 249,
+    "histogram_pool_size_mb": 256,
+    "worker_processes_concurrent": 1,
+    "cooldown_seconds": 90,
+    "bootstrap_draws": 500
+  },
+  "checkpoint_dir": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\external_shock_experiment_checkpoints_v3_full_isolated",
+  "objective_contract": "all direct variants use regression_l1",
+  "target": "next-month demand",
+  "shock_threshold": 0.8,
+  "variants": [
+    "stock_model_a_usage_only",
+    "stock_model_f_news_shock_l1",
+    "stock_model_g_commodity_shock_l1",
+    "stock_model_h_news_commodity_shock_l1",
+    "stock_model_i_external_shock_residual_l1"
+  ],
+  "historical_training_policy_version": "historical-training-weight-v1.0",
+  "bootstrap": [
+    {
+      "model": "stock_model_f_news_shock_l1",
+      "delta_wape_vs_usage_only": -0.009001612541077009,
+      "bootstrap_draws": 500,
+      "delta_wape_ci95_low": -0.07215808220828437,
+      "delta_wape_ci95_high": 0.04158716680145498,
+      "improvement_probability": 0.588
+    },
+    {
+      "model": "stock_model_g_commodity_shock_l1",
+      "delta_wape_vs_usage_only": -0.10125012781330156,
+      "bootstrap_draws": 500,
+      "delta_wape_ci95_low": -0.1834629476046225,
+      "delta_wape_ci95_high": -0.04650888271297893,
+      "improvement_probability": 1.0
+    },
+    {
+      "model": "stock_model_h_news_commodity_shock_l1",
+      "delta_wape_vs_usage_only": -0.028199786768517754,
+      "bootstrap_draws": 500,
+      "delta_wape_ci95_low": -0.09566341373568256,
+      "delta_wape_ci95_high": 0.03326790166636436,
+      "improvement_probability": 0.812
+    },
+    {
+      "model": "stock_model_i_external_shock_residual_l1",
+      "delta_wape_vs_usage_only": -1.0785342396957276e-08,
+      "bootstrap_draws": 500,
+      "delta_wape_ci95_low": -2.0014506942683692e-08,
+      "delta_wape_ci95_high": -2.6777526422020048e-09,
+      "improvement_probability": 1.0
+    }
+  ],
+  "residual_audit": [
+    {
+      "fold": "2024_q3",
+      "algorithm": "lightgbm_regression_l1",
+      "calibration_rows": 351622,
+      "shock_calibration_rows": 1930,
+      "correction_clip_low": -14.222506079054694,
+      "correction_clip_high": 15.416057114528892
+    },
+    {
+      "fold": "2024_q4",
+      "algorithm": "lightgbm_regression_l1",
+      "calibration_rows": 355965,
+      "shock_calibration_rows": 1953,
+      "correction_clip_low": -12.996083938487157,
+      "correction_clip_high": 14.908597939836918
+    },
+    {
+      "fold": "2025_q1",
+      "algorithm": "lightgbm_regression_l1",
+      "calibration_rows": 343536,
+      "shock_calibration_rows": 1806,
+      "correction_clip_low": -8.991334636486805,
+      "correction_clip_high": 20.6146726384977
+    },
+    {
+      "fold": "2025_q2",
+      "algorithm": "lightgbm_regression_l1",
+      "calibration_rows": 340427,
+      "shock_calibration_rows": 1821,
+      "correction_clip_low": -11.19498380415719,
+      "correction_clip_high": 14.995521605513243
+    }
+  ],
+  "report_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\external_shock_experiment_report.csv",
+  "prediction_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\external_shock_experiment_predictions.parquet"
+}

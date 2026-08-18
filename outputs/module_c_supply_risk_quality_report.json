@@ -2,15 +2,15 @@
   "rules_version": "supply-risk-anomaly-rules-v1.0",
   "policy_version": "supply-risk-level-v1.3-periodic-review",
   "operational_mode": false,
-  "input_rows": 409519,
-  "pass_rows": 12996,
-  "review_rows": 224285,
-  "blocked_rows": 172238,
-  "operationally_eligible_rows": 12996,
+  "input_rows": 4969,
+  "pass_rows": 0,
+  "review_rows": 4647,
+  "blocked_rows": 322,
+  "operationally_eligible_rows": 0,
   "row_issue_counts": {
-    "SR003_UNMAPPED_META_CODE": 172238,
-    "SR018_LEGACY_CODE_ALIAS_USED": 200430,
-    "SR019_NON_SUPPLY_CODE_IN_BASELINE": 152418
+    "SR003_UNMAPPED_META_CODE": 322,
+    "SR018_LEGACY_CODE_ALIAS_USED": 1213,
+    "SR019_NON_SUPPLY_CODE_IN_BASELINE": 4647
   },
   "dataset_issue_codes": [],
   "dataset_quality_status": "PASS",

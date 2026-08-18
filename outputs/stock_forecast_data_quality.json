@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-13T13:57:25.464034+00:00",
+  "generated_at": "2026-08-17T11:14:22.895994+00:00",
   "source": "raw_stock/*.DAT",
   "monthly_rows": 5190768,
   "series_count": 515563,
@@ -34,13 +34,13 @@
       "0.95": 17.0
     }
   },
-  "labeled_rows": 3730978,
+  "labeled_rows": 3730980,
   "time_split": {
     "train_rows": 2335363,
     "historical_train_rows": 952002,
     "current_train_rows": 1383361,
-    "validation_rows": 704421,
-    "test_rows": 605437
+    "validation_rows": 704422,
+    "test_rows": 605438
   },
   "standardization_coverage": [
     {

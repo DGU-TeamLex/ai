@@ -1,0 +1,490 @@
+{
+  "require_external_signals": false,
+  "minimum_train_coverage": 0.01,
+  "required_signals": [
+    "module_c_supply_risk",
+    "module_c_demand_risk"
+  ],
+  "coverage_by_split": {
+    "historical": {
+      "rows": 1460785,
+      "signals": {
+        "disease_news_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "supply_news_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.564467191696167
+        },
+        "material_news_risk": {
+          "nonzero_rows": 7039,
+          "nonzero_ratio": 0.004819,
+          "max": 0.8901153206825256
+        },
+        "total_news_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 1.0
+        },
+        "commodity_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.41982945799827576
+        },
+        "material_return_30d": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.23511964082717896
+        },
+        "material_volatility_30d": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.20219548046588898
+        },
+        "material_return_30d_lag_1": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.23511964082717896
+        },
+        "material_return_30d_lag_2": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.23511964082717896
+        },
+        "material_price_up_shock": {
+          "nonzero_rows": 3918,
+          "nonzero_ratio": 0.002682,
+          "max": 0.5002176761627197
+        },
+        "material_price_down_shock": {
+          "nonzero_rows": 3432,
+          "nonzero_ratio": 0.002349,
+          "max": 0.5002176761627197
+        },
+        "material_volatility_30d_lag_1": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.20219548046588898
+        },
+        "material_volatility_30d_lag_2": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.20219548046588898
+        },
+        "material_volatility_jump": {
+          "nonzero_rows": 3665,
+          "nonzero_ratio": 0.002509,
+          "max": 0.07299715280532837
+        },
+        "material_volatility_relative_rank": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.5002176761627197
+        },
+        "module_c_demand_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "module_c_supply_news_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.564467191696167
+        },
+        "module_c_material_news_risk": {
+          "nonzero_rows": 7039,
+          "nonzero_ratio": 0.004819,
+          "max": 0.8901153206825256
+        },
+        "module_c_market_price_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.41982945799827576
+        },
+        "module_c_trade_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "module_c_supply_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.564467191696167
+        },
+        "module_c_total_risk": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.564467191696167
+        },
+        "module_c_signal_confidence": {
+          "nonzero_rows": 7350,
+          "nonzero_ratio": 0.005032,
+          "max": 0.6075000166893005
+        }
+      }
+    },
+    "train": {
+      "rows": 1829647,
+      "signals": {
+        "disease_news_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "supply_news_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.9423528909683228
+        },
+        "material_news_risk": {
+          "nonzero_rows": 8270,
+          "nonzero_ratio": 0.00452,
+          "max": 0.5088181495666504
+        },
+        "total_news_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 1.0
+        },
+        "commodity_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.23435097932815552
+        },
+        "material_return_30d": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.0706748440861702
+        },
+        "material_volatility_30d": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.14996033906936646
+        },
+        "material_return_30d_lag_1": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.0706748440861702
+        },
+        "material_return_30d_lag_2": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.0706748440861702
+        },
+        "material_price_up_shock": {
+          "nonzero_rows": 4962,
+          "nonzero_ratio": 0.002712,
+          "max": 0.5002176761627197
+        },
+        "material_price_down_shock": {
+          "nonzero_rows": 4985,
+          "nonzero_ratio": 0.002725,
+          "max": 0.5002176761627197
+        },
+        "material_volatility_30d_lag_1": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.14996033906936646
+        },
+        "material_volatility_30d_lag_2": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.17240144312381744
+        },
+        "material_volatility_jump": {
+          "nonzero_rows": 5064,
+          "nonzero_ratio": 0.002768,
+          "max": 0.046376198530197144
+        },
+        "material_volatility_relative_rank": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.5002176761627197
+        },
+        "module_c_demand_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "module_c_supply_news_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.9423528909683228
+        },
+        "module_c_material_news_risk": {
+          "nonzero_rows": 8270,
+          "nonzero_ratio": 0.00452,
+          "max": 0.5088181495666504
+        },
+        "module_c_market_price_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.23435097932815552
+        },
+        "module_c_trade_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.03172346204519272
+        },
+        "module_c_supply_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.9426321983337402
+        },
+        "module_c_total_risk": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.9426321983337402
+        },
+        "module_c_signal_confidence": {
+          "nonzero_rows": 9947,
+          "nonzero_ratio": 0.005437,
+          "max": 0.7284981608390808
+        }
+      }
+    },
+    "validation": {
+      "rows": 932323,
+      "signals": {
+        "disease_news_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "supply_news_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.9635329246520996
+        },
+        "material_news_risk": {
+          "nonzero_rows": 3397,
+          "nonzero_ratio": 0.003644,
+          "max": 0.5121585130691528
+        },
+        "total_news_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 1.0
+        },
+        "commodity_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.15971888601779938
+        },
+        "material_return_30d": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.033923305571079254
+        },
+        "material_volatility_30d": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.137861967086792
+        },
+        "material_return_30d_lag_1": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.033923305571079254
+        },
+        "material_return_30d_lag_2": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.033923305571079254
+        },
+        "material_price_up_shock": {
+          "nonzero_rows": 3380,
+          "nonzero_ratio": 0.003625,
+          "max": 0.5002176761627197
+        },
+        "material_price_down_shock": {
+          "nonzero_rows": 1710,
+          "nonzero_ratio": 0.001834,
+          "max": 0.5002176761627197
+        },
+        "material_volatility_30d_lag_1": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.137861967086792
+        },
+        "material_volatility_30d_lag_2": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.14996033906936646
+        },
+        "material_volatility_jump": {
+          "nonzero_rows": 4190,
+          "nonzero_ratio": 0.004494,
+          "max": 0.05677413195371628
+        },
+        "material_volatility_relative_rank": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.5002176761627197
+        },
+        "module_c_demand_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "module_c_supply_news_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.9635329246520996
+        },
+        "module_c_material_news_risk": {
+          "nonzero_rows": 3397,
+          "nonzero_ratio": 0.003644,
+          "max": 0.5121585130691528
+        },
+        "module_c_market_price_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.15971888601779938
+        },
+        "module_c_trade_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.03605771064758301
+        },
+        "module_c_supply_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.9637525677680969
+        },
+        "module_c_total_risk": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.9637525677680969
+        },
+        "module_c_signal_confidence": {
+          "nonzero_rows": 5090,
+          "nonzero_ratio": 0.005459,
+          "max": 0.7263652682304382
+        }
+      }
+    },
+    "test": {
+      "rows": 968013,
+      "signals": {
+        "disease_news_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "supply_news_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.5582412481307983
+        },
+        "material_news_risk": {
+          "nonzero_rows": 4437,
+          "nonzero_ratio": 0.004584,
+          "max": 0.8453274965286255
+        },
+        "total_news_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 1.0
+        },
+        "commodity_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.28954529762268066
+        },
+        "material_return_30d": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.08576075732707977
+        },
+        "material_volatility_30d": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.1773148626089096
+        },
+        "material_return_30d_lag_1": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.08576075732707977
+        },
+        "material_return_30d_lag_2": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.08576075732707977
+        },
+        "material_price_up_shock": {
+          "nonzero_rows": 2712,
+          "nonzero_ratio": 0.002802,
+          "max": 0.5002176761627197
+        },
+        "material_price_down_shock": {
+          "nonzero_rows": 2596,
+          "nonzero_ratio": 0.002682,
+          "max": 0.5002176761627197
+        },
+        "material_volatility_30d_lag_1": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.1773148626089096
+        },
+        "material_volatility_30d_lag_2": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.1773148626089096
+        },
+        "material_volatility_jump": {
+          "nonzero_rows": 2607,
+          "nonzero_ratio": 0.002693,
+          "max": 0.0680844858288765
+        },
+        "material_volatility_relative_rank": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.5002176761627197
+        },
+        "module_c_demand_risk": {
+          "nonzero_rows": 0,
+          "nonzero_ratio": 0.0,
+          "max": 0.0
+        },
+        "module_c_supply_news_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.5582412481307983
+        },
+        "module_c_material_news_risk": {
+          "nonzero_rows": 4437,
+          "nonzero_ratio": 0.004584,
+          "max": 0.8453274965286255
+        },
+        "module_c_market_price_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.28954529762268066
+        },
+        "module_c_trade_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.031008079648017883
+        },
+        "module_c_supply_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.5603235960006714
+        },
+        "module_c_total_risk": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.5603235960006714
+        },
+        "module_c_signal_confidence": {
+          "nonzero_rows": 5308,
+          "nonzero_ratio": 0.005483,
+          "max": 0.7276923060417175
+        }
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@
   "automatic_disposal_handling": "excluded_from_demand_and_ledger_balance",
   "current": {
     "role": "model_input",
-    "path": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\stock_monthly.parquet",
+    "path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\data\\processed\\stock_monthly.parquet",
     "rows": 3729983,
     "start_month": "2024-01",
     "end_month": "2025-12",
@@ -20,7 +20,7 @@
   },
   "historical_auxiliary": {
     "role": "standardization_and_training_candidate",
-    "path": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\stock_monthly_2018_2019_auxiliary.parquet",
+    "path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\data\\processed\\stock_monthly_2018_2019_auxiliary.parquet",
     "rows": 1460785,
     "start_month": "2018-01",
     "end_month": "2019-12",

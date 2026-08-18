@@ -1,0 +1,119 @@
+{
+  "version": "stock-combination-v1.0",
+  "status": "reused_evaluation_slice_not_operational",
+  "source": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\stock_backtest_predictions.csv",
+  "calibration_months": [
+    "2025-08",
+    "2025-09"
+  ],
+  "evaluation_months": [
+    "2025-10",
+    "2025-11",
+    "2025-12"
+  ],
+  "service_level": 0.9,
+  "evaluated_service_levels": [
+    0.9,
+    0.95
+  ],
+  "selection_rule": "minimum calibration PINBALL_LOSS at target service level; evaluation months are not used for selection, but were already inspected by earlier experiments and are not a final untouched test",
+  "evaluation_contract": {
+    "role": "diagnostic_reused_evaluation",
+    "clean_final_test": false,
+    "next_clean_test_requirement": "2026 raw_stock or a future rolling holdout unused by model selection, buffer calibration, and policy tuning",
+    "policy_parameters_fit_before_evaluation": true
+  },
+  "point_forecast_selection": {
+    "strategy": "calibration_pattern_router_pred",
+    "calibration_wape": 35.61161391862182,
+    "evaluation_wape": 35.841676894121285,
+    "evaluation_bias_pct": -5.65106465065309
+  },
+  "inventory_combination_selection": {
+    "forecast_strategy": "stock_model_d_module_c_pred",
+    "buffer_method": "empirical_pooled",
+    "calibration_pinball_loss": 16.0903089628971,
+    "evaluation_pinball_loss": 17.754266910818224,
+    "evaluation_positive_row_service_rate": 90.55912513577701,
+    "evaluation_unit_fill_rate": 93.46915444582535,
+    "evaluation_target_to_actual_ratio": 1.6086617859023413
+  },
+  "service_level_sensitivity": {
+    "0.9": {
+      "forecast_strategy": "stock_model_d_module_c_pred",
+      "buffer_method": "empirical_pooled",
+      "calibration_pinball_loss": 16.0903089628971,
+      "evaluation_pinball_loss": 17.754266910818224,
+      "evaluation_positive_row_service_rate": 90.55912513577701,
+      "evaluation_unit_fill_rate": 93.46915444582535,
+      "evaluation_target_to_actual_ratio": 1.6086617859023413
+    },
+    "0.95": {
+      "forecast_strategy": "current_system_reference",
+      "buffer_method": "existing_target_stock",
+      "calibration_pinball_loss": 10.566117844998722,
+      "evaluation_pinball_loss": 11.454201755765684,
+      "evaluation_positive_row_service_rate": 91.83386416775595,
+      "evaluation_unit_fill_rate": 96.76734635663567,
+      "evaluation_target_to_actual_ratio": 1.9815057575050017
+    }
+  },
+  "current_system_reference": {
+    "PINBALL_LOSS": 18.359676581641068,
+    "POSITIVE_ROW_SERVICE_RATE": 91.83386416775595,
+    "UNIT_FILL_RATE": 96.76734635663567,
+    "TARGET_TO_ACTUAL_RATIO": 1.9815057575050017
+  },
+  "pattern_router": {
+    "fallback": "blend_l1_75_tweedie_25_pred",
+    "routes": {
+      "all_zero": "baseline_last_month_pred",
+      "erratic": "blend_l1_75_tweedie_25_pred",
+      "insufficient_history": "blend_l1_50_tweedie_50_pred",
+      "intermittent": "stock_model_a_usage_only_pred",
+      "lumpy": "blend_l1_75_tweedie_25_pred",
+      "new_series": "blend_l1_75_tweedie_25_pred",
+      "smooth": "blend_l1_75_tweedie_25_pred"
+    }
+  },
+  "candidate_forecasts": [
+    "baseline_last_month_pred",
+    "baseline_rolling_mean_3_pred",
+    "baseline_rolling_median_3_pred",
+    "baseline_rolling_mean_6_pred",
+    "baseline_same_month_last_year_pred",
+    "baseline_expanding_mean_pred",
+    "stock_model_a_usage_only_pred",
+    "stock_model_a_usage_tweedie_pred",
+    "stock_model_d_module_c_pred",
+    "tsb_hb_moment_pattern_pred",
+    "tsb_hb_moment_pattern_item_group_pred",
+    "blend_l1_75_tweedie_25_pred",
+    "blend_l1_50_tweedie_50_pred",
+    "blend_l1_25_tweedie_75_pred",
+    "calibration_pattern_router_pred"
+  ],
+  "candidate_notes": {
+    "tsb_hb_moment_pattern_pred": "Occurrence-size hierarchical Bayesian approximation using moment-matched empirical-Bayes hyperparameters by demand pattern.",
+    "tsb_hb_moment_pattern_item_group_pred": "The same approximation with demand-pattern and item-group pooling; small pools fall back to demand pattern.",
+    "calibration_pattern_router_pred": "Demand-pattern route selected only from calibration months."
+  },
+  "buffer_methods": [
+    "none",
+    "fixed_20pct",
+    "normal_pooled",
+    "empirical_pooled"
+  ],
+  "excluded_methods": {
+    "full_period_mu_corrected": "Excluded from holdout ranking because the current artifact uses observations through 2025-12 and would leak evaluation targets. It also has institution-item rather than department-item grain.",
+    "robbins_poisson": "Excluded because observation exposure differs by series, demand contains batch quantities, and censored demand violates the model.",
+    "garch": "Excluded because only five forecast-error months are available; per-series conditional variance estimation is not identifiable."
+  },
+  "limitations": [
+    "The inventory evaluation is a one-month demand-coverage proxy, not a procurement lead-time simulation.",
+    "Actual order-to-receipt lead times, backorders, and lost-sales labels are unavailable.",
+    "The evaluation holdout contains only three months.",
+    "The same 2025 evaluation period has been inspected by prior work and cannot be called a clean final test.",
+    "Bulk-approved taxonomy may include low-evidence classifications; TSB pooling falls back by demand pattern for small groups."
+  ]
+}

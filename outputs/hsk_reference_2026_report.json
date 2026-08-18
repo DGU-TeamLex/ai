@@ -1,6 +1,6 @@
 {
   "reference_version": "hsk-2026-01-01",
-  "source_path": "C:\\Users\\user\\TeamLex-ai\\data\\external\\trade\\reference\\관세청_HS부호_20260101.xlsx",
+  "source_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\data\\external\\trade\\reference\\관세청_HS부호_20260101.xlsx",
   "source_sha256": "020661f75ac044be0eec049013b074be77ca8fb6d13f8283666f1f3e594054e5",
   "rows": 12469,
   "trade_leaf_rows": 11327,
@@ -28,5 +28,5 @@
       "item_name_en": "Syringes, with or without needles"
     }
   ],
-  "output_path": "C:\\Users\\user\\TeamLex-ai\\data\\processed\\trade\\hsk_reference_2026.parquet"
+  "output_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\data\\processed\\trade\\hsk_reference_2026.parquet"
 }

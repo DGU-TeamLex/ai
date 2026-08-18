@@ -1,0 +1,90 @@
+{
+  "version": "forecast-bias-inventory-backtest-v2.0",
+  "status": "completed_not_applied",
+  "source": "outputs\\stock_backtest_predictions.csv",
+  "full_rows": 605438,
+  "validation_months": [
+    "2025-08",
+    "2025-09"
+  ],
+  "test_months": [
+    "2025-10",
+    "2025-11",
+    "2025-12"
+  ],
+  "candidate_count": 102,
+  "target_reference": {
+    "WAPE": 37.16,
+    "BIAS_PCT": -3.5
+  },
+  "inventory_policy": {
+    "review_days": 30.0,
+    "lead_days": 30.0,
+    "protection_months": 2.0,
+    "service_z": 1.645,
+    "unmet_demand": "lost_sales",
+    "receipt_timing": "one_month_after_order",
+    "opening_stock": "same first-test-month current_stock for every candidate",
+    "uncertainty": "forecast-origin rolling_std_6, fallback 3 then 12",
+    "evaluation_actual_used_for_uncertainty": false
+  },
+  "panel": {
+    "test_rows": 359335,
+    "test_unique_series": 155131,
+    "complete_common_series": 91737,
+    "negative_or_invalid_opening_series": 0,
+    "stock_outlier_series": 21,
+    "quality_eligible_series": 91716
+  },
+  "predeclared_balanced_50_50": {
+    "candidate": "blend_tweedie_050",
+    "tweedie_weight": 0.5,
+    "validation_WAPE": 35.81449092580222,
+    "validation_BIAS_PCT": -8.76743199346157,
+    "test_WAPE": 36.17963637731045,
+    "test_BIAS_PCT": -3.920354899030817,
+    "fill_rate": 0.9802028336718015,
+    "stockout_series_month_rate": 0.02282408013142018,
+    "mean_ending_stock": 977.721390769966,
+    "order_sum": 14451946.368573604
+  },
+  "validation_governed_candidate": {
+    "candidate": "blend_tweedie_097",
+    "tweedie_weight": 0.97,
+    "validation_WAPE": 36.79695381327268,
+    "validation_BIAS_PCT": -4.949283186081075,
+    "test_WAPE": 37.414085735937775,
+    "test_BIAS_PCT": -0.46854230218853304,
+    "fill_rate": 0.9804586187801835,
+    "stockout_series_month_rate": 0.02227165016645587,
+    "mean_ending_stock": 979.081210348817,
+    "order_sum": 14763629.900402844
+  },
+  "retrospective_continuity_fit": {
+    "candidate": "blend_tweedie_056",
+    "tweedie_weight": 0.56,
+    "validation_WAPE": 35.89695230165472,
+    "validation_BIAS_PCT": -8.280008741455548,
+    "test_WAPE": 36.2989527827363,
+    "test_BIAS_PCT": -3.4796979717743546,
+    "fill_rate": 0.9802447351255802,
+    "stockout_series_month_rate": 0.022784101647113555,
+    "mean_ending_stock": 977.879116403008,
+    "order_sum": 14488487.685763437
+  },
+  "decision": "The 50/50 blend is a challenger proposal only. Keep the active policy unchanged until a new out-of-sample month confirms the trade-off.",
+  "limitations": [
+    "Only three test months are available for inventory-policy evaluation.",
+    "The retrospective continuity fit uses test outcomes and must not be deployed directly.",
+    "Actual replenishment dates, holding costs, shortage costs, expiry, and emergency orders are unavailable.",
+    "Lost sales are assumed; backorders may change service metrics.",
+    "Opening-stock outliers above the threshold are retained in all_common_series but excluded from quality_eligible."
+  ],
+  "outputs": {
+    "report": "outputs\\forecast_bias_inventory_backtest_report.csv",
+    "forecast_grid": "outputs\\forecast_bias_inventory_backtest_forecast_grid.csv",
+    "monthly": "outputs\\forecast_bias_inventory_backtest_monthly.csv",
+    "summary": "outputs\\forecast_bias_inventory_backtest_summary.json",
+    "policy_proposal": "outputs\\forecast_bias_inventory_backtest_policy_proposal.json"
+  }
+}
