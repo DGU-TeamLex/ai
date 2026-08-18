@@ -108,6 +108,7 @@ outputs/*
 !outputs/stock_evaluation_by_segment.csv
 !outputs/stock_model_cv_report.csv
 !outputs/stock_model_validation_report.csv
+!outputs/syringe_commodity_relationship_report.csv
 !outputs/trade_weight_calibration_policy.csv
 !outputs/trade_weight_calibration_observations.csv
 # 숨김 백업(.news_scores_before_rescale.csv 등)은 제외한다.
