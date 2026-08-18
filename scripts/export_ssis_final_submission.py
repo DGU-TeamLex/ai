@@ -70,12 +70,12 @@ EXPORT_ITEMS = (
         "12_고정50대50_정책제안_미적용",
     ),
     ExportItem(
-        Path("outputs/syringe_commodity_relationship_report.csv"),
-        "13_주사기_원자재_연관성_결과",
+        Path("outputs/syringe_supply_risk_inventory_impact.csv"),
+        "13_주사기_PP_공급위험_재고영향_결과",
     ),
     ExportItem(
-        Path("outputs/syringe_commodity_relationship_summary.json"),
-        "14_주사기_원자재_연관성_요약",
+        Path("outputs/syringe_supply_risk_inventory_summary.json"),
+        "14_주사기_PP_공급위험_재고영향_요약",
     ),
 )
 

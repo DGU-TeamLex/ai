@@ -1,0 +1,51 @@
+{
+  "scope": {
+    "family": "DISPOSABLE_SYRINGE",
+    "material": "POLYPROPYLENE_PP",
+    "rows": 3300,
+    "stock_items": 975,
+    "months": 5,
+    "period_start": "2025-08-01",
+    "period_end": "2025-12-01",
+    "base_lead_time_days": 30.0
+  },
+  "risk": {
+    "market_price_risk_mean": 0.18582126029999999,
+    "market_price_risk_min": 0.11284273,
+    "market_price_risk_max": 0.2895453,
+    "pp_supply_risk_mean": 0.1445276469,
+    "market_price_weight": 0.35,
+    "normalization_weight": 0.45
+  },
+  "lead_time": {
+    "baseline_mean_days": 30.0,
+    "shadow_mean_days": 34.1913017601,
+    "mean_increase_days": 4.191301760099999,
+    "shadow_max_days": 36.5308551,
+    "formula": "L_eff = 30*(1 + supply_risk*0.5) + supply_risk*14.0"
+  },
+  "safety_stock": {
+    "baseline_total": 29727.321714695387,
+    "shadow_total": 34707.909818148284,
+    "delta": 4980.5881034528975,
+    "delta_pct": 16.754244298405116
+  },
+  "target_stock": {
+    "baseline_total": 98991.64942573544,
+    "shadow_total": 108763.78533216359,
+    "delta": 9772.135906428157,
+    "delta_pct": 9.87167701833205
+  },
+  "recommended_order": {
+    "baseline_total": 6787.481664243468,
+    "shadow_total": 8300.89126143498,
+    "delta": 1513.4095971915112,
+    "delta_pct": 22.29707087334277,
+    "rows_increased": 199
+  },
+  "policy": {
+    "operational_adjustment_enabled": false,
+    "interpretation": "PP 가격·변동성 상승을 사용수요 증가로 해석하지 않고, 공급차질 가능성에 대비한 리드타임·안전재고 병렬 신호로 사용",
+    "limitation": "구매단가·실제 입고일·결품 원인 자료가 없어 인과효과나 실제 품절 감소를 검증한 결과가 아니라 정책 민감도 시나리오임"
+  }
+}
