@@ -1,9 +1,10 @@
 {
   "version": "pr100-reproducibility-v1.0",
-  "generated_at_utc": "2026-08-19T01:00:02.764457+00:00",
-  "code_commit": "14e0c45811e13f464360ef9a9aa0574522214453",
+  "generated_at_utc": "2026-08-19T02:13:28.271672+00:00",
+  "code_commit": "ce14bafc3689b24a07983b093c479f2b5f996817",
   "branch": "feat/external-risk-shock-residual-model",
   "contracts": {
+    "normalization_meta_code_axis": "standard-item mapping verified; candidate taxonomy separated from approved material mappings",
     "demand_forecast_champion": "usage-only L1; lowest WAPE on the current research snapshot",
     "inventory_policy_challenger": "fixed 50:50 L1/Tweedie; not applied; confirm on a new month",
     "external_signals": "diagnostic ablation only; not included in operational demand forecast",
@@ -364,6 +365,104 @@
         "safety_stock",
         "scope",
         "target_stock"
+      ]
+    },
+    {
+      "path": "outputs/meta_code_normalization_research_metrics.csv",
+      "role": "normalization_meta_code_metrics",
+      "size_bytes": 913,
+      "sha256": "f8be43697ae105953dac8930e5e1e63c970d3af1e0ea95c84e5d82cd81105b24",
+      "schema": [
+        "layer",
+        "metric",
+        "value",
+        "unit",
+        "claim_status"
+      ],
+      "rows": 11
+    },
+    {
+      "path": "outputs/meta_code_normalization_research_audit.json",
+      "role": "normalization_meta_code_audit",
+      "size_bytes": 4093,
+      "sha256": "6733feed3098cced46600b995665a379dcf18f2ca573444a8452d12f05766ad1",
+      "schema": [
+        "historical_model_effect",
+        "meta_codes",
+        "normalization",
+        "research_interpretation",
+        "sources",
+        "status",
+        "version"
+      ]
+    },
+    {
+      "path": "outputs/stock_standard_item_mapping_report.json",
+      "role": "standard_item_mapping_evidence",
+      "size_bytes": 1037,
+      "sha256": "6edb10d2daa1590912f84acb7d6dd2bd5bbddabcfa278f89ac6c81be9d0897c4",
+      "schema": [
+        "current_local_items",
+        "guardrails",
+        "historical_local_items",
+        "historical_training_eligible_items",
+        "historical_training_eligible_pct",
+        "historical_unmatched_items_excluded_from_training",
+        "mapping_rows",
+        "match_method_counts",
+        "semantic_definition_mapping_rows",
+        "standard_item_count",
+        "version"
+      ]
+    },
+    {
+      "path": "outputs/material_mapping_approval_report.json",
+      "role": "approved_material_scope_evidence",
+      "size_bytes": 1093,
+      "sha256": "0ebafee400798dfafd07d2148ccbb56e1f128f764b6a6b1ea970823cd63d45e7",
+      "schema": [
+        "applied",
+        "approval_reason_counts",
+        "approved_candidate_rows",
+        "approved_candidate_usage_sum",
+        "approved_local_item_count",
+        "approved_rule_counts",
+        "approved_stock_item_count",
+        "approved_stock_item_mapping_rows",
+        "audit_output_path",
+        "demand_mapping_approved",
+        "input_candidate_rows",
+        "input_local_item_count",
+        "mapping_output_path",
+        "policy_status",
+        "policy_version",
+        "release_scope",
+        "reviewed_at",
+        "reviewer",
+        "sample_output_path"
+      ]
+    },
+    {
+      "path": "outputs/historical_training_weight_report.json",
+      "role": "historical_training_effect",
+      "size_bytes": 5877,
+      "sha256": "68c7ec160e01fd68ae7dde74bf0a4a952a63077be7e9a50b84a057283ff25d39",
+      "schema": [
+        "candidate_weights",
+        "candidates",
+        "current_only_validation_metrics",
+        "guardrails",
+        "selected_historical_weight",
+        "selected_validation_metrics",
+        "selection_did_not_use_test",
+        "selection_metric",
+        "standard_item_mapping_version",
+        "status",
+        "train_current_end",
+        "validation_end",
+        "validation_start",
+        "validation_wape_change",
+        "version"
       ]
     }
   ],
