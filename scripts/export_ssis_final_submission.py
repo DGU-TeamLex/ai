@@ -77,6 +77,18 @@ EXPORT_ITEMS = (
         Path("outputs/syringe_supply_risk_inventory_summary.json"),
         "14_주사기_PP_공급위험_재고영향_요약",
     ),
+    ExportItem(
+        Path("docs/2026-08-19_03_RESEARCH_RESULT_SYNTHESIS.md"),
+        "15_의료재고_예측_연구결과_종합",
+    ),
+    ExportItem(
+        Path("outputs/meta_code_normalization_research_metrics.csv"),
+        "16_품목정규화_메타코드_핵심지표",
+    ),
+    ExportItem(
+        Path("outputs/meta_code_normalization_research_audit.json"),
+        "17_품목정규화_메타코드_감사요약",
+    ),
 )
 
 
@@ -119,7 +131,7 @@ def export_submission(output_date: str, output_dir: Path | None = None) -> Path:
 
     manifest = {
         "제출물_생성일": output_date,
-        "설명": "통합 최종보고서, 결과표, 근거대장과 재현 산출물을 한글 파일명으로 복사한 최종 묶음",
+        "설명": "연구결과 종합, 통합 최종보고서, 결과표, 근거대장과 재현 산출물을 한글 파일명으로 복사한 최종 묶음",
         "운영_적용": False,
         "정책_상태": "50:50 도전모형 제안만 생성, 기존 활성 정책 유지",
         "파일": entries,

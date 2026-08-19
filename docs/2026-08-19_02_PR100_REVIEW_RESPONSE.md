@@ -19,6 +19,15 @@
 | 대용량 입력이 없어 PR 단독 재현 곤란 | 타당 | 소형 핵심지표 CSV와 입력·산출물 SHA-256/스키마/행수 manifest 생성기 추가 |
 | 독립 재검증 부족 | 절차상 타당 | 이번 답변은 동료 검토 반영 기록이며 독립 외부검증 완료로 과장하지 않음 |
 
+## 정규화·메타코드 연구종합 보강
+
+- 표준품목 매핑 585,279행의 기간-로컬키 중복, 표준키 누락, 정의키 누락이 모두 0임을 재검증했다.
+- 과거품목 146,757개(83.50%)만 학습적격으로 연결하고 임시 이름키 29,003개는 격리했다.
+- 현재 재검증에서 엄격 연결 과거자료는 2025-01~06 검증 WAPE를 39.223%에서 37.246%로 1.9769%p 낮췄고, 시험구간은 가중치 선택에 쓰지 않았다.
+- 통합 메타코드 101,546행을 승인 완료로 과장하지 않고 후보·검토대상으로 명시했다.
+- 실제 원자재 실험에는 별도 승인된 PP 직접부품 재고품목 2,297개만 사용했다.
+- 별도 연구결과 종합문서와 정규화·메타코드 감사 JSON/CSV를 추가했다.
+
 ## PP 재계산 결과
 
 - 분석 범위: 승인된 PP 직접부품 매핑 2,297개 키 중 평가기간에 존재한 975개 품목,
@@ -39,11 +48,15 @@ PP 가격·변동성 신호는 수요 증가량으로 더하지 않는다. 동�
 - `outputs/pr100_reproducibility_metrics.csv`
 - `outputs/pr100_reproducibility_manifest.json`
 - `outputs/syringe_supply_risk_inventory_summary.json`
+- `docs/2026-08-19_03_RESEARCH_RESULT_SYNTHESIS.md`
+- `outputs/meta_code_normalization_research_audit.json`
+- `outputs/meta_code_normalization_research_metrics.csv`
 
 실행은 운영체제에 상관없이 프로젝트 환경에서 다음과 같이 한다.
 
 ```text
 python scripts/analysis/syringe_supply_risk_inventory_impact.py
+python scripts/analysis/meta_code_normalization_research_audit.py
 python scripts/analysis/build_pr100_reproducibility_manifest.py
 python -m pytest
 ```

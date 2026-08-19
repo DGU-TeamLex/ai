@@ -1,0 +1,12 @@
+﻿layer,metric,value,unit,claim_status
+normalization,mapping_rows,585279.0,rows,verified
+normalization,standard_item_count,125557.0,items,verified
+normalization,historical_training_eligible_pct,83.49852071005918,percent,verified
+normalization,historical_unmatched_items_excluded,29003.0,items,guardrail
+normalization,duplicate_period_local_keys,0.0,rows,quality_gate
+normalization,historical_validation_wape_change_pct_point,-1.9768672118515198,percentage_point,validation_selected
+meta_code_taxonomy,representative_item_rows,101546.0,rows,candidate_taxonomy
+meta_code_taxonomy,specific_family_pct,56.71419849132413,percent,candidate_taxonomy
+meta_code_taxonomy,classification_review_required_rows,100370.0,rows,limitation
+approved_material_mapping,approved_candidate_rows,2212.0,rows,experimental_approved
+approved_material_mapping,approved_stock_item_mapping_rows,2297.0,rows,experimental_approved

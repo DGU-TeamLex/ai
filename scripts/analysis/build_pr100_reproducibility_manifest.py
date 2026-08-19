@@ -27,6 +27,11 @@ FINGERPRINT_FILES = {
     "outputs/external_shock_experiment_report.csv": "external_signal_evidence",
     "outputs/external_shock_experiment_summary.json": "external_signal_uncertainty",
     "outputs/syringe_supply_risk_inventory_summary.json": "pp_supply_policy_evidence",
+    "outputs/meta_code_normalization_research_metrics.csv": "normalization_meta_code_metrics",
+    "outputs/meta_code_normalization_research_audit.json": "normalization_meta_code_audit",
+    "outputs/stock_standard_item_mapping_report.json": "standard_item_mapping_evidence",
+    "outputs/material_mapping_approval_report.json": "approved_material_scope_evidence",
+    "outputs/historical_training_weight_report.json": "historical_training_effect",
 }
 
 
@@ -173,6 +178,68 @@ def _metric_rows() -> list[dict[str, object]]:
                 "source": "outputs/syringe_supply_risk_inventory_summary.json",
             }
         )
+    normalization_audit = json.loads(
+        (OUTPUT_DIR / "meta_code_normalization_research_audit.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+    normalization = normalization_audit["normalization"]
+    meta_codes = normalization_audit["meta_codes"]
+    historical_effect = normalization_audit["historical_model_effect"]
+    for metric, value, unit, status in [
+        ("mapping_rows", normalization["mapping_rows"], "count", "verified"),
+        ("standard_item_count", normalization["standard_item_count"], "count", "verified"),
+        (
+            "historical_training_eligible_pct",
+            normalization["historical_training_eligible_pct"],
+            "percent",
+            "verified",
+        ),
+        (
+            "duplicate_period_local_keys",
+            normalization["duplicate_period_local_keys"],
+            "count",
+            "quality_gate",
+        ),
+        (
+            "historical_validation_wape_change_pct_point",
+            historical_effect["validation_wape_change_pct_point"],
+            "percentage_point",
+            "validation_selected",
+        ),
+        (
+            "specific_family_pct",
+            meta_codes["specific_family_pct"],
+            "percent",
+            "candidate_taxonomy",
+        ),
+        (
+            "classification_review_required_rows",
+            meta_codes["classification_review_required_rows"],
+            "count",
+            "limitation",
+        ),
+        (
+            "approved_stock_item_mapping_rows",
+            meta_codes["approved_stock_item_mapping_rows"],
+            "count",
+            "experimental_approved",
+        ),
+    ]:
+        rows.append(
+            {
+                "section": "normalization_meta_codes",
+                "role": "research_foundation",
+                "model_or_policy": "standard_item_and_meta_code_axis",
+                "cohort": "current_and_historical_items",
+                "metric": metric,
+                "value": value,
+                "unit": unit,
+                "period": "2018-2019 and 2024-2025",
+                "status": status,
+                "source": "outputs/meta_code_normalization_research_audit.json",
+            }
+        )
     return rows
 
 
@@ -185,6 +252,7 @@ def main() -> None:
         "code_commit": _git_value("rev-parse", "HEAD"),
         "branch": _git_value("branch", "--show-current"),
         "contracts": {
+            "normalization_meta_code_axis": "standard-item mapping verified; candidate taxonomy separated from approved material mappings",
             "demand_forecast_champion": "usage-only L1; lowest WAPE on the current research snapshot",
             "inventory_policy_challenger": "fixed 50:50 L1/Tweedie; not applied; confirm on a new month",
             "external_signals": "diagnostic ablation only; not included in operational demand forecast",
