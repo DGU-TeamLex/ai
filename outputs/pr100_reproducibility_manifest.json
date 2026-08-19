@@ -1,7 +1,7 @@
 {
   "version": "pr100-reproducibility-v1.0",
-  "generated_at_utc": "2026-08-19T02:13:28.271672+00:00",
-  "code_commit": "ce14bafc3689b24a07983b093c479f2b5f996817",
+  "generated_at_utc": "2026-08-19T02:25:01.618497+00:00",
+  "code_commit": "a7534a5443e97dff402459dda1fbcd2323922c2a",
   "branch": "feat/external-risk-shock-residual-model",
   "contracts": {
     "normalization_meta_code_axis": "standard-item mapping verified; candidate taxonomy separated from approved material mappings",
@@ -370,8 +370,8 @@
     {
       "path": "outputs/meta_code_normalization_research_metrics.csv",
       "role": "normalization_meta_code_metrics",
-      "size_bytes": 913,
-      "sha256": "f8be43697ae105953dac8930e5e1e63c970d3af1e0ea95c84e5d82cd81105b24",
+      "size_bytes": 1172,
+      "sha256": "47ca522d56eebf03f2a8ee2b2db795616ab87c266eb7602062050eeda188b0c3",
       "schema": [
         "layer",
         "metric",
@@ -379,17 +379,18 @@
         "unit",
         "claim_status"
       ],
-      "rows": 11
+      "rows": 14
     },
     {
       "path": "outputs/meta_code_normalization_research_audit.json",
       "role": "normalization_meta_code_audit",
-      "size_bytes": 4093,
-      "sha256": "6733feed3098cced46600b995665a379dcf18f2ca573444a8452d12f05766ad1",
+      "size_bytes": 5800,
+      "sha256": "165c3cab9673c55d48fb2d526be8832a4f16a1412a07bff0b5f1286e15d30a3e",
       "schema": [
         "historical_model_effect",
         "meta_codes",
         "normalization",
+        "raw_material_analysis_linkage",
         "research_interpretation",
         "sources",
         "status",
