@@ -1,0 +1,72 @@
+{
+  "status": "complete",
+  "analysis_contract": "post-hoc descriptive subgroup audit; not causal and not a model-selection test",
+  "evaluation_months": [
+    "2024-07",
+    "2025-06"
+  ],
+  "baseline_model": "stock_model_a_usage_only",
+  "commodity_model": "stock_model_g_commodity_shock_l1",
+  "approved_mapping_summary": [
+    {
+      "item_type": "DISPOSABLE_SYRINGE",
+      "raw_material_meta_code": "POLYPROPYLENE_PP",
+      "related_material": "polypropylene (PP)",
+      "approved_mapping_rows": 2297,
+      "approved_stock_items": 2297,
+      "mean_mapping_weight": 0.7,
+      "mean_exposure_score": 0.7
+    }
+  ],
+  "candidate_only_not_approved": {
+    "INJECTION_NEEDLE": [
+      "STAINLESS_STEEL",
+      "POLYPROPYLENE_PP"
+    ],
+    "ANGIO_CATHETER": [
+      "STAINLESS_STEEL",
+      "POLYURETHANE_PU",
+      "POLYPROPYLENE_PP"
+    ],
+    "warning": "품목군 후보 규칙이며 승인된 로컬 품목-원자재 연결이 아니다"
+  },
+  "signal_coverage": {
+    "all_external_connected_rows": 7544,
+    "disposable_syringe_external_connected_rows": 7544,
+    "disposable_syringe_share_of_all_connected_pct": 100.0
+  },
+  "disposable_syringe_all": {
+    "family": "DISPOSABLE_SYRINGE",
+    "cohort": "all",
+    "rows": 11873,
+    "months": 12,
+    "actual_sum": 173439.0,
+    "actual_mean": 14.60784974311463,
+    "commodity_signal_rows": 7544,
+    "commodity_signal_row_pct": 63.53912237850585,
+    "strong_commodity_shock_rows": 0,
+    "strong_external_shock_rows": 3166,
+    "mean_commodity_risk": 0.08882348984479904,
+    "baseline_wape": 41.2231147313031,
+    "commodity_wape": 41.10081606826722,
+    "delta_wape_vs_usage_only": -0.12229866303587755,
+    "baseline_bias_pct": -4.847997494312346,
+    "commodity_bias_pct": -5.389269272659519,
+    "prediction_delta_sum": -938.7763596475525,
+    "prediction_delta_mean": -0.07906816808283942,
+    "row_abs_error_improvement_pct": 45.06864313989725,
+    "within_item_risk_actual_corr": 0.011919078721138702,
+    "items_with_both_signal_states": 0,
+    "mean_item_demand_difference_signal_minus_no_signal": null,
+    "median_item_demand_difference_signal_minus_no_signal": null,
+    "delta_wape_ci95_low": -0.3299045192071406,
+    "delta_wape_ci95_high": 0.10486025494671472,
+    "improvement_probability": 0.84
+  },
+  "interpretation_guardrails": [
+    "원자재 가격·변동성은 주사기 사용수요보다 조달가격·공급가용성에 먼저 작용할 수 있다",
+    "주사침·카테터는 승인 매핑이 없어 0 신호를 연관성 부재로 해석하면 안 된다",
+    "평가 후 하위집단 분석이므로 유의확률을 최종 모형 선택에 사용하지 않는다"
+  ],
+  "report_path": "outputs/syringe_commodity_relationship_report.csv"
+}

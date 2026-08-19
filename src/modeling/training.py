@@ -38,6 +38,13 @@ from ..feature_engineering import run_feature_engineering
 from ..utils import ensure_dirs, setup_logging
 from .baseline import BASELINE_PREDICTION_COLUMNS, add_baseline_predictions
 from .metrics import regression_metrics
+from .external_risk_features import (
+    COMBINED_SHOCK_COLUMNS,
+    COMMODITY_RAW_COLUMNS,
+    COMMODITY_SHOCK_COLUMNS,
+    NEWS_RAW_COLUMNS,
+    NEWS_SHOCK_COLUMNS,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -84,8 +91,8 @@ IDENTIFIER_COLUMNS = {
     "standardization_confidence",
 }
 
-NEWS_COLUMNS = ["disease_news_risk", "supply_news_risk", "material_news_risk", "total_news_risk"]
-COMMODITY_COLUMNS = ["commodity_risk", "material_return_30d", "material_volatility_30d"]
+NEWS_COLUMNS = [*NEWS_RAW_COLUMNS, *NEWS_SHOCK_COLUMNS, *COMBINED_SHOCK_COLUMNS]
+COMMODITY_COLUMNS = [*COMMODITY_RAW_COLUMNS, *COMMODITY_SHOCK_COLUMNS, *COMBINED_SHOCK_COLUMNS]
 MODULE_C_COLUMNS = [
     "module_c_demand_risk",
     "module_c_supply_news_risk",
@@ -112,6 +119,11 @@ def _load_feature_table(
             excluded.update(COMMODITY_COLUMNS)
         if not model_options.get("use_module_c", False):
             excluded.update(MODULE_C_COLUMNS)
+        mode = model_options.get("external_feature_mode", "all")
+        if mode == "raw":
+            excluded.update([*NEWS_SHOCK_COLUMNS, *COMMODITY_SHOCK_COLUMNS, *COMBINED_SHOCK_COLUMNS])
+        elif mode == "shock":
+            excluded.update([*NEWS_RAW_COLUMNS, *COMMODITY_RAW_COLUMNS])
     training_columns = [column for column in schema_columns if column not in excluded]
     if "historical_training_eligible" in schema_columns:
         training_columns.append("historical_training_eligible")
@@ -230,6 +242,7 @@ def select_feature_columns(
     use_news: bool,
     use_commodity: bool,
     use_module_c: bool,
+    external_feature_mode: str = "all",
 ) -> list[str]:
     excluded = CURRENT_MONTH_COLUMNS | IDENTIFIER_COLUMNS | {TARGET_COLUMN, "year_month"}
     if not use_news:
@@ -238,6 +251,12 @@ def select_feature_columns(
         excluded.update(COMMODITY_COLUMNS)
     if not use_module_c:
         excluded.update(MODULE_C_COLUMNS)
+    if external_feature_mode == "raw":
+        excluded.update([*NEWS_SHOCK_COLUMNS, *COMMODITY_SHOCK_COLUMNS, *COMBINED_SHOCK_COLUMNS])
+    elif external_feature_mode == "shock":
+        excluded.update([*NEWS_RAW_COLUMNS, *COMMODITY_RAW_COLUMNS])
+    elif external_feature_mode != "all":
+        raise ValueError(f"Unknown external feature mode: {external_feature_mode}")
     return [col for col in df.columns if col not in excluded and not col.endswith("_pred")]
 
 
@@ -454,11 +473,24 @@ def save_model_bundle(bundle: dict) -> None:
 
 
 def _missing_external_signal(df: pd.DataFrame, options: dict) -> str | None:
-    if options["use_news"] and not df[NEWS_COLUMNS].fillna(0).abs().to_numpy().any():
+    mode = options.get("external_feature_mode", "all")
+    news_columns = NEWS_RAW_COLUMNS if mode == "raw" else NEWS_SHOCK_COLUMNS
+    commodity_columns = COMMODITY_RAW_COLUMNS if mode == "raw" else COMMODITY_SHOCK_COLUMNS
+    if mode == "all":
+        news_columns = NEWS_COLUMNS
+        commodity_columns = COMMODITY_COLUMNS
+
+    def has_signal(columns: list[str]) -> bool:
+        available = [column for column in columns if column in df.columns]
+        return bool(available) and bool(
+            df[available].fillna(0).abs().to_numpy().any()
+        )
+
+    if options["use_news"] and not has_signal(news_columns):
         return "news risk features contain no non-zero observations"
-    if options["use_commodity"] and not df[COMMODITY_COLUMNS].fillna(0).abs().to_numpy().any():
+    if options["use_commodity"] and not has_signal(commodity_columns):
         return "commodity risk features contain no non-zero observations"
-    if options.get("use_module_c", False) and not df[MODULE_C_COLUMNS].fillna(0).abs().to_numpy().any():
+    if options.get("use_module_c", False) and not has_signal(MODULE_C_COLUMNS):
         return "Module C risk features contain no non-zero observations"
     return None
 
@@ -577,6 +609,7 @@ def run_validation() -> list[str]:
             use_news=options["use_news"],
             use_commodity=options["use_commodity"],
             use_module_c=options.get("use_module_c", False),
+            external_feature_mode=options.get("external_feature_mode", "all"),
         )
         fold_actuals = []
         fold_predictions = []
@@ -716,6 +749,7 @@ def refit_model(name: str) -> None:
         use_news=options["use_news"],
         use_commodity=options["use_commodity"],
         use_module_c=options.get("use_module_c", False),
+        external_feature_mode=options.get("external_feature_mode", "all"),
     )
     historical_policy = load_historical_training_policy()
     historical_weight = float(

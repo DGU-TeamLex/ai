@@ -1,0 +1,143 @@
+{
+  "version": "meta-code-normalization-research-audit-v1.1",
+  "status": "complete",
+  "normalization": {
+    "mapping_rows": 585279,
+    "current_local_items": 409519,
+    "historical_local_items": 175760,
+    "historical_training_eligible_items": 146757,
+    "historical_training_eligible_pct": 83.49852071005918,
+    "historical_unmatched_items_excluded": 29003,
+    "standard_item_count": 125557,
+    "semantic_definition_eligible_rows": 556276,
+    "duplicate_period_local_keys": 0,
+    "missing_standard_item_keys": 0,
+    "missing_definition_keys": 0,
+    "mean_mapping_confidence": 0.9430620670318604,
+    "match_method_counts": {
+      "current_representative_name": 84808,
+      "current_semantic_definition": 324711,
+      "historical_core_name": 1736,
+      "historical_core_semantic": 1214,
+      "historical_name_fallback": 29003,
+      "historical_strict_name": 49502,
+      "historical_strict_semantic": 94305
+    },
+    "quality_gate_passed": true,
+    "source_report_consistent": true
+  },
+  "meta_codes": {
+    "representative_item_rows": 101546,
+    "specific_family_rows": 57591,
+    "specific_family_pct": 56.71419849132413,
+    "subtype_rows": 20597,
+    "specification_rows": 7337,
+    "unit_rows": 14952,
+    "verified_family_rows": 1176,
+    "approved_classification_rows": 1176,
+    "classification_review_required_rows": 100370,
+    "raw_material_meta_codes": {
+      "rows": 101546,
+      "actionable_rows": 58103,
+      "actionable_pct": 57.21840348216571,
+      "unique_tokens": 692,
+      "unique_actionable_tokens": 690
+    },
+    "raw_material_risk_meta_codes": {
+      "rows": 101546,
+      "actionable_rows": 58104,
+      "actionable_pct": 57.21938825753845,
+      "unique_tokens": 16,
+      "unique_actionable_tokens": 14
+    },
+    "demand_risk_meta_codes": {
+      "rows": 101546,
+      "actionable_rows": 46376,
+      "actionable_pct": 45.669942686073306,
+      "unique_tokens": 8,
+      "unique_actionable_tokens": 6
+    },
+    "integrated_material_review_status_counts": {
+      "needs_review": 101546
+    },
+    "approved_candidate_rows": 2212,
+    "approved_candidate_local_items": 2212,
+    "approved_stock_item_mapping_rows": 2297,
+    "approved_stock_item_count": 2297,
+    "approved_raw_material_code_counts": {
+      "POLYPROPYLENE_PP": 2297
+    },
+    "approved_relation_type_counts": {
+      "direct_component": 2297
+    },
+    "approved_mapping_duplicate_stock_keys": 0,
+    "approved_mapping_applied": false,
+    "quality_gate_passed": true
+  },
+  "historical_model_effect": {
+    "selection_metric": "minimum validation WAPE",
+    "selection_did_not_use_test": true,
+    "validation_period": "2025-01~2025-06",
+    "selected_historical_weight": 1.0,
+    "current_only_validation_wape_pct": 39.22295630945749,
+    "selected_with_history_validation_wape_pct": 37.24608909760597,
+    "validation_wape_change_pct_point": -1.9768672118515198,
+    "historical_training_rows": 952002,
+    "quality_gate_passed": true
+  },
+  "raw_material_analysis_linkage": {
+    "candidate_rows": 11383,
+    "approved_candidate_rows": 2212,
+    "candidate_approval_pct": 19.432487042080297,
+    "approved_stock_item_mapping_rows": 2297,
+    "analysis_stock_items": 975,
+    "analysis_item_month_rows": 3300,
+    "analysis_months": 5,
+    "analysis_filter": {
+      "raw_material_meta_code": "POLYPROPYLENE_PP",
+      "relation_type": "direct_component",
+      "review_status": "approved"
+    },
+    "linkage_chain": [
+      "normalized item",
+      "DISPOSABLE_SYRINGE family and SYRINGE_USAGE_BASED subtype",
+      "POLYPROPYLENE_PP candidate",
+      "evidence and conflict quality gates",
+      "approved stock_item_key",
+      "PP market risk",
+      "lead-time and safety-stock sensitivity"
+    ],
+    "policy_effect": {
+      "mean_effective_lead_time_increase_days": 4.191301760099999,
+      "safety_stock_delta_pct": 16.754244298405116,
+      "gated_order_delta_pct": 21.68790803480276
+    },
+    "demand_path_enabled": false,
+    "operational_adjustment_enabled": false,
+    "gate_checks": {
+      "approved_mapping_count_matches": true,
+      "analysis_filter_matches": true,
+      "family_matches": true,
+      "material_matches": true,
+      "relation_matches": true,
+      "demand_path_disabled": true,
+      "operational_adjustment_disabled": true
+    },
+    "quality_gate_passed": true
+  },
+  "research_interpretation": {
+    "contribution": "정규화와 계층형 메타코드는 과거품목·현재품목·외부위험·재고정책을 연결하는 공통 분석축을 제공했다.",
+    "claim_boundary": "통합 메타코드는 후보 분류를 포함하며 인과관계를 증명하지 않는다. 원자재 효과 분석에는 별도 승인 매핑만 사용한다.",
+    "normalization_distinction": "품목명·규격·단위 표준화와 외부위험 점수의 0~1 수치 정규화는 서로 다른 절차다.",
+    "raw_material_enablement": "메타코드는 승인된 주사기-PP 직접부품 경로에만 원자재 위험을 전달하고 동일 재고키로 리드타임·안전재고·발주 민감도를 추적하게 했다."
+  },
+  "sources": {
+    "standard_mapping": "data/processed/stock_standard_item_mapping.parquet",
+    "standard_report": "outputs/stock_standard_item_mapping_report.json",
+    "integrated_taxonomy": "data/processed/item_integrated_classification_v2.parquet",
+    "approved_material_mapping": "data/mapping/stock_item_material_mapping.csv",
+    "approval_report": "outputs/material_mapping_approval_report.json",
+    "historical_effect": "outputs/historical_training_weight_report.json",
+    "supply_analysis": "outputs/syringe_supply_risk_inventory_summary.json"
+  }
+}

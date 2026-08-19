@@ -141,8 +141,8 @@
   "trade_score_month_max": "2025-12",
   "trade_audit_scope": "latest_scored_month_path_snapshot",
   "trade_score_scope": "observed_stock_item_months_only",
-  "trade_score_rows": 1261282,
-  "trade_scored_stock_items": 155278,
+  "trade_score_rows": 20345,
+  "trade_scored_stock_items": 2297,
   "trade_feature_variable_count": 10,
   "trade_feature_variables": [
     "import_volume_decline_risk",
@@ -181,10 +181,10 @@
     "HS_NET_IMPORT_EXPOSURE": 2066
   },
   "max_hs_trade_risk": 0.745627,
-  "max_item_trade_risk": 0.19430460237500002,
+  "max_item_trade_risk": 0.036057709064346244,
   "operational_status": "ready",
-  "hs_feature_path": "C:\\Users\\user\\TeamLex-ai\\outputs\\hs_trade_risk_features.csv",
-  "hs_feature_sample_path": "C:\\Users\\user\\TeamLex-ai\\data\\sample\\hs_trade_risk_features_sample_1000.csv",
-  "score_path": "C:\\Users\\user\\TeamLex-ai\\outputs\\stock_trade_risk_scores.csv",
-  "audit_path": "C:\\Users\\user\\TeamLex-ai\\outputs\\stock_trade_risk_audit.csv"
+  "hs_feature_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\hs_trade_risk_features.csv",
+  "hs_feature_sample_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\data\\sample\\hs_trade_risk_features_sample_1000.csv",
+  "score_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\stock_trade_risk_scores.csv",
+  "audit_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\stock_trade_risk_audit.csv"
 }

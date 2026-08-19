@@ -1,43 +1,30 @@
 {
   "module": "C",
   "config_version": "module-c-v1.4-trade20-temporal",
-  "calibration_status": "20_country_train_validation_test_stockout_proxy_calibrated_requires_operational_validation",
-  "coefficient_basis": "trade_component_thresholds_from_20_country_quantiles_and_weights_selected_on_validation_then_evaluated_on_test",
-  "risk_score_count": 5824593,
-  "risk_adjustment_enabled_count": 5824593,
-  "alert_count": 2595349,
-  "approved_material_mapping_rows": 82947,
-  "approved_material_stock_item_count": 54511,
+  "calibration_status": "shadow_only_latest_issue_review_found_no_multiplicity_adjusted_holdout_evidence",
+  "coefficient_basis": "experimental_relative_risk_weights_not_approved_for_order_quantity_changes",
+  "risk_score_count": 316986,
+  "risk_adjustment_enabled_count": 316986,
+  "alert_count": 122575,
+  "approved_material_mapping_rows": 2297,
+  "approved_material_stock_item_count": 2297,
   "approved_material_mapping_versions": [
-    "item-material-bulk-v1.0"
+    "material-approval-pilot-v1.0"
   ],
-  "trade_signal_score_rows": 1261282,
-  "trade_signal_stock_item_count": 155278,
-  "trade_signal_enabled_count": 1261282,
+  "trade_signal_score_rows": 20345,
+  "trade_signal_stock_item_count": 2297,
+  "trade_signal_enabled_count": 20345,
   "module_c_audit_scope": "latest_scored_month_signal_snapshot",
   "preflight": {
-    "dotenv_loaded_keys": [
-      "ALPHA_VANTAGE_API_KEY",
-      "COMMODITY_END_DATE",
-      "COMMODITY_PROVIDER",
-      "COMMODITY_REFRESH",
-      "COMMODITY_START_DATE",
-      "DATABASE_URL",
-      "DATA_GO_KR_SERVICE_KEY",
-      "NEWS_DATA_PATH",
-      "NEWS_PROVIDER",
-      "TRADE_END_MONTH",
-      "TRADE_PROVIDER",
-      "TRADE_START_MONTH"
-    ],
+    "dotenv_loaded_keys": [],
     "providers": {
       "news": "csv",
-      "commodity": "alpha_vantage",
-      "trade": "kcs"
+      "commodity": "csv",
+      "trade": "csv"
     },
     "api_keys_present": {
-      "DATA_GO_KR_SERVICE_KEY": true,
-      "ALPHA_VANTAGE_API_KEY": true
+      "DATA_GO_KR_SERVICE_KEY": false,
+      "ALPHA_VANTAGE_API_KEY": false
     },
     "artifacts_present": {
       "news_risk": true,
@@ -46,18 +33,18 @@
     }
   },
   "exposure": {
-    "approved_classification_count": 409519,
-    "classification_with_representative_count": 409519,
-    "candidate_count": 623408,
+    "approved_classification_count": 4969,
+    "classification_with_representative_count": 4969,
+    "candidate_count": 11383,
     "official_material_claim_approved_count": 0,
-    "candidate_local_item_count": 409519,
-    "market_factor_covered_count": 216233,
+    "candidate_local_item_count": 4969,
+    "market_factor_covered_count": 6741,
     "material_review_approved_count": 0,
-    "family_conflict_count": 435124,
-    "supply_policy_review_count": 249835,
-    "supply_policy_review_local_item_count": 172238,
-    "supply_policy_unmapped_count": 249835,
-    "supply_policy_unmapped_local_item_count": 172238,
+    "family_conflict_count": 0,
+    "supply_policy_review_count": 644,
+    "supply_policy_review_local_item_count": 322,
+    "supply_policy_unmapped_count": 644,
+    "supply_policy_unmapped_local_item_count": 322,
     "operational_risk_eligible_count": 0,
     "blocked_reason": "material_candidates_require_explicit_review_before_inventory_adjustment"
   },
@@ -65,15 +52,15 @@
     "rules_version": "supply-risk-anomaly-rules-v1.0",
     "policy_version": "supply-risk-level-v1.3-periodic-review",
     "operational_mode": false,
-    "input_rows": 409519,
-    "pass_rows": 12996,
-    "review_rows": 224285,
-    "blocked_rows": 172238,
-    "operationally_eligible_rows": 12996,
+    "input_rows": 4969,
+    "pass_rows": 0,
+    "review_rows": 4647,
+    "blocked_rows": 322,
+    "operationally_eligible_rows": 0,
     "row_issue_counts": {
-      "SR003_UNMAPPED_META_CODE": 172238,
-      "SR018_LEGACY_CODE_ALIAS_USED": 200430,
-      "SR019_NON_SUPPLY_CODE_IN_BASELINE": 152418
+      "SR003_UNMAPPED_META_CODE": 322,
+      "SR018_LEGACY_CODE_ALIAS_USED": 1213,
+      "SR019_NON_SUPPLY_CODE_IN_BASELINE": 4647
     },
     "dataset_issue_codes": [],
     "dataset_quality_status": "PASS",

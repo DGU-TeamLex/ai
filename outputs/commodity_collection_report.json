@@ -1,0 +1,60 @@
+{
+  "version": "commodity-collection-provenance-v1",
+  "requested_provider": "csv",
+  "providers": {
+    "alpha_vantage": 9379
+  },
+  "rows": 9379,
+  "cache_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\data\\external\\market\\commodity_prices.csv",
+  "cache_sha256": "237e401a510cddd91ce047d604a3c685922dfb93d903afd2f418ca79f98ff4ce",
+  "series": {
+    "ALUMINUM": {
+      "rows": 138,
+      "date_min": "2015-01-01",
+      "date_max": "2026-06-01",
+      "median_observation_gap_days": 31.0
+    },
+    "BRENT_CRUDE": {
+      "rows": 2917,
+      "date_min": "2015-01-02",
+      "date_max": "2026-06-30",
+      "median_observation_gap_days": 1.0
+    },
+    "COPPER": {
+      "rows": 138,
+      "date_min": "2015-01-01",
+      "date_max": "2026-06-01",
+      "median_observation_gap_days": 31.0
+    },
+    "CORN": {
+      "rows": 138,
+      "date_min": "2015-01-01",
+      "date_max": "2026-06-01",
+      "median_observation_gap_days": 31.0
+    },
+    "COTTON": {
+      "rows": 138,
+      "date_min": "2015-01-01",
+      "date_max": "2026-06-01",
+      "median_observation_gap_days": 31.0
+    },
+    "NATURAL_GAS": {
+      "rows": 2897,
+      "date_min": "2015-01-02",
+      "date_max": "2026-06-30",
+      "median_observation_gap_days": 1.0
+    },
+    "SUGAR": {
+      "rows": 138,
+      "date_min": "2015-01-01",
+      "date_max": "2026-06-01",
+      "median_observation_gap_days": 31.0
+    },
+    "WTI_CRUDE": {
+      "rows": 2875,
+      "date_min": "2015-01-02",
+      "date_max": "2026-06-30",
+      "median_observation_gap_days": 1.0
+    }
+  }
+}

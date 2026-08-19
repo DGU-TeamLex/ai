@@ -491,12 +491,14 @@ MODEL_VARIANTS = {
         "use_commodity": False,
         "use_module_c": False,
         "objective": "tweedie",
+        "external_feature_mode": "raw",
     },
     "stock_model_c_news_commodity": {
         "use_news": True,
         "use_commodity": True,
         "use_module_c": False,
         "objective": "tweedie",
+        "external_feature_mode": "raw",
     },
     # 원자재 단독. 뉴스를 빼고 원자재 신호만 본다.
     #
@@ -512,12 +514,35 @@ MODEL_VARIANTS = {
         "use_commodity": True,
         "use_module_c": False,
         "objective": "regression_l1",
+        "external_feature_mode": "raw",
     },
     "stock_model_d_module_c": {
         "use_news": False,
         "use_commodity": False,
         "use_module_c": True,
         "objective": "tweedie",
+    },
+    # 공정 비교용 외부충격 변형. A와 같은 L1 목적함수를 쓰고 외부신호만 바꾼다.
+    "stock_model_f_news_shock_l1": {
+        "use_news": True,
+        "use_commodity": False,
+        "use_module_c": False,
+        "objective": "regression_l1",
+        "external_feature_mode": "shock",
+    },
+    "stock_model_g_commodity_shock_l1": {
+        "use_news": False,
+        "use_commodity": True,
+        "use_module_c": False,
+        "objective": "regression_l1",
+        "external_feature_mode": "shock",
+    },
+    "stock_model_h_news_commodity_shock_l1": {
+        "use_news": True,
+        "use_commodity": True,
+        "use_module_c": False,
+        "objective": "regression_l1",
+        "external_feature_mode": "shock",
     },
 }
 

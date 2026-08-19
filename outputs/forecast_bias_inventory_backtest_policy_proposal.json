@@ -1,0 +1,19 @@
+{
+  "version": "forecast-balanced-50-50-proposal-v1.0",
+  "status": "proposal_not_applied",
+  "l1_weight": 0.5,
+  "tweedie_weight": 0.5,
+  "evidence": {
+    "candidate": "blend_tweedie_050",
+    "tweedie_weight": 0.5,
+    "validation_WAPE": 35.81449092580222,
+    "validation_BIAS_PCT": -8.76743199346157,
+    "test_WAPE": 36.17963637731045,
+    "test_BIAS_PCT": -3.920354899030817,
+    "fill_rate": 0.9802028336718015,
+    "stockout_series_month_rate": 0.02282408013142018,
+    "mean_ending_stock": 977.721390769966,
+    "order_sum": 14451946.368573604
+  },
+  "deployment_gate": "confirm on at least one new out-of-sample month"
+}
