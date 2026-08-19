@@ -14,7 +14,7 @@
     "cooldown_seconds": 90,
     "bootstrap_draws": 500
   },
-  "checkpoint_dir": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\external_shock_experiment_checkpoints_v3_full_isolated",
+  "checkpoint_dir": "outputs/external_shock_experiment_checkpoints_v3_full_isolated",
   "objective_contract": "all direct variants use regression_l1",
   "target": "next-month demand",
   "shock_threshold": 0.8,
@@ -53,10 +53,10 @@
     },
     {
       "model": "stock_model_i_external_shock_residual_l1",
-      "delta_wape_vs_usage_only": -1.0785342396957276e-08,
+      "delta_wape_vs_usage_only": -1.0785342396957276E-08,
       "bootstrap_draws": 500,
-      "delta_wape_ci95_low": -2.0014506942683692e-08,
-      "delta_wape_ci95_high": -2.6777526422020048e-09,
+      "delta_wape_ci95_low": -2.0014506942683692E-08,
+      "delta_wape_ci95_high": -2.6777526422020048E-09,
       "improvement_probability": 1.0
     }
   ],
@@ -94,6 +94,6 @@
       "correction_clip_high": 14.995521605513243
     }
   ],
-  "report_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\external_shock_experiment_report.csv",
-  "prediction_path": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\external_shock_experiment_predictions.parquet"
+  "report_path": "outputs/external_shock_experiment_report.csv",
+  "prediction_path": "outputs/external_shock_experiment_predictions.parquet"
 }

@@ -1,7 +1,7 @@
 {
   "version": "stock-combination-v1.0",
   "status": "reused_evaluation_slice_not_operational",
-  "source": "C:\\Users\\user\\Documents\\ChatGPT\\teamlex\\outputs\\stock_backtest_predictions.csv",
+  "source": "outputs/stock_backtest_predictions.csv",
   "calibration_months": [
     "2025-08",
     "2025-09"

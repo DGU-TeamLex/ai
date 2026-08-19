@@ -243,7 +243,7 @@ def _metric_grid(
                     abs(float(test["WAPE"]) - target_wape)
                     + abs(float(test["BIAS_PCT"]) - target_bias)
                 ),
-                "is_predeclared_50_50": integer_weight == 50,
+                "is_fixed_50_50_candidate": integer_weight == 50,
             }
         )
     for candidate, column in [("current_temporal_ensemble", TEMPORAL_COLUMN)]:
@@ -260,7 +260,7 @@ def _metric_grid(
                     abs(float(test["WAPE"]) - target_wape)
                     + abs(float(test["BIAS_PCT"]) - target_bias)
                 ),
-                "is_predeclared_50_50": False,
+                "is_fixed_50_50_candidate": False,
             }
         )
     return pd.DataFrame(rows)
@@ -378,8 +378,8 @@ def run_experiment(
     monthly = pd.concat(monthly_frames, ignore_index=True)
     combined = metric_grid.merge(inventory, on=["candidate", "tweedie_weight"], how="left")
 
-    predeclared = combined[
-        combined["is_predeclared_50_50"]
+    fixed_50_50 = combined[
+        combined["is_fixed_50_50_candidate"]
         & combined["population"].eq("quality_eligible")
     ].iloc[0]
     retrospective = combined[
@@ -440,7 +440,7 @@ def run_experiment(
     summary = {
         "version": POLICY_VERSION,
         "status": "completed_not_applied",
-        "source": str(source.relative_to(ROOT)),
+        "source": source.resolve().relative_to(ROOT.resolve()).as_posix(),
         "full_rows": int(len(frame)),
         "validation_months": list(DEFAULT_VALIDATION_MONTHS),
         "test_months": list(DEFAULT_TEST_MONTHS),
@@ -458,7 +458,7 @@ def run_experiment(
             "evaluation_actual_used_for_uncertainty": False,
         },
         "panel": panel_meta,
-        "predeclared_balanced_50_50": selected_payload(predeclared),
+        "fixed_balanced_50_50_candidate": selected_payload(fixed_50_50),
         "validation_governed_candidate": selected_payload(validation_governed),
         "retrospective_continuity_fit": selected_payload(retrospective),
         "decision": (
@@ -473,11 +473,11 @@ def run_experiment(
             "Opening-stock outliers above the threshold are retained in all_common_series but excluded from quality_eligible.",
         ],
         "outputs": {
-            "report": str(report_path.relative_to(ROOT)),
-            "forecast_grid": str(grid_path.relative_to(ROOT)),
-            "monthly": str(monthly_path.relative_to(ROOT)),
-            "summary": str(summary_path.relative_to(ROOT)),
-            "policy_proposal": str(proposal_path.relative_to(ROOT)),
+            "report": report_path.relative_to(ROOT).as_posix(),
+            "forecast_grid": grid_path.relative_to(ROOT).as_posix(),
+            "monthly": monthly_path.relative_to(ROOT).as_posix(),
+            "summary": summary_path.relative_to(ROOT).as_posix(),
+            "policy_proposal": proposal_path.relative_to(ROOT).as_posix(),
         },
     }
     summary_path.write_text(
@@ -490,7 +490,7 @@ def run_experiment(
                 "status": "proposal_not_applied",
                 "l1_weight": 0.5,
                 "tweedie_weight": 0.5,
-                "evidence": summary["predeclared_balanced_50_50"],
+                "evidence": summary["fixed_balanced_50_50_candidate"],
                 "deployment_gate": "confirm on at least one new out-of-sample month",
             },
             ensure_ascii=False,

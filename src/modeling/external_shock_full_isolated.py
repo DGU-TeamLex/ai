@@ -24,10 +24,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..config import MODEL_VARIANTS, OUTPUT_DIR, TARGET_COLUMN, VALIDATION_FOLDS
+from ..config import (
+    MODEL_VARIANTS,
+    OUTPUT_DIR,
+    PROJECT_ROOT,
+    TARGET_COLUMN,
+    VALIDATION_FOLDS,
+)
 from ..utils import ensure_dirs, setup_logging
 from . import external_shock_experiment as experiment
 from . import external_shock_resumable as resumable
+from .artifact_paths import portable_artifact_path
 from . import training
 
 
@@ -303,7 +310,7 @@ def _aggregate(checkpoint_dir: Path, bootstrap_draws: int) -> None:
         "status": "complete",
         "execution_mode": "full_capacity_isolated_process",
         "resource_profile": profile,
-        "checkpoint_dir": str(checkpoint_dir),
+        "checkpoint_dir": portable_artifact_path(checkpoint_dir, PROJECT_ROOT),
         "objective_contract": "all direct variants use regression_l1",
         "target": "next-month demand",
         "shock_threshold": 0.8,
@@ -311,17 +318,17 @@ def _aggregate(checkpoint_dir: Path, bootstrap_draws: int) -> None:
         "historical_training_policy_version": policy.get("version"),
         "bootstrap": bootstrap,
         "residual_audit": residual_audit,
-        "report_path": str(experiment.REPORT_PATH),
-        "prediction_path": str(experiment.PREDICTION_PATH),
+        "report_path": portable_artifact_path(experiment.REPORT_PATH, PROJECT_ROOT),
+        "prediction_path": portable_artifact_path(experiment.PREDICTION_PATH, PROJECT_ROOT),
     }
     _atomic_json(experiment.SUMMARY_PATH, summary)
     _write_status(
         "complete",
         "complete",
         completed_tasks=_completed_tasks(checkpoint_dir),
-        report_path=str(experiment.REPORT_PATH),
-        summary_path=str(experiment.SUMMARY_PATH),
-        prediction_path=str(experiment.PREDICTION_PATH),
+        report_path=portable_artifact_path(experiment.REPORT_PATH, PROJECT_ROOT),
+        summary_path=portable_artifact_path(experiment.SUMMARY_PATH, PROJECT_ROOT),
+        prediction_path=portable_artifact_path(experiment.PREDICTION_PATH, PROJECT_ROOT),
     )
 
 

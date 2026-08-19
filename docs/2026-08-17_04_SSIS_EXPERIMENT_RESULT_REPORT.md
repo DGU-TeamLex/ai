@@ -531,7 +531,7 @@ BIAS%는 -7.592%에서 -5.890%로 개선됐다.[주 7]
 보고서 데이터 사례는 다음 명령으로 다시 추출할 수 있다.
 
 ```text
-.venv\Scripts\python.exe scripts/analysis/report_data_examples.py --sample-limit 5
+python scripts/analysis/report_data_examples.py --sample-limit 5
 ```
 
 스크립트는 Parquet을 읽기만 하며 기관·로컬 품목 키를 SHA-256 앞 8자리로 가명화한다.

@@ -36,7 +36,7 @@
     "stock_outlier_series": 21,
     "quality_eligible_series": 91716
   },
-  "predeclared_balanced_50_50": {
+  "fixed_balanced_50_50_candidate": {
     "candidate": "blend_tweedie_050",
     "tweedie_weight": 0.5,
     "validation_WAPE": 35.81449092580222,

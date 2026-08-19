@@ -160,8 +160,8 @@
 재현 명령:
 
 ```text
-.venv\Scripts\python.exe -m unittest tests.test_forecast_bias_inventory_backtest
-.venv\Scripts\python.exe -u scripts\analysis\forecast_bias_inventory_backtest.py
+python -m unittest tests.test_forecast_bias_inventory_backtest
+python scripts/analysis/forecast_bias_inventory_backtest.py
 ```
 
 ## 각주

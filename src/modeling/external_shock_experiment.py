@@ -18,12 +18,14 @@ import pandas as pd
 from ..config import (
     MODEL_VARIANTS,
     OUTPUT_DIR,
+    PROJECT_ROOT,
     RANDOM_STATE,
     TARGET_COLUMN,
     TRAIN_START,
     VALIDATION_FOLDS,
 )
 from ..utils import ensure_dirs, setup_logging
+from .artifact_paths import portable_artifact_path
 from .external_risk_features import (
     COMBINED_SHOCK_COLUMNS,
     COMMODITY_SHOCK_COLUMNS,
@@ -319,8 +321,8 @@ def run_experiment(*, include_residual: bool = True, bootstrap_draws: int = 500)
         "historical_training_policy_version": policy.get("version"),
         "bootstrap": bootstrap,
         "residual_audit": residual_audit,
-        "report_path": str(REPORT_PATH),
-        "prediction_path": str(PREDICTION_PATH),
+        "report_path": portable_artifact_path(REPORT_PATH, PROJECT_ROOT),
+        "prediction_path": portable_artifact_path(PREDICTION_PATH, PROJECT_ROOT),
     }
     SUMMARY_PATH.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     LOGGER.info("Saved external shock experiment: %s", REPORT_PATH)

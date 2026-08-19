@@ -542,11 +542,15 @@ PP 공급위험 Rpp = PP 가격위험 × 0.35 / 0.45
 | 최대 유효 리드타임 | 30.00일 | 36.53일 | +6.53일 |
 | 안전재고 행 합계 | 29,727.32 | 34,707.91 | +16.75% |
 | 목표재고 행 합계 | 98,991.65 | 108,763.79 | +9.87% |
-| 제안발주량 행 합계 | 6,787.48 | 8,300.89 | +22.30% |
+| 품질 게이트 전 계산발주량 행 합계 | 6,787.48 | 8,300.89 | +22.30%, 증가행 199개 |
+| 품질 게이트 후 제안발주량 행 합계 | 5,574.20 | 6,783.13 | +21.69%, 증가행 118개 |
 
-제안발주량이 증가한 행은 199/3,300개다. 나머지는 재고포지션이 병렬 목표재고보다 이미 높아 주문량이
-0으로 유지됐다. 설정의 `operational_adjustment_enabled=false`도 그대로 두었으므로 화면의 실제
-제안발주량은 바뀌지 않는다.
+원자재 매핑은 `review_status=approved`, `raw_material_meta_code=POLYPROPYLENE_PP`,
+`relation_type=direct_component`를 모두 만족한 2,297개 키만 통과시켰다. 품질 게이트는 기준안과
+병렬안에 동일하게 적용했다. 전체 3,300개 품목-월 중 정상 계산 가능 행은 1,579개이며, 휴면·미운영
+1,104개 행은 0으로 억제하고 자료누락·오래된 관측 617개 행은 자동값 대신 검토 대상으로 남겼다.
+따라서 기존 +22.30%는 게이트 전 정책 민감도이고, 최종 비교값은 게이트 후 +21.69%다. 설정의
+`operational_adjustment_enabled=false`도 그대로이므로 화면의 실제 제안발주량은 바뀌지 않는다.
 
 이 결과는 **공급위험 정책 민감도 시나리오**이지, PP 가격 상승이 실제 납기지연이나 품절을 일으켰다는
 인과검정은 아니다. 현재 원장에는 PP 구매단가, 주문일, 약속일, 실제 입고일, 부분입고, 결품원인이
@@ -586,8 +590,10 @@ PP 공급위험 Rpp = PP 가격위험 × 0.35 / 0.45
 
 중간발표 수치와 가장 비슷한 값을 만들기 위해 모형을 맞추는 것이 목적이 아니다. 같은 산식과
 평가계약으로 재현할 수 있고, 품절과 평균재고의 교환관계를 설명할 수 있는 결과를 제시하는 것이
-목적이다. 따라서 최종 발표의 대표값은 50:50의 `WAPE 36.180%, BIAS -3.920%`로 제시하되,
-반드시 `재사용 평가·도전모형·미적용`이라는 설명을 함께 붙인다.
+목적이다. 최종 발표의 **수요예측 대표값**은 L1의 `WAPE 35.714%, BIAS -9.617%`로 제시한다.
+50:50의 `WAPE 36.180%, BIAS -3.920%`는 **재고정책 도전모형** 결과로 별도 제시하고,
+반드시 `재사용 평가·신규 월 확인 전 미적용`이라는 설명을 붙인다. 두 수치는 서로 다른 역할을
+가지므로 하나의 최종 대표모형처럼 혼용하지 않는다.
 
 ## 13. 확인된 한계와 개선 우선순위
 
@@ -645,12 +651,16 @@ PP 공급위험 Rpp = PP 가격위험 × 0.35 / 0.45
 | `outputs/syringe_supply_risk_inventory_impact.csv` | 30일 기준 월별 리드타임·안전재고·발주 민감도 |
 | `outputs/syringe_supply_risk_inventory_summary.json` | 공급위험 경로·합계·운영차단 상태 요약 |
 | `scripts/analysis/syringe_commodity_relationship.py` | 원자재를 수요예측에 넣지 않기 위한 대조진단 코드 |
+| `outputs/pr100_reproducibility_metrics.csv` | 주모형·도전모형·외부신호·PP 정책 핵심지표의 소형 표 |
+| `outputs/pr100_reproducibility_manifest.json` | 입력·산출물 SHA-256, 행수, 스키마, 커밋과 평가계약 |
+| `docs/2026-08-19_02_PR100_REVIEW_RESPONSE.md` | 재검토 지적별 판정과 반영 기록 |
 
 재현 명령:
 
 ```text
-.venv\Scripts\python.exe -m unittest tests.test_forecast_bias_inventory_backtest
-.venv\Scripts\python.exe -u scripts\analysis\forecast_bias_inventory_backtest.py
+python -m unittest tests.test_forecast_bias_inventory_backtest
+python scripts/analysis/forecast_bias_inventory_backtest.py
+python scripts/analysis/syringe_supply_risk_inventory_impact.py
 ```
 
 ## 16. 최종 결론

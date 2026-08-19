@@ -110,6 +110,7 @@ outputs/*
 !outputs/stock_model_validation_report.csv
 !outputs/syringe_commodity_relationship_report.csv
 !outputs/syringe_supply_risk_inventory_impact.csv
+!outputs/pr100_reproducibility_metrics.csv
 !outputs/trade_weight_calibration_policy.csv
 !outputs/trade_weight_calibration_observations.csv
 # 숨김 백업(.news_scores_before_rescale.csv 등)은 제외한다.

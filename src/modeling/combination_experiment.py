@@ -20,9 +20,11 @@ from ..config import (
     MODEL_COMBINATION_SEGMENT_EVALUATION_PATH,
     MONTHLY_STOCK_PATH,
     OUTPUT_DIR,
+    PROJECT_ROOT,
     SAMPLE_DATA_DIR,
 )
 from ..utils import ensure_dirs, setup_logging
+from .artifact_paths import portable_artifact_path
 from .metrics import regression_metrics
 
 
@@ -1100,7 +1102,7 @@ def run_combination_experiment(
     policy = {
         "version": EXPERIMENT_VERSION,
         "status": "reused_evaluation_slice_not_operational",
-        "source": str(backtest_path),
+        "source": portable_artifact_path(backtest_path, PROJECT_ROOT),
         "calibration_months": calibration_months,
         "evaluation_months": evaluation_months,
         "service_level": service_level,

@@ -14,6 +14,7 @@ from ..config import (
 )
 from ..module_c.config import load_module_c_config
 from ..module_c.supply_risk_policy import load_supply_risk_policy
+from .order_quality_gate import apply_order_quality_gates
 
 
 MODULE_C_POLICY_COLUMNS = {
@@ -506,47 +507,11 @@ def add_inventory_recommendations(
             result["target_stock"] - result["inventory_position"],
             0,
         )
-        result["raw_recommended_order"] = result["recommended_order"]
-        suppression_reason = pd.Series("", index=result.index, dtype="string")
-        dormant = (
-            result.get(
-                "demand_class",
-                pd.Series("", index=result.index, dtype="string"),
-            )
-            .astype("string")
-            .fillna("")
-            .str.upper()
-            .eq("DORMANT")
+        result = apply_order_quality_gates(
+            result,
+            order_col="recommended_order",
+            raw_order_col="raw_recommended_order",
+            suppressed_col="order_recommendation_suppressed",
+            reason_col="order_recommendation_suppression_reason",
         )
-        zero_reason = (
-            result.get(
-                "zero_stock_reason",
-                pd.Series("", index=result.index, dtype="string"),
-            )
-            .astype("string")
-            .fillna("")
-            .str.upper()
-        )
-        not_operated = zero_reason.eq("NOT_OPERATED")
-        review_required = zero_reason.isin(
-            {"DATA_MISSING", "STALE_OR_MISSING_OBSERVATION"}
-        )
-        suppression_reason = suppression_reason.mask(
-            dormant,
-            "DORMANT",
-        )
-        suppression_reason = suppression_reason.mask(
-            not_operated,
-            "NOT_OPERATED",
-        )
-        suppression_reason = suppression_reason.mask(
-            review_required,
-            zero_reason,
-        )
-        result.loc[dormant | not_operated, "recommended_order"] = 0.0
-        result.loc[review_required, "recommended_order"] = np.nan
-        result["order_recommendation_suppressed"] = (
-            dormant | not_operated | review_required
-        )
-        result["order_recommendation_suppression_reason"] = suppression_reason
     return result

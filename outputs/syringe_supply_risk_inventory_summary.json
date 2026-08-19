@@ -2,12 +2,24 @@
   "scope": {
     "family": "DISPOSABLE_SYRINGE",
     "material": "POLYPROPYLENE_PP",
+    "relation_type": "direct_component",
     "rows": 3300,
     "stock_items": 975,
     "months": 5,
     "period_start": "2025-08-01",
     "period_end": "2025-12-01",
     "base_lead_time_days": 30.0
+  },
+  "mapping_audit": {
+    "mapping_rows_total": 2297,
+    "approved_pp_direct_rows": 2297,
+    "approved_pp_direct_stock_items": 2297,
+    "duplicate_mapping_rows": 0,
+    "filter": {
+      "raw_material_meta_code": "POLYPROPYLENE_PP",
+      "relation_type": "direct_component",
+      "review_status": "approved"
+    }
   },
   "risk": {
     "market_price_risk_mean": 0.18582126029999999,
@@ -36,15 +48,38 @@
     "delta": 9772.135906428157,
     "delta_pct": 9.87167701833205
   },
-  "recommended_order": {
+  "recommended_order_ungated": {
     "baseline_total": 6787.481664243468,
     "shadow_total": 8300.89126143498,
     "delta": 1513.4095971915112,
     "delta_pct": 22.29707087334277,
     "rows_increased": 199
   },
+  "recommended_order_gated": {
+    "baseline_total": 5574.200625399306,
+    "shadow_total": 6783.128130711308,
+    "delta": 1208.9275053120018,
+    "delta_pct": 21.68790803480276,
+    "rows_increased": 118,
+    "eligible_rows": 1579,
+    "suppressed_rows": 1721,
+    "suppressed_to_zero_rows": 1104,
+    "review_required_rows": 617
+  },
+  "recommended_order": {
+    "baseline_total": 5574.200625399306,
+    "shadow_total": 6783.128130711308,
+    "delta": 1208.9275053120018,
+    "delta_pct": 21.68790803480276,
+    "rows_increased": 118,
+    "eligible_rows": 1579,
+    "suppressed_rows": 1721,
+    "suppressed_to_zero_rows": 1104,
+    "review_required_rows": 617
+  },
   "policy": {
     "operational_adjustment_enabled": false,
+    "external_demand_signal_in_forecast": false,
     "interpretation": "PP 가격·변동성 상승을 사용수요 증가로 해석하지 않고, 공급차질 가능성에 대비한 리드타임·안전재고 병렬 신호로 사용",
     "limitation": "구매단가·실제 입고일·결품 원인 자료가 없어 인과효과나 실제 품절 감소를 검증한 결과가 아니라 정책 민감도 시나리오임"
   }
