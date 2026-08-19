@@ -20,6 +20,7 @@ DEFAULT_INTEGRATED = (
 DEFAULT_APPROVED_MAPPING = ROOT / "data" / "mapping" / "stock_item_material_mapping.csv"
 DEFAULT_APPROVAL_REPORT = ROOT / "outputs" / "material_mapping_approval_report.json"
 DEFAULT_HISTORICAL_EFFECT = ROOT / "outputs" / "historical_training_weight_report.json"
+DEFAULT_SUPPLY_ANALYSIS = ROOT / "outputs" / "syringe_supply_risk_inventory_summary.json"
 DEFAULT_METRICS = ROOT / "outputs" / "meta_code_normalization_research_metrics.csv"
 DEFAULT_SUMMARY = ROOT / "outputs" / "meta_code_normalization_research_audit.json"
 
@@ -288,9 +289,82 @@ def audit_historical_effect(report: dict) -> dict:
     }
 
 
+def audit_raw_material_linkage(
+    approval_report: dict,
+    supply_report: dict,
+    meta_audit: dict,
+) -> dict:
+    """메타코드 승인 범위가 실제 PP 공급위험 분석 범위와 일치하는지 검사한다."""
+    scope = supply_report["scope"]
+    mapping = supply_report["mapping_audit"]
+    policy = supply_report["policy"]
+    expected_filter = {
+        "raw_material_meta_code": "POLYPROPYLENE_PP",
+        "relation_type": "direct_component",
+        "review_status": "approved",
+    }
+    checks = {
+        "approved_mapping_count_matches": (
+            int(mapping["approved_pp_direct_rows"])
+            == int(meta_audit["approved_stock_item_mapping_rows"])
+        ),
+        "analysis_filter_matches": mapping["filter"] == expected_filter,
+        "family_matches": scope["family"] == "DISPOSABLE_SYRINGE",
+        "material_matches": scope["material"] == "POLYPROPYLENE_PP",
+        "relation_matches": scope["relation_type"] == "direct_component",
+        "demand_path_disabled": not bool(policy["external_demand_signal_in_forecast"]),
+        "operational_adjustment_disabled": not bool(
+            policy["operational_adjustment_enabled"]
+        ),
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise ValueError("원자재 메타코드 연결 게이트 실패: " + ", ".join(failed))
+
+    candidate_rows = int(approval_report["input_candidate_rows"])
+    approved_rows = int(approval_report["approved_candidate_rows"])
+    return {
+        "candidate_rows": candidate_rows,
+        "approved_candidate_rows": approved_rows,
+        "candidate_approval_pct": approved_rows / candidate_rows * 100.0,
+        "approved_stock_item_mapping_rows": int(
+            meta_audit["approved_stock_item_mapping_rows"]
+        ),
+        "analysis_stock_items": int(scope["stock_items"]),
+        "analysis_item_month_rows": int(scope["rows"]),
+        "analysis_months": int(scope["months"]),
+        "analysis_filter": expected_filter,
+        "linkage_chain": [
+            "normalized item",
+            "DISPOSABLE_SYRINGE family and SYRINGE_USAGE_BASED subtype",
+            "POLYPROPYLENE_PP candidate",
+            "evidence and conflict quality gates",
+            "approved stock_item_key",
+            "PP market risk",
+            "lead-time and safety-stock sensitivity",
+        ],
+        "policy_effect": {
+            "mean_effective_lead_time_increase_days": float(
+                supply_report["lead_time"]["mean_increase_days"]
+            ),
+            "safety_stock_delta_pct": float(
+                supply_report["safety_stock"]["delta_pct"]
+            ),
+            "gated_order_delta_pct": float(
+                supply_report["recommended_order_gated"]["delta_pct"]
+            ),
+        },
+        "demand_path_enabled": False,
+        "operational_adjustment_enabled": False,
+        "gate_checks": checks,
+        "quality_gate_passed": True,
+    }
+
+
 def build_metrics(summary: dict) -> pd.DataFrame:
     normalization = summary["normalization"]
     meta = summary["meta_codes"]
+    linkage = summary["raw_material_analysis_linkage"]
     rows = [
         ("normalization", "mapping_rows", normalization["mapping_rows"], "rows", "verified"),
         ("normalization", "standard_item_count", normalization["standard_item_count"], "items", "verified"),
@@ -357,6 +431,27 @@ def build_metrics(summary: dict) -> pd.DataFrame:
             "rows",
             "experimental_approved",
         ),
+        (
+            "raw_material_analysis_linkage",
+            "candidate_approval_pct",
+            linkage["candidate_approval_pct"],
+            "percent",
+            "verified_funnel",
+        ),
+        (
+            "raw_material_analysis_linkage",
+            "analysis_stock_items",
+            linkage["analysis_stock_items"],
+            "items",
+            "verified_scope",
+        ),
+        (
+            "raw_material_analysis_linkage",
+            "analysis_item_month_rows",
+            linkage["analysis_item_month_rows"],
+            "rows",
+            "verified_scope",
+        ),
     ]
     return pd.DataFrame(
         rows, columns=["layer", "metric", "value", "unit", "claim_status"]
@@ -370,6 +465,7 @@ def run(
     approved_mapping_path: Path = DEFAULT_APPROVED_MAPPING,
     approval_report_path: Path = DEFAULT_APPROVAL_REPORT,
     historical_effect_path: Path = DEFAULT_HISTORICAL_EFFECT,
+    supply_analysis_path: Path = DEFAULT_SUPPLY_ANALYSIS,
     metrics_path: Path = DEFAULT_METRICS,
     summary_path: Path = DEFAULT_SUMMARY,
 ) -> dict:
@@ -385,13 +481,20 @@ def run(
     historical_effect_report = json.loads(
         historical_effect_path.read_text(encoding="utf-8-sig")
     )
+    supply_analysis_report = json.loads(
+        supply_analysis_path.read_text(encoding="utf-8-sig")
+    )
+    meta_audit = audit_meta_codes(integrated, approved_mapping, approval_report)
 
     summary = {
-        "version": "meta-code-normalization-research-audit-v1.0",
+        "version": "meta-code-normalization-research-audit-v1.1",
         "status": "complete",
         "normalization": audit_standard_mapping(standard_mapping, standard_report),
-        "meta_codes": audit_meta_codes(integrated, approved_mapping, approval_report),
+        "meta_codes": meta_audit,
         "historical_model_effect": audit_historical_effect(historical_effect_report),
+        "raw_material_analysis_linkage": audit_raw_material_linkage(
+            approval_report, supply_analysis_report, meta_audit
+        ),
         "research_interpretation": {
             "contribution": (
                 "정규화와 계층형 메타코드는 과거품목·현재품목·외부위험·재고정책을 "
@@ -405,6 +508,10 @@ def run(
                 "품목명·규격·단위 표준화와 외부위험 점수의 0~1 수치 정규화는 "
                 "서로 다른 절차다."
             ),
+            "raw_material_enablement": (
+                "메타코드는 승인된 주사기-PP 직접부품 경로에만 원자재 위험을 전달하고 "
+                "동일 재고키로 리드타임·안전재고·발주 민감도를 추적하게 했다."
+            ),
         },
         "sources": {
             "standard_mapping": standard_mapping_path.relative_to(ROOT).as_posix(),
@@ -413,6 +520,7 @@ def run(
             "approved_material_mapping": approved_mapping_path.relative_to(ROOT).as_posix(),
             "approval_report": approval_report_path.relative_to(ROOT).as_posix(),
             "historical_effect": historical_effect_path.relative_to(ROOT).as_posix(),
+            "supply_analysis": supply_analysis_path.relative_to(ROOT).as_posix(),
         },
     }
     metrics = build_metrics(summary)
@@ -432,6 +540,7 @@ def main() -> None:
     parser.add_argument("--approved-mapping", type=Path, default=DEFAULT_APPROVED_MAPPING)
     parser.add_argument("--approval-report", type=Path, default=DEFAULT_APPROVAL_REPORT)
     parser.add_argument("--historical-effect", type=Path, default=DEFAULT_HISTORICAL_EFFECT)
+    parser.add_argument("--supply-analysis", type=Path, default=DEFAULT_SUPPLY_ANALYSIS)
     parser.add_argument("--metrics", type=Path, default=DEFAULT_METRICS)
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
     args = parser.parse_args()
@@ -442,6 +551,7 @@ def main() -> None:
         args.approved_mapping,
         args.approval_report,
         args.historical_effect,
+        args.supply_analysis,
         args.metrics,
         args.summary,
     )

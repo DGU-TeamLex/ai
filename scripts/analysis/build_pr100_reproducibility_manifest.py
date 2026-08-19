@@ -186,6 +186,7 @@ def _metric_rows() -> list[dict[str, object]]:
     normalization = normalization_audit["normalization"]
     meta_codes = normalization_audit["meta_codes"]
     historical_effect = normalization_audit["historical_model_effect"]
+    raw_material_linkage = normalization_audit["raw_material_analysis_linkage"]
     for metric, value, unit, status in [
         ("mapping_rows", normalization["mapping_rows"], "count", "verified"),
         ("standard_item_count", normalization["standard_item_count"], "count", "verified"),
@@ -206,6 +207,24 @@ def _metric_rows() -> list[dict[str, object]]:
             historical_effect["validation_wape_change_pct_point"],
             "percentage_point",
             "validation_selected",
+        ),
+        (
+            "raw_material_candidate_approval_pct",
+            raw_material_linkage["candidate_approval_pct"],
+            "percent",
+            "verified_funnel",
+        ),
+        (
+            "raw_material_analysis_stock_items",
+            raw_material_linkage["analysis_stock_items"],
+            "count",
+            "verified_scope",
+        ),
+        (
+            "raw_material_analysis_item_month_rows",
+            raw_material_linkage["analysis_item_month_rows"],
+            "count",
+            "verified_scope",
         ),
         (
             "specific_family_pct",

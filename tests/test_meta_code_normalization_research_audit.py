@@ -5,6 +5,7 @@ import pandas as pd
 from scripts.analysis.meta_code_normalization_research_audit import (
     audit_historical_effect,
     audit_meta_codes,
+    audit_raw_material_linkage,
     audit_standard_mapping,
 )
 
@@ -117,6 +118,39 @@ class MetaCodeNormalizationResearchAuditTest(unittest.TestCase):
         self.assertEqual(audit["validation_period"], "2025-01~2025-06")
         self.assertAlmostEqual(audit["validation_wape_change_pct_point"], -1.977)
         self.assertTrue(audit["selection_did_not_use_test"])
+
+    def test_raw_material_linkage_verifies_funnel_and_analysis_scope(self):
+        approval = {"input_candidate_rows": 100, "approved_candidate_rows": 20}
+        meta = {"approved_stock_item_mapping_rows": 21}
+        supply = {
+            "scope": {
+                "family": "DISPOSABLE_SYRINGE",
+                "material": "POLYPROPYLENE_PP",
+                "relation_type": "direct_component",
+                "stock_items": 10,
+                "rows": 30,
+                "months": 3,
+            },
+            "mapping_audit": {
+                "approved_pp_direct_rows": 21,
+                "filter": {
+                    "raw_material_meta_code": "POLYPROPYLENE_PP",
+                    "relation_type": "direct_component",
+                    "review_status": "approved",
+                },
+            },
+            "lead_time": {"mean_increase_days": 4.0},
+            "safety_stock": {"delta_pct": 16.0},
+            "recommended_order_gated": {"delta_pct": 20.0},
+            "policy": {
+                "external_demand_signal_in_forecast": False,
+                "operational_adjustment_enabled": False,
+            },
+        }
+        audit = audit_raw_material_linkage(approval, supply, meta)
+        self.assertEqual(audit["candidate_approval_pct"], 20.0)
+        self.assertEqual(audit["analysis_item_month_rows"], 30)
+        self.assertTrue(audit["quality_gate_passed"])
 
 
 if __name__ == "__main__":

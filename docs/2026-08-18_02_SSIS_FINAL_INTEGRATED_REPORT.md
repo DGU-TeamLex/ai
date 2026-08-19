@@ -232,6 +232,44 @@ family가 검증된 행은 1,176행이며 분류 검토가 필요한 행은 100,
 `POLYPROPYLENE_PP`·`direct_component` 관계다. 메타코드는 연결·감사를 가능하게 하지만
 인과관계를 증명하지 않으며, 후보와 승인 매핑을 구분해야 한다.
 
+#### 3.4.1 메타코드가 원자재 분석을 가능하게 한 연결 사슬
+
+메타코드가 원자재 분석에 기여한 지점은 단순히 품목에 `PP`라는 꼬리표를 붙인 것이 아니다.
+서로 다른 기관·부서의 품목명을 동일한 의미축으로 묶은 뒤, 승인된 원자재 관계만 실제 재고키와
+시장위험에 전달하는 **분석 경로 선택기**로 작동했다.[주 21]
+
+```text
+로컬 품목명·규격·단위
+→ 표준품목·정의키
+→ DISPOSABLE_SYRINGE / SYRINGE_USAGE_BASED
+→ POLYPROPYLENE_PP 후보
+→ 외부근거·재질식별·family 충돌·시장요인 게이트
+→ approved + direct_component
+→ 기관·부서별 stock_item_key
+→ PP 가격·변동성 위험
+→ 유효 리드타임·안전재고·발주 민감도
+```
+
+실제 원장의 `1회용주사기 5ml (100개/box)`, `예방접종용주사기3ml`, `채혈용주사기 10ml`처럼
+표기가 다른 품목도 정규화 후 `DISPOSABLE_SYRINGE` family와 `SYRINGE_USAGE_BASED` subtype으로
+묶였다. 이 중 `POLYPROPYLENE_PP` 후보라고 해서 바로 분석에 넣지 않았다. 명시된 family·subtype·
+원자재 코드 일치, 허용 근거등급, family 충돌 없음, 공급정책 추가검토 없음, 시장요인 존재,
+재질 식별 완료, 근거문서 존재를 모두 통과한 경우에만 `direct_component`로 승인했다.
+
+| 연결 단계 | 남은 범위 | 원자재 분석에 준 도움 |
+|---|---:|---|
+| 승인심사 입력 후보 | 11,383행 | 넓은 탐색공간 구성 |
+| 엄격 승인 후보 | 2,212행(19.43%) | 근거가 약하거나 충돌하는 9,171행 차단 |
+| 실제 재고키 전개 | 2,297개 | 기관·부서별 재고·예측·발주자료와 결합 |
+| 평가기간 연결 | 975개 품목, 3,300개 품목-월 | 2025-08~12 PP 공급위험 민감도 계산 |
+
+이 구조 덕분에 PP 가격위험을 모든 의료소모품이나 주사침·카테터에 일괄 적용하지 않고 승인된
+주사기–PP 직접부품 경로에만 전달했다. 또한 동일한 `stock_item_key`로 예측수요·현재재고·
+발주잔량·재고품질 상태를 결합할 수 있어, PP 위험 상승 시 평균 유효 리드타임 +4.19일,
+안전재고 +16.75%, 품질 게이트 후 제안발주량 +21.69%라는 정책 민감도를 계산할 수 있었다.
+즉 메타코드의 유의미한 기여는 원자재 신호의 인과효과를 증명한 데 있지 않고, **신호를 어느
+품목에 전달할지 제한하고 그 결과를 재고정책까지 추적 가능하게 만든 것**이다.
+
 ### 3.5 과거자료에서 연결하지 못한 사례
 
 2018~2019 로컬 품목 175,760개 중 146,757개(83.50%)는 현재 대표품목과 엄격하게 연결됐다.
@@ -811,7 +849,14 @@ predictor evaluation*. 시간순 검증설계의 근거다. [DOI](https://doi.or
 `outputs/material_mapping_approval_report.json`. 표준키 완전성, 메타코드 후보 커버리지와 별도 승인
 매핑 범위를 재계산한 근거다.
 
+
 **주 20.** `outputs/historical_training_weight_report.json`,
 `scripts/analysis/meta_code_normalization_research_audit.py`. 동일 LightGBM L1 구조에서 현재자료 전용과
 엄격 연결 과거자료 포함을 2025-01~06 검증구간으로 비교했다. WAPE 39.222956%에서 37.246089%로
 1.976867%p 개선됐으며 가중치 선택에 시험구간을 사용하지 않았다.
+**주 21.** `src/module_c/material_approval.py`, `data/mapping/material_approval_policy.json`,
+`data/mapping/stock_item_material_mapping.csv`,
+`scripts/analysis/syringe_supply_risk_inventory_impact.py`,
+`outputs/material_mapping_approval_report.json`,
+`outputs/syringe_supply_risk_inventory_summary.json`. 승인심사 입력 11,383행을 엄격 승인 2,212행과
+재고키 2,297개로 좁히고, 평가기간 975개 품목·3,300개 품목-월에 PP 공급위험을 연결한 근거다.

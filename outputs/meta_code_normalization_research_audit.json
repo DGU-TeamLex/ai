@@ -1,5 +1,5 @@
 {
-  "version": "meta-code-normalization-research-audit-v1.0",
+  "version": "meta-code-normalization-research-audit-v1.1",
   "status": "complete",
   "normalization": {
     "mapping_rows": 585279,
@@ -85,10 +85,51 @@
     "historical_training_rows": 952002,
     "quality_gate_passed": true
   },
+  "raw_material_analysis_linkage": {
+    "candidate_rows": 11383,
+    "approved_candidate_rows": 2212,
+    "candidate_approval_pct": 19.432487042080297,
+    "approved_stock_item_mapping_rows": 2297,
+    "analysis_stock_items": 975,
+    "analysis_item_month_rows": 3300,
+    "analysis_months": 5,
+    "analysis_filter": {
+      "raw_material_meta_code": "POLYPROPYLENE_PP",
+      "relation_type": "direct_component",
+      "review_status": "approved"
+    },
+    "linkage_chain": [
+      "normalized item",
+      "DISPOSABLE_SYRINGE family and SYRINGE_USAGE_BASED subtype",
+      "POLYPROPYLENE_PP candidate",
+      "evidence and conflict quality gates",
+      "approved stock_item_key",
+      "PP market risk",
+      "lead-time and safety-stock sensitivity"
+    ],
+    "policy_effect": {
+      "mean_effective_lead_time_increase_days": 4.191301760099999,
+      "safety_stock_delta_pct": 16.754244298405116,
+      "gated_order_delta_pct": 21.68790803480276
+    },
+    "demand_path_enabled": false,
+    "operational_adjustment_enabled": false,
+    "gate_checks": {
+      "approved_mapping_count_matches": true,
+      "analysis_filter_matches": true,
+      "family_matches": true,
+      "material_matches": true,
+      "relation_matches": true,
+      "demand_path_disabled": true,
+      "operational_adjustment_disabled": true
+    },
+    "quality_gate_passed": true
+  },
   "research_interpretation": {
     "contribution": "정규화와 계층형 메타코드는 과거품목·현재품목·외부위험·재고정책을 연결하는 공통 분석축을 제공했다.",
     "claim_boundary": "통합 메타코드는 후보 분류를 포함하며 인과관계를 증명하지 않는다. 원자재 효과 분석에는 별도 승인 매핑만 사용한다.",
-    "normalization_distinction": "품목명·규격·단위 표준화와 외부위험 점수의 0~1 수치 정규화는 서로 다른 절차다."
+    "normalization_distinction": "품목명·규격·단위 표준화와 외부위험 점수의 0~1 수치 정규화는 서로 다른 절차다.",
+    "raw_material_enablement": "메타코드는 승인된 주사기-PP 직접부품 경로에만 원자재 위험을 전달하고 동일 재고키로 리드타임·안전재고·발주 민감도를 추적하게 했다."
   },
   "sources": {
     "standard_mapping": "data/processed/stock_standard_item_mapping.parquet",
@@ -96,6 +137,7 @@
     "integrated_taxonomy": "data/processed/item_integrated_classification_v2.parquet",
     "approved_material_mapping": "data/mapping/stock_item_material_mapping.csv",
     "approval_report": "outputs/material_mapping_approval_report.json",
-    "historical_effect": "outputs/historical_training_weight_report.json"
+    "historical_effect": "outputs/historical_training_weight_report.json",
+    "supply_analysis": "outputs/syringe_supply_risk_inventory_summary.json"
   }
 }
