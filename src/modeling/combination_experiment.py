@@ -44,7 +44,7 @@ SCALE_LABELS = [
     "LE_500",
     "GT_500",
 ]
-BASE_FORECAST_COLUMNS = [
+REQUIRED_FORECAST_COLUMNS = [
     "baseline_last_month_pred",
     "baseline_rolling_mean_3_pred",
     "baseline_rolling_median_3_pred",
@@ -53,7 +53,14 @@ BASE_FORECAST_COLUMNS = [
     "baseline_expanding_mean_pred",
     "stock_model_a_usage_only_pred",
     "stock_model_a_usage_tweedie_pred",
+]
+OPTIONAL_FORECAST_COLUMNS = [
+    # 외부신호 커버리지 게이트를 통과했을 때만 학습되는 모형이다.
     "stock_model_d_module_c_pred",
+]
+BASE_FORECAST_COLUMNS = [
+    *REQUIRED_FORECAST_COLUMNS,
+    *OPTIONAL_FORECAST_COLUMNS,
 ]
 BUFFER_METHODS = [
     "none",
@@ -67,6 +74,50 @@ def _require_columns(frame: pd.DataFrame, columns: Iterable[str], label: str) ->
     missing = sorted(set(columns) - set(frame.columns))
     if missing:
         raise ValueError(f"{label} is missing required columns: {missing}")
+
+
+def available_forecast_columns(header: Iterable[str]) -> list[str]:
+    """현재 실행에서 실제 생성된 비교 예측열만 반환한다.
+
+    Module C 같은 외부위험 모형은 입력 신호가 비면 학습 단계에서 의도적으로
+    제외된다. 그 상태에서 과거 실행의 후보 목록을 필수 스키마로 요구하면
+    수요전용 조합실험까지 막히므로, 핵심 수요모형은 필수로 유지하고 외부위험
+    모형만 가용할 때 추가한다.
+    """
+    available = set(header)
+    missing_required = sorted(set(REQUIRED_FORECAST_COLUMNS) - available)
+    if missing_required:
+        raise ValueError(
+            "Backtest predictions are missing required forecast columns: "
+            f"{missing_required}"
+        )
+    skipped_optional = sorted(set(OPTIONAL_FORECAST_COLUMNS) - available)
+    if skipped_optional:
+        LOGGER.info(
+            "Combination experiment omits unavailable optional forecasts: %s",
+            ", ".join(skipped_optional),
+        )
+    return [column for column in BASE_FORECAST_COLUMNS if column in available]
+
+
+def selected_backtest_columns(
+    header: Iterable[str],
+    required: Iterable[str],
+    optional_metadata: Iterable[str],
+    candidate_forecasts: Iterable[str],
+) -> list[str]:
+    """읽을 메타데이터와 실제 가용 예측후보를 함께 반환한다.
+
+    후보 탐색은 CSV 헤더에서 수행되므로, 선택된 선택적 예측열을 ``usecols``에
+    다시 포함해야 한다. 그렇지 않으면 헤더에서는 가용하다고 판단한 외부위험
+    모형이 실제 데이터 프레임에서 사라진다.
+    """
+    available = set(header)
+    return sorted(
+        set(required)
+        | set(candidate_forecasts)
+        | (set(optional_metadata) & available)
+    )
 
 
 def _json_value(value):
@@ -563,8 +614,20 @@ def apply_buffer(
     service_level: float,
     fitted: dict[str, object] | None = None,
 ) -> tuple[pd.Series, pd.Series]:
-    prediction = pd.to_numeric(frame[prediction_col], errors="coerce").fillna(0.0)
-    if method == "none":
+    if (
+        prediction_col == "current_system_reference"
+        and method == "existing_target_stock"
+    ):
+        if "target_stock" not in frame.columns:
+            raise ValueError("Current system reference requires target_stock")
+        prediction = pd.to_numeric(
+            frame["target_stock"], errors="coerce"
+        ).fillna(0.0)
+    else:
+        prediction = pd.to_numeric(
+            frame[prediction_col], errors="coerce"
+        ).fillna(0.0)
+    if method in {"none", "existing_target_stock"}:
         buffer = pd.Series(0.0, index=frame.index)
     elif method == "fixed_20pct":
         buffer = prediction * 0.20
@@ -782,7 +845,7 @@ def _segment_evaluation(
     service_level: float,
     fitted_buffer: dict[str, object] | None,
 ) -> pd.DataFrame:
-    _, target = apply_buffer(
+    buffer, target = apply_buffer(
         evaluation,
         forecast_strategy,
         buffer_method,
@@ -790,6 +853,7 @@ def _segment_evaluation(
         fitted=fitted_buffer,
     )
     working = evaluation.copy()
+    working["_prediction"] = target - buffer
     working["_target"] = target
     rows = []
     for pattern, group in working.groupby(
@@ -804,7 +868,7 @@ def _segment_evaluation(
                 "buffer_method": buffer_method,
                 **regression_metrics(
                     group["actual_usage"],
-                    group[forecast_strategy],
+                    group["_prediction"],
                 ),
                 **{
                     f"INVENTORY_{key}": value
@@ -848,7 +912,7 @@ def _sample_output(
     ]
     sample = evaluation[[column for column in columns if column in evaluation.columns]].copy()
     sample["selected_forecast_strategy"] = forecast_strategy
-    sample["selected_point_forecast"] = evaluation[forecast_strategy]
+    sample["selected_point_forecast"] = target - buffer
     sample["selected_buffer_method"] = buffer_method
     sample["selected_safety_buffer"] = buffer
     sample["selected_target_stock_proxy"] = target
@@ -886,6 +950,7 @@ def run_combination_experiment(
         raise ValueError("sample_size must be positive")
 
     header = pd.read_csv(backtest_path, nrows=0).columns
+    candidate_columns = available_forecast_columns(header)
     required = {
         "forecast_origin_month",
         "year_month",
@@ -893,7 +958,7 @@ def run_combination_experiment(
         "actual_usage",
         "demand_pattern",
         "item_group_id_candidate",
-        *BASE_FORECAST_COLUMNS,
+        *REQUIRED_FORECAST_COLUMNS,
     }
     missing = sorted(required - set(header))
     if missing:
@@ -905,14 +970,17 @@ def run_combination_experiment(
         "item_name",
         "target_stock",
     }
-    usecols = sorted(required | (optional & set(header)))
+    usecols = selected_backtest_columns(
+        header,
+        required,
+        optional,
+        candidate_columns,
+    )
     frame = pd.read_csv(
         backtest_path,
         usecols=usecols,
         parse_dates=["forecast_origin_month", "year_month"],
     )
-    candidate_columns = list(BASE_FORECAST_COLUMNS)
-
     if include_tsb:
         monthly = pd.read_parquet(
             monthly_path,
@@ -1031,7 +1099,7 @@ def run_combination_experiment(
     ]
     policy = {
         "version": EXPERIMENT_VERSION,
-        "status": "holdout_evaluated_not_operational",
+        "status": "reused_evaluation_slice_not_operational",
         "source": str(backtest_path),
         "calibration_months": calibration_months,
         "evaluation_months": evaluation_months,
@@ -1039,8 +1107,18 @@ def run_combination_experiment(
         "evaluated_service_levels": evaluated_service_levels,
         "selection_rule": (
             "minimum calibration PINBALL_LOSS at target service level; "
-            "evaluation months are untouched holdout"
+            "evaluation months are not used for selection, but were already "
+            "inspected by earlier experiments and are not a final untouched test"
         ),
+        "evaluation_contract": {
+            "role": "diagnostic_reused_evaluation",
+            "clean_final_test": False,
+            "next_clean_test_requirement": (
+                "2026 raw_stock or a future rolling holdout unused by model "
+                "selection, buffer calibration, and policy tuning"
+            ),
+            "policy_parameters_fit_before_evaluation": True,
+        },
         "point_forecast_selection": {
             "strategy": selected_point_strategy,
             "calibration_wape": _json_value(calibration_point["WAPE"]),
@@ -1120,6 +1198,7 @@ def run_combination_experiment(
             "The inventory evaluation is a one-month demand-coverage proxy, not a procurement lead-time simulation.",
             "Actual order-to-receipt lead times, backorders, and lost-sales labels are unavailable.",
             "The evaluation holdout contains only three months.",
+            "The same 2025 evaluation period has been inspected by prior work and cannot be called a clean final test.",
             "Bulk-approved taxonomy may include low-evidence classifications; TSB pooling falls back by demand pattern for small groups.",
         ],
     }

@@ -1,0 +1,122 @@
+{
+  "eval_months": [
+    "2025-09-01",
+    "2025-10-01",
+    "2025-11-01",
+    "2025-12-01"
+  ],
+  "series": 77575,
+  "policy": {
+    "review_months": 1.0,
+    "lead_months": 1.0,
+    "z": 1.645,
+    "unmet": "lost_sales"
+  },
+  "methods": [
+    {
+      "method": "model",
+      "fill_rate": 0.9611890225015394,
+      "stockout_month_rate": 0.07917499194328069,
+      "mean_on_hand": 171.39676722948457,
+      "turns": 4.43116056934967,
+      "wape": 33.51019680389279,
+      "wape_rank": 2,
+      "fill_rank": 2
+    },
+    {
+      "method": "naive",
+      "fill_rate": 0.9531079334670486,
+      "stockout_month_rate": 0.1129809861424428,
+      "mean_on_hand": 197.3917003343331,
+      "turns": 3.8476116036029455,
+      "wape": 40.277695715870685,
+      "wape_rank": 4,
+      "fill_rank": 3
+    },
+    {
+      "method": "cumavg",
+      "fill_rate": 0.9510077001075287,
+      "stockout_month_rate": 0.12080567193038995,
+      "mean_on_hand": 176.04143727540966,
+      "turns": 4.314249011004776,
+      "wape": 37.01313791616923,
+      "wape_rank": 3,
+      "fill_rank": 4
+    },
+    {
+      "method": "oracle",
+      "fill_rate": 0.9962474838983616,
+      "stockout_month_rate": 0.03532388011601676,
+      "mean_on_hand": 195.36998452020617,
+      "turns": 3.887427224435008,
+      "wape": 0.0,
+      "wape_rank": 1,
+      "fill_rank": 1
+    }
+  ],
+  "wape_rank_equals_fill_rank": false,
+  "by_pattern": {
+    "smooth": {
+      "fill_rate": 0.9655832005433657,
+      "stockout_month_rate": 0.09163586157751748,
+      "mean_on_hand": 221.56864132736342,
+      "turns": 4.647093045004581,
+      "wape": 30.984630509187745,
+      "n": 44906
+    },
+    "lumpy": {
+      "fill_rate": 0.9352010649383219,
+      "stockout_month_rate": 0.07452830188679245,
+      "mean_on_hand": 209.57856849624056,
+      "turns": 3.600594556230709,
+      "wape": 43.79064964577172,
+      "n": 1060
+    },
+    "new_series": {
+      "fill_rate": 0.9316027842156612,
+      "stockout_month_rate": 0.08640226628895184,
+      "mean_on_hand": 137.79282119576624,
+      "turns": 4.21407314506865,
+      "wape": 41.4644982452771,
+      "n": 1059
+    },
+    "intermittent": {
+      "fill_rate": 0.9574201441402199,
+      "stockout_month_rate": 0.09546511627906977,
+      "mean_on_hand": 173.2590714729444,
+      "turns": 4.205526727226727,
+      "wape": 36.58864145030849,
+      "n": 2150
+    },
+    "erratic": {
+      "fill_rate": 0.9447414776402495,
+      "stockout_month_rate": 0.10278279861424913,
+      "mean_on_hand": 149.95992174828123,
+      "turns": 3.573557047064654,
+      "wape": 45.06677098052073,
+      "n": 13278
+    },
+    "insufficient_history": {
+      "fill_rate": 0.9468262163893122,
+      "stockout_month_rate": 0.08627481878348565,
+      "mean_on_hand": 191.2841496335607,
+      "turns": 4.195698819171606,
+      "wape": 39.79716452626699,
+      "n": 3173
+    },
+    "all_zero": {
+      "fill_rate": 0.8318518648340671,
+      "stockout_month_rate": 0.0010670348983178508,
+      "mean_on_hand": 0.640009933932127,
+      "turns": 4.733128579668117,
+      "wape": 50.006675415313595,
+      "n": 11949
+    }
+  },
+  "caveats": [
+    "sigma 를 평가구간 실측으로 추정 — 절대 수준은 낙관 편향, 순위 비교는 유효",
+    "보유비/품절비 파라미터 미상 — 단일 비용으로 합치지 않음",
+    "손실판매 가정 (이월 아님)",
+    "초기재고를 첫 목표재고로 둠"
+  ]
+}

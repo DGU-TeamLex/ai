@@ -28,7 +28,7 @@ LEDGER_COLUMNS = [
     "ledger_balance_violation_count",
 ]
 DEMAND_MOMENT_COLUMNS = [
-    "normal_outbound_nonnegative_sum",
+    "model_demand_positive_sum",
     "normal_outbound_squared_sum",
 ]
 CLASSIFICATION_COLUMNS = [
@@ -164,7 +164,7 @@ def _prepare_series_status(
     recent_months = int(policy["recent_activity_months"])
     recent_start = latest_data_month - pd.DateOffset(months=recent_months - 1)
     stock["recent_demand_component"] = stock[
-        "normal_outbound_nonnegative_sum"
+        "model_demand_positive_sum"
     ].where(
         stock["year_month"].between(recent_start, latest_data_month),
         0.0,
@@ -189,7 +189,7 @@ def _prepare_series_status(
         stock.groupby(SERIES_KEYS, sort=False, observed=True)
         .agg(
             all_time_normal_outbound=(
-                "normal_outbound_nonnegative_sum",
+                "model_demand_positive_sum",
                 "sum",
             ),
             recent_normal_outbound=("recent_demand_component", "sum"),

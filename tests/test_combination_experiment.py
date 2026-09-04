@@ -4,17 +4,53 @@ import numpy as np
 import pandas as pd
 
 from src.modeling.combination_experiment import (
+    OPTIONAL_FORECAST_COLUMNS,
+    REQUIRED_FORECAST_COLUMNS,
     _split_months,
     apply_buffer,
     apply_pattern_router,
+    available_forecast_columns,
     build_tsb_hb_predictions,
     fit_pooled_buffer,
     inventory_metrics,
     select_pattern_router,
+    selected_backtest_columns,
 )
 
 
 class CombinationExperimentTest(unittest.TestCase):
+    def test_optional_module_c_forecast_may_be_absent(self):
+        selected = available_forecast_columns(REQUIRED_FORECAST_COLUMNS)
+
+        self.assertEqual(selected, REQUIRED_FORECAST_COLUMNS)
+        self.assertNotIn(OPTIONAL_FORECAST_COLUMNS[0], selected)
+
+    def test_missing_core_forecast_still_fails(self):
+        columns = REQUIRED_FORECAST_COLUMNS[1:]
+        with self.assertRaisesRegex(ValueError, REQUIRED_FORECAST_COLUMNS[0]):
+            available_forecast_columns(columns)
+
+    def test_optional_forecast_selected_from_header_is_loaded(self):
+        optional_forecast = OPTIONAL_FORECAST_COLUMNS[0]
+        header = [
+            "actual_usage",
+            "institution_code",
+            *REQUIRED_FORECAST_COLUMNS,
+            optional_forecast,
+        ]
+        candidates = available_forecast_columns(header)
+
+        selected = selected_backtest_columns(
+            header,
+            required=["actual_usage", *REQUIRED_FORECAST_COLUMNS],
+            optional_metadata=["institution_code", "target_stock"],
+            candidate_forecasts=candidates,
+        )
+
+        self.assertIn(optional_forecast, selected)
+        self.assertIn("institution_code", selected)
+        self.assertNotIn("target_stock", selected)
+
     def test_split_months_reserves_later_months_for_evaluation(self):
         frame = pd.DataFrame(
             {
@@ -125,6 +161,23 @@ class CombinationExperimentTest(unittest.TestCase):
         self.assertEqual(metrics["ROW_SERVICE_RATE"], 50.0)
         self.assertAlmostEqual(metrics["UNIT_FILL_RATE"], 100 * 20 / 30)
         self.assertEqual(metrics["UNDERAGE_SUM"], 10.0)
+
+    def test_current_system_reference_uses_existing_target_stock(self):
+        frame = pd.DataFrame(
+            {
+                "actual_usage": [10.0, 20.0],
+                "target_stock": [12.0, 18.0],
+                "demand_pattern": ["smooth", "lumpy"],
+            }
+        )
+        buffer, target = apply_buffer(
+            frame,
+            "current_system_reference",
+            "existing_target_stock",
+            0.90,
+        )
+        np.testing.assert_allclose(buffer, [0.0, 0.0])
+        np.testing.assert_allclose(target, [12.0, 18.0])
 
 
 if __name__ == "__main__":

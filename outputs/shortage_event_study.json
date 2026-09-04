@@ -1,0 +1,83 @@
+{
+  "ledger_span": [
+    "2024-01",
+    "2025-12"
+  ],
+  "usable_events": 110,
+  "treated_ingredients": 17,
+  "treated_item_codes": 34,
+  "by_relative_month": [
+    {
+      "rel": -3,
+      "n_item_months": 25,
+      "treated_zero_rate": 0.015068844647290634,
+      "control_zero_rate": 0.05876353070936023,
+      "treated_issue_median": 49.0,
+      "control_issue_median": 50.5,
+      "gap_zero": -0.043694686062069596
+    },
+    {
+      "rel": -2,
+      "n_item_months": 24,
+      "treated_zero_rate": 0.01585008127828233,
+      "control_zero_rate": 0.05717471795062,
+      "treated_issue_median": 68.0,
+      "control_issue_median": 49.0,
+      "gap_zero": -0.04132463667233767
+    },
+    {
+      "rel": -1,
+      "n_item_months": 25,
+      "treated_zero_rate": 0.03307758952721716,
+      "control_zero_rate": 0.058828232315823,
+      "treated_issue_median": 62.0,
+      "control_issue_median": 45.5,
+      "gap_zero": -0.025750642788605838
+    },
+    {
+      "rel": 0,
+      "n_item_months": 24,
+      "treated_zero_rate": 0.04589440099571885,
+      "control_zero_rate": 0.05839612106226902,
+      "treated_issue_median": 41.125,
+      "control_issue_median": 48.5,
+      "gap_zero": -0.012501720066550169
+    },
+    {
+      "rel": 1,
+      "n_item_months": 26,
+      "treated_zero_rate": 0.055452496082469556,
+      "control_zero_rate": 0.057858927996039804,
+      "treated_issue_median": 71.5,
+      "control_issue_median": 47.0,
+      "gap_zero": -0.0024064319135702478
+    },
+    {
+      "rel": 2,
+      "n_item_months": 25,
+      "treated_zero_rate": 0.06140275166058112,
+      "control_zero_rate": 0.05858062824035817,
+      "treated_issue_median": 65.0,
+      "control_issue_median": 45.0,
+      "gap_zero": 0.0028221234202229564
+    },
+    {
+      "rel": 3,
+      "n_item_months": 24,
+      "treated_zero_rate": 0.05006185687763128,
+      "control_zero_rate": 0.059749844978292894,
+      "treated_issue_median": 27.5,
+      "control_issue_median": 47.0,
+      "gap_zero": -0.009687988100661613
+    }
+  ],
+  "did_zero_rate": 0.03383255630966806,
+  "mannwhitney_p": 0.2727300146394842,
+  "rank_biserial": 0.09027027027027024,
+  "verdict": "보고 전후로 유의한 변화가 없다.",
+  "caveats": [
+    "보고일자는 보고 시점이지 실제 중단 시작일이 아니다",
+    "처리군 배정이 무작위가 아니다. 평행추세는 t-3~t-1 로만 확인",
+    "표본이 작아 검정력이 낮다"
+  ]
+}

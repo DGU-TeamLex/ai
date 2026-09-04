@@ -84,8 +84,12 @@ LEDGER_QUALITY_COLUMNS = [
 ]
 
 DEMAND_MOMENT_COLUMNS = [
+    "normal_outbound_signed_sum",
+    "model_demand_positive_sum",
     "normal_outbound_nonnegative_sum",
     "normal_outbound_squared_sum",
+    "negative_normal_outbound_count",
+    "negative_normal_outbound_amount",
 ]
 
 def discover_raw_stock_files(
@@ -163,9 +167,22 @@ def normalize_stock_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
 
     opening_known = result["opening_stock"].notna()
     opening_available = nonnegative_quantity(result["opening_stock"])
-    normal_outbound = nonnegative_quantity(result["consumption_qty"])
-    result["normal_outbound_nonnegative_sum"] = normal_outbound
-    result["normal_outbound_squared_sum"] = normal_outbound.pow(2)
+    signed_normal_outbound = result["consumption_qty"]
+    positive_normal_outbound = signed_normal_outbound.clip(lower=0.0)
+    negative_normal_outbound = signed_normal_outbound.lt(0)
+    result["normal_outbound_signed_sum"] = signed_normal_outbound
+    result["model_demand_positive_sum"] = positive_normal_outbound
+    # Backward-compatible alias. New model code must use
+    # model_demand_positive_sum so the ledger and model contracts cannot be
+    # confused (ai#65).
+    result["normal_outbound_nonnegative_sum"] = positive_normal_outbound
+    result["normal_outbound_squared_sum"] = positive_normal_outbound.pow(2)
+    result["negative_normal_outbound_count"] = (
+        negative_normal_outbound.astype("int8")
+    )
+    result["negative_normal_outbound_amount"] = (
+        -signed_normal_outbound.where(negative_normal_outbound, 0.0)
+    )
     purchase_available = result["purchase_in_qty"].clip(lower=0)
     document_available = opening_available + purchase_available
     result["ledger_document_rule_violation_count"] = (

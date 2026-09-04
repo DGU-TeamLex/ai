@@ -135,7 +135,11 @@ class StockPipelineTest(unittest.TestCase):
         self.assertEqual(january["month_opening_stock"], 10)
         self.assertEqual(january["month_end_stock"], 5)
         self.assertEqual(january["consumption_qty"], 5)
+        self.assertEqual(january["normal_outbound_signed_sum"], 5)
+        self.assertEqual(january["model_demand_positive_sum"], 5)
         self.assertEqual(january["normal_outbound_nonnegative_sum"], 5)
+        self.assertEqual(january["negative_normal_outbound_count"], 0)
+        self.assertEqual(january["negative_normal_outbound_amount"], 0)
         self.assertEqual(january["normal_outbound_squared_sum"], 13)
         self.assertEqual(january["average_stock"], 6.5)
         self.assertEqual(january["stock_item_key"], "INST001::방문건강관리사업::USE0000067")
@@ -170,6 +174,65 @@ class StockPipelineTest(unittest.TestCase):
         self.assertEqual(row["ledger_balance_violation_count"], 0)
         self.assertEqual(row["ledger_balance_residual_sum"], 0)
         self.assertTrue(row["auto_disposal_excluded_from_demand_and_ledger"])
+
+    def test_signed_ledger_and_positive_model_demand_are_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stock.DAT"
+            with path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file, delimiter="|", quotechar='"')
+                writer.writerow(RAW_STOCK_COLUMNS)
+                writer.writerow(
+                    stock_row(
+                        "20240101",
+                        opening=10,
+                        closing=5,
+                        consumption=5,
+                    )
+                )
+                writer.writerow(
+                    stock_row(
+                        "20240102",
+                        opening=5,
+                        closing=7,
+                        consumption=-2,
+                    )
+                )
+
+            monthly = load_stock_data(path.parent, path.name, chunk_size=1)
+
+        row = monthly.iloc[0]
+        self.assertEqual(row["consumption_qty"], 3)
+        self.assertEqual(row["normal_outbound_signed_sum"], 3)
+        self.assertEqual(row["model_demand_positive_sum"], 5)
+        self.assertEqual(row["negative_normal_outbound_count"], 1)
+        self.assertEqual(row["negative_normal_outbound_amount"], 2)
+        self.assertEqual(row["ledger_balance_residual_sum"], 0)
+
+    def test_negative_only_month_is_zero_model_demand_with_audit_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stock.DAT"
+            with path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file, delimiter="|", quotechar='"')
+                writer.writerow(RAW_STOCK_COLUMNS)
+                writer.writerow(
+                    stock_row(
+                        "20240101",
+                        opening=5,
+                        closing=9,
+                        consumption=-4,
+                    )
+                )
+
+            monthly = load_stock_data(path.parent, path.name, chunk_size=1)
+            featured = create_features(monthly)
+
+        row = featured.iloc[0]
+        self.assertEqual(row["normal_outbound_signed_sum"], -4)
+        self.assertEqual(row["demand_qty"], 0)
+        self.assertEqual(row["negative_consumption_flag"], 1)
+        self.assertEqual(row["negative_normal_outbound_count"], 1)
+        self.assertEqual(row["negative_normal_outbound_amount"], 4)
+        self.assertEqual(row["ledger_balance_residual_sum"], 0)
 
     def test_ledger_quality_separates_document_and_physical_inbound_rules(self):
         import csv

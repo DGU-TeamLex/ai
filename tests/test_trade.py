@@ -543,7 +543,7 @@ class TradeRiskScorerTest(unittest.TestCase):
 
 
 class TradeInventoryImpactTest(unittest.TestCase):
-    def test_trade_counterfactual_increases_target_stock(self):
+    def test_trade_counterfactual_is_reported_as_shadow_only(self):
         source = pd.DataFrame(
             [
                 {
@@ -571,9 +571,15 @@ class TradeInventoryImpactTest(unittest.TestCase):
         report, sample = build_trade_inventory_impact(current)
 
         self.assertEqual(report["trade_exposed_forecast_rows"], 1)
-        self.assertEqual(report["target_stock_increased_rows"], 1)
-        self.assertGreater(
+        self.assertFalse(report["operational_adjustment_enabled"])
+        self.assertEqual(report["target_stock_increased_rows"], 0)
+        self.assertEqual(report["shadow_target_stock_increased_rows"], 1)
+        self.assertEqual(
             sample.iloc[0]["trade_attributable_target_stock"],
+            0,
+        )
+        self.assertGreater(
+            sample.iloc[0]["trade_attributable_shadow_target_stock"],
             0,
         )
 

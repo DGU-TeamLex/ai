@@ -459,9 +459,14 @@ def run_material_pipeline(
     env = os.environ.copy()
     env["PYTHON"] = sys.executable
     env["PIPE_SKIP_EXCEL"] = "0" if with_excel else "1"
+    bash_path = _resolve_bash()
+    bash_bin = str(Path(bash_path).parent)
+    env["PATH"] = os.pathsep.join(
+        part for part in [bash_bin, env.get("PATH", "")] if part
+    )
     LOGGER.info("Running combined item material candidate pipeline: %s", prepared_path)
     subprocess.run(
-        [_resolve_bash(), str(run_script), str(prepared_path), str(output_dir)],
+        [bash_path, str(run_script), str(prepared_path), str(output_dir)],
         check=True,
         env=env,
     )

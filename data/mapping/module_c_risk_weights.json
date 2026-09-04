@@ -1,7 +1,7 @@
 {
   "version": "module-c-v1.4-trade20-temporal",
-  "calibration_status": "20_country_train_validation_test_stockout_proxy_calibrated_requires_operational_validation",
-  "coefficient_basis": "trade_component_thresholds_from_20_country_quantiles_and_weights_selected_on_validation_then_evaluated_on_test",
+  "calibration_status": "shadow_only_latest_issue_review_found_no_multiplicity_adjusted_holdout_evidence",
+  "coefficient_basis": "experimental_relative_risk_weights_not_approved_for_order_quantity_changes",
   "market_signal": {
     "return_30d": 0.45,
     "volatility_30d": 0.3,
@@ -41,6 +41,7 @@
     "module_c_overlay_weight": 0.224
   },
   "inventory_adjustment": {
+    "operational_adjustment_enabled": false,
     "demand_usage_uplift_max": 0.35,
     "supply_lead_time_multiplier_max": 0.5,
     "supply_extra_lead_time_days_max": 14.0,

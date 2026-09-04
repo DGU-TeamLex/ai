@@ -49,8 +49,40 @@ def create_features(monthly_stock: pd.DataFrame) -> pd.DataFrame:
     for column in ["stock_item_key", "item_name"]:
         if column in df.columns:
             df[column] = df[column].astype("category")
-    df["negative_consumption_flag"] = df["consumption_qty"].lt(0).astype("int8")
-    df["demand_qty"] = df["consumption_qty"].where(df["consumption_qty"].ge(0))
+    signed_demand = (
+        pd.to_numeric(df["normal_outbound_signed_sum"], errors="coerce")
+        if "normal_outbound_signed_sum" in df.columns
+        else pd.to_numeric(df["consumption_qty"], errors="coerce")
+    )
+    if "model_demand_positive_sum" in df.columns:
+        model_demand = pd.to_numeric(
+            df["model_demand_positive_sum"],
+            errors="coerce",
+        )
+    elif "normal_outbound_nonnegative_sum" in df.columns:
+        model_demand = pd.to_numeric(
+            df["normal_outbound_nonnegative_sum"],
+            errors="coerce",
+        )
+    else:
+        # Compatibility for small fixtures and legacy monthly tables. A full
+        # raw_stock rebuild is required to recover mixed-sign months exactly.
+        model_demand = signed_demand.clip(lower=0.0)
+    df["negative_consumption_flag"] = (
+        pd.to_numeric(
+            df.get(
+                "negative_normal_outbound_count",
+                signed_demand.lt(0).astype("int8"),
+            ),
+            errors="coerce",
+        )
+        .fillna(0)
+        .gt(0)
+        .astype("int8")
+    )
+    # Negative-only months remain valid zero-demand observations. The signed
+    # value is retained separately for ledger audit (ai#65).
+    df["demand_qty"] = model_demand.fillna(0.0).clip(lower=0.0)
 
     series_changed = df[SERIES_KEYS].ne(df[SERIES_KEYS].shift()).any(axis=1)
     previous_month = df["year_month"].shift() + pd.offsets.MonthBegin(1)

@@ -1,12 +1,15 @@
+import json
+from statistics import NormalDist
+
 import numpy as np
 import pandas as pd
 
 from ..config import (
     DEFAULT_REVIEW_PERIOD_DAYS,
     DEMAND_RISK_BUFFER_RATE,
+    INVENTORY_OPTIMIZATION_POLICY_PATH,
     MATERIAL_RISK_BUFFER_RATE,
     MAX_RISK_BUFFER_RATE,
-    SAFETY_STOCK_RATE,
     SUPPLY_RISK_BUFFER_RATE,
 )
 from ..module_c.config import load_module_c_config
@@ -18,6 +21,75 @@ MODULE_C_POLICY_COLUMNS = {
     "module_c_supply_risk",
     "module_c_total_risk",
 }
+
+
+def load_inventory_optimization_policy() -> dict:
+    with INVENTORY_OPTIMIZATION_POLICY_PATH.open("r", encoding="utf-8") as file:
+        policy = json.load(file)
+    costs = policy["costs"]
+    if float(costs["overage_cost_per_excess_unit"]) <= 0:
+        raise ValueError("Inventory overage cost must be positive")
+    if float(costs["underage_cost_per_unfilled_unit"]) <= 0:
+        raise ValueError("Inventory underage cost must be positive")
+    return policy
+
+
+def _cost_service_parameters(
+    index: pd.Index,
+    policy: dict,
+    supply_risk: pd.Series | None = None,
+) -> tuple[pd.Series, pd.Series]:
+    costs = policy["costs"]
+    uncertainty = policy["uncertainty"]
+    risk = (
+        supply_risk.reindex(index).fillna(0.0).clip(0, 1)
+        if supply_risk is not None
+        else pd.Series(0.0, index=index)
+    )
+    overage = float(costs["overage_cost_per_excess_unit"])
+    underage = float(costs["underage_cost_per_unfilled_unit"]) * (
+        1
+        + risk
+        * float(costs.get("supply_risk_underage_multiplier_max", 0.0))
+    )
+    critical_ratio = (underage / (underage + overage)).clip(
+        float(uncertainty["minimum_critical_ratio"]),
+        float(uncertainty["maximum_critical_ratio"]),
+    )
+    service_z = critical_ratio.map(NormalDist().inv_cdf)
+    return critical_ratio, service_z
+
+
+def _monthly_uncertainty(
+    frame: pd.DataFrame,
+    predicted_usage: pd.Series,
+    protection_days: pd.Series,
+    service_z: pd.Series,
+    policy: dict,
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    uncertainty = policy["uncertainty"]
+    monthly_std = pd.Series(np.nan, index=frame.index, dtype="float64")
+    source = pd.Series("", index=frame.index, dtype="string")
+    for column in uncertainty["preferred_columns"]:
+        if column not in frame.columns:
+            continue
+        candidate = pd.to_numeric(frame[column], errors="coerce")
+        usable = monthly_std.isna() & candidate.notna() & candidate.ge(0)
+        monthly_std = monthly_std.where(~usable, candidate)
+        source = source.where(~usable, column)
+
+    scale = np.sqrt(protection_days.clip(lower=1.0) / 30.0)
+    fallback_rate = float(uncertainty["fallback_safety_stock_rate"])
+    fallback_std = (
+        predicted_usage
+        * fallback_rate
+        * scale
+        / service_z.replace(0, np.nan)
+    ).fillna(0.0)
+    fallback = monthly_std.isna()
+    monthly_std = monthly_std.where(~fallback, fallback_std).clip(lower=0.0)
+    source = source.where(~fallback, "fixed_rate_fallback")
+    return monthly_std, source, scale
 
 
 def _numeric_column(
@@ -134,6 +206,7 @@ def add_inventory_recommendations(
     on_order_qty_col: str | None = None,
     backorder_qty_col: str | None = None,
     module_c_config: dict | None = None,
+    inventory_optimization_policy: dict | None = None,
 ) -> pd.DataFrame:
     result = df.copy()
     if prediction_col not in result.columns:
@@ -158,6 +231,19 @@ def add_inventory_recommendations(
     )
     protection_period_days = review_period_days + lead_time_days
     protection_period_demand = predicted_usage * protection_period_days / 30.0
+    optimization = inventory_optimization_policy or load_inventory_optimization_policy()
+    critical_ratio, service_z = _cost_service_parameters(
+        result.index,
+        optimization,
+    )
+    monthly_uncertainty, uncertainty_source, protection_scale = _monthly_uncertainty(
+        result,
+        predicted_usage,
+        protection_period_days,
+        service_z,
+        optimization,
+    )
+    safety_stock = service_z * monthly_uncertainty * protection_scale
 
     result["review_period_days"] = review_period_days
     result["raw_lead_time_days"] = raw_lead_time_days
@@ -167,12 +253,20 @@ def add_inventory_recommendations(
     result["lead_time_policy_version"] = lead_time_policy["version"]
     result["protection_period_days"] = protection_period_days
     result["protection_period_demand"] = protection_period_demand
-    result["safety_stock"] = protection_period_demand * SAFETY_STOCK_RATE
+    result["inventory_optimization_policy_version"] = optimization["version"]
+    result["inventory_critical_ratio"] = critical_ratio
+    result["inventory_service_z"] = service_z
+    result["monthly_demand_uncertainty"] = monthly_uncertainty
+    result["demand_uncertainty_source"] = uncertainty_source
+    result["safety_stock"] = safety_stock
     result["base_stock"] = protection_period_demand + result["safety_stock"]
 
     if MODULE_C_POLICY_COLUMNS.issubset(result.columns):
         config = module_c_config or load_module_c_config()
         adjustment = config["inventory_adjustment"]
+        operational_adjustment_enabled = bool(
+            adjustment.get("operational_adjustment_enabled", False)
+        )
         demand_risk = _numeric_column(
             result, "module_c_demand_risk", 0.0, lower=0.0, upper=1.0
         )
@@ -230,14 +324,29 @@ def add_inventory_recommendations(
             * result["risk_adjusted_protection_period_days"]
             / 30.0
         )
-        result["dynamic_safety_stock_rate"] = (
-            SAFETY_STOCK_RATE
-            + supply_risk * float(adjustment["safety_stock_rate_uplift_max"])
+        dynamic_ratio, dynamic_z = _cost_service_parameters(
+            result.index,
+            optimization,
+            supply_risk,
+        )
+        uncertainty_multiplier = 1 + supply_risk * float(
+            optimization["uncertainty"]["supply_uncertainty_multiplier_max"]
+        )
+        adjusted_monthly_uncertainty = (
+            monthly_uncertainty * (1 + demand_uplift) * uncertainty_multiplier
+        )
+        adjusted_scale = np.sqrt(
+            result["risk_adjusted_protection_period_days"].clip(lower=1.0) / 30.0
         )
         result["risk_adjusted_safety_stock"] = (
-            result["risk_adjusted_protection_period_demand"]
-            * result["dynamic_safety_stock_rate"]
+            dynamic_z * adjusted_monthly_uncertainty * adjusted_scale
         )
+        result["inventory_critical_ratio"] = dynamic_ratio
+        result["inventory_service_z"] = dynamic_z
+        result["dynamic_safety_stock_rate"] = (
+            result["risk_adjusted_safety_stock"]
+            / result["risk_adjusted_protection_period_demand"].replace(0, np.nan)
+        ).fillna(0.0)
         result["unconstrained_target_stock"] = (
             result["risk_adjusted_protection_period_demand"]
             + result["risk_adjusted_safety_stock"]
@@ -270,8 +379,52 @@ def add_inventory_recommendations(
         result["demand_risk_buffer"] *= scale
         result["supply_risk_buffer"] *= scale
         result["target_stock"] = result["base_stock"] + result["risk_buffer"]
-        result["module_c_policy_applied"] = policy_applied
-        result["module_c_policy_demand_uplift_applied"] = demand_uplift.gt(0)
+        result["shadow_risk_adjusted_predicted_usage"] = result[
+            "risk_adjusted_predicted_usage"
+        ]
+        result["shadow_effective_lead_time_days"] = result[
+            "effective_lead_time_days"
+        ]
+        result["shadow_risk_adjusted_safety_stock"] = result[
+            "risk_adjusted_safety_stock"
+        ]
+        result["shadow_risk_target_stock"] = result["target_stock"]
+        result["shadow_risk_buffer"] = result["risk_buffer"]
+        result["module_c_operational_adjustment_enabled"] = (
+            operational_adjustment_enabled
+        )
+        result["module_c_policy_block_reason"] = ""
+        if not operational_adjustment_enabled:
+            result["risk_adjusted_predicted_usage"] = predicted_usage
+            result["effective_lead_time_days"] = lead_time_days
+            result["risk_adjusted_protection_period_days"] = (
+                protection_period_days
+            )
+            result["risk_adjusted_protection_period_demand"] = (
+                protection_period_demand
+            )
+            result["risk_adjusted_safety_stock"] = result["safety_stock"]
+            result["dynamic_safety_stock_rate"] = (
+                result["safety_stock"]
+                / protection_period_demand.replace(0, np.nan)
+            ).fillna(0.0)
+            result["unconstrained_target_stock"] = result["base_stock"]
+            result["demand_risk_buffer"] = 0.0
+            result["supply_risk_buffer"] = 0.0
+            result["material_risk_buffer"] = 0.0
+            result["risk_buffer"] = 0.0
+            result["target_stock"] = result["base_stock"]
+            result["module_c_policy_block_reason"] = np.where(
+                policy_applied,
+                "shadow_only_empirical_holdout_not_passed",
+                "",
+            )
+        result["module_c_policy_applied"] = (
+            policy_applied & operational_adjustment_enabled
+        )
+        result["module_c_policy_demand_uplift_applied"] = (
+            demand_uplift.gt(0) & operational_adjustment_enabled
+        )
         result["module_c_config_version"] = config["version"]
         result["module_c_calibration_status"] = config["calibration_status"]
         # 이름이 "continuous" 였으나 실제 계산은 정기검토다. 보호기간을
@@ -282,7 +435,7 @@ def add_inventory_recommendations(
         # 뿐이었다. 품목별 값은 data/mapping/review_period_by_item.csv 에
         # 있고 `review_period_days_col` 로 행 단위 주입한다. 주입이 없으면
         # DEFAULT_REVIEW_PERIOD_DAYS 로 폴백한다.
-        result["inventory_policy_method"] = "module_c_periodic_target_stock"
+        result["inventory_policy_method"] = "cost_optimized_periodic_newsvendor"
     else:
         risk = calculate_risk_components(result)
         for column in risk.columns:
@@ -326,7 +479,10 @@ def add_inventory_recommendations(
         result["effective_lead_time_days"] = lead_time_days
         result["risk_adjusted_protection_period_days"] = protection_period_days
         result["risk_adjusted_protection_period_demand"] = protection_period_demand
-        result["dynamic_safety_stock_rate"] = SAFETY_STOCK_RATE
+        result["dynamic_safety_stock_rate"] = (
+            result["safety_stock"]
+            / protection_period_demand.replace(0, np.nan)
+        ).fillna(0.0)
         result["risk_adjusted_safety_stock"] = result["safety_stock"]
         result["unconstrained_target_stock"] = result["target_stock"]
         result["module_c_policy_applied"] = False
@@ -335,7 +491,7 @@ def add_inventory_recommendations(
         result["module_c_policy_demand_uplift_applied"] = False
         result["module_c_config_version"] = "legacy-risk-policy"
         result["module_c_calibration_status"] = "legacy-policy"
-        result["inventory_policy_method"] = "legacy_fixed_rate_target_stock"
+        result["inventory_policy_method"] = "cost_optimized_with_legacy_risk_buffers"
     result["recommended_stock"] = result["target_stock"]
 
     if current_stock_col and current_stock_col in result.columns:

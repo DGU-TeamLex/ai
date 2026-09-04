@@ -217,7 +217,21 @@ def _load_weight_config(path: Path = NEWS_RISK_WEIGHT_PATH) -> dict[str, dict[st
     if not path.exists():
         LOGGER.warning("News risk weight config not found: %s. Falling back to defaults.", path)
         return DEFAULT_WEIGHT_CONFIG
-    return _deep_merge(DEFAULT_WEIGHT_CONFIG, _read_simple_yaml(path))
+    config = _deep_merge(DEFAULT_WEIGHT_CONFIG, _read_simple_yaml(path))
+    exponents = config.get("article_score_exponents")
+    if exponents is not None:
+        expected = {
+            "event_type", "severity", "confidence", "source", "item_relevance",
+            "mapping", "exposure", "country", "recency", "novelty",
+        }
+        if set(exponents) != expected:
+            raise ValueError(
+                "Article score exponent names must match the score dimensions"
+            )
+        values = [float(value) for value in exponents.values()]
+        if any(value < 0 for value in values) or sum(values) <= 0:
+            raise ValueError("Article score exponents must be non-negative")
+    return config
 
 
 def _normalize_event_type(event_type: str | None) -> str:
@@ -354,7 +368,12 @@ def _event_cluster_id(row: pd.Series, analysis: dict, event_type: str, news_date
         return str(explicit)
     country = analysis.get("country") or row.get("country") or "Unknown"
     material = analysis.get("disease_or_material") or "generic"
-    return f"{event_type}|{country}|{material}|{news_date.strftime('%Y-%m-%d')}"
+    keyword = str(analysis.get("keyword") or "generic").strip().lower()
+    week_start = news_date - pd.Timedelta(days=int(news_date.dayofweek))
+    return (
+        f"{event_type}|{country}|{material}|{keyword}|"
+        f"{week_start.strftime('%Y-%m-%d')}"
+    )
 
 
 def _empty_score_frame() -> pd.DataFrame:
@@ -379,7 +398,10 @@ def _article_id(row: pd.Series, news_date: pd.Timestamp) -> str:
     return f"{news_date.strftime('%Y-%m-%d')}|{row.get('source', '')}|{row.get('title', '')}"
 
 
-def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
+def _aggregate_article_scores(
+    scored: pd.DataFrame,
+    stock_item_universe: set[str] | None = None,
+) -> pd.DataFrame:
     if scored.empty:
         return _empty_score_frame()
 
@@ -437,7 +459,7 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
         if col not in pivot.columns:
             pivot[col] = 0.0
 
-    pivot = _broadcast_supply_wide(pivot)
+    pivot = _broadcast_supply_wide(pivot, stock_item_universe)
 
     pivot["total_news_risk"] = pivot[NEWS_RISK_COLUMNS[:-1]].sum(axis=1).clip(0, 1)
     confidence = (
@@ -450,6 +472,12 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
         how="left",
         validate="one_to_one",
     )
+    wide_scored = scored[scored["stock_item_key"].eq(ALL_ITEMS_SENTINEL)]
+    if not wide_scored.empty:
+        wide_confidence = wide_scored.groupby("STD_YYYYMM")["confidence"].mean()
+        pivot["news_signal_confidence"] = pivot[
+            "news_signal_confidence"
+        ].fillna(pivot["STD_YYYYMM"].map(wide_confidence))
     event_codes = (
         scored.groupby(["STD_YYYYMM", "stock_item_key"], as_index=False, observed=True)
         .agg(
@@ -474,6 +502,39 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
         how="left",
         validate="one_to_one",
     )
+    if not wide_scored.empty:
+        wide_codes = wide_scored.groupby("STD_YYYYMM")[
+            "external_event_codes"
+        ].agg(
+            lambda values: ";".join(
+                sorted(
+                    {
+                        code.strip()
+                        for value in values
+                        for code in str(value).split(";")
+                        if code.strip()
+                    }
+                )
+            )
+        )
+        broadcast_codes = pivot["STD_YYYYMM"].map(wide_codes).fillna("")
+        pivot["news_event_codes"] = [
+            ";".join(
+                sorted(
+                    {
+                        code.strip()
+                        for value in [local, wide]
+                        for code in str(value).split(";")
+                        if code.strip() and code.strip().lower() != "nan"
+                    }
+                )
+            )
+            for local, wide in zip(
+                pivot["news_event_codes"],
+                broadcast_codes,
+                strict=False,
+            )
+        ]
     approvals = (
         scored.groupby(
             ["STD_YYYYMM", "stock_item_key"],
@@ -497,6 +558,12 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
         how="left",
         validate="one_to_one",
     )
+    pivot["has_approved_material_mapping"] = pivot[
+        "has_approved_material_mapping"
+    ].astype("boolean").fillna(False).astype(bool)
+    pivot["has_approved_demand_mapping"] = pivot[
+        "has_approved_demand_mapping"
+    ].astype("boolean").fillna(False).astype(bool)
     return pivot[
         [
             "STD_YYYYMM",
@@ -510,7 +577,7 @@ def _aggregate_article_scores(scored: pd.DataFrame) -> pd.DataFrame:
 def _codes_in_mapping(mapping: pd.DataFrame, column: str, codes: set[str]) -> pd.Series:
     if column not in mapping.columns or not codes:
         return pd.Series(False, index=mapping.index, dtype=bool)
-    return mapping[column].astype(str).map(
+    return mapping[column].fillna("").astype(str).map(
         lambda value: bool(
             codes & {code.strip() for code in value.split(";") if code.strip()}
         )
@@ -532,15 +599,11 @@ def _one_mapping_per_stock_item(mapping: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-# 기사 점수를 만드는 가중치 이름. 순서는 의미 없다.
-SCORE_WEIGHT_NAMES = (
-    "event_type", "severity", "confidence", "source", "item_relevance",
-    "mapping", "exposure", "country", "recency", "novelty",
-)
-
-
-def _combine_weights(weights: dict[str, float]) -> float:
-    """가중치를 결합해 기사 점수를 만든다. **기하평균** 을 쓴다.
+def _combine_weights(
+    weights: dict[str, float],
+    exponents: dict[str, float] | None = None,
+) -> float:
+    """가중치를 결합해 기사 점수를 만든다. **가중 기하평균** 을 쓴다.
 
     종전에는 10개를 그냥 곱했다. 개별 값이 0.5~0.8 로 "보통" 이어도 열 번 곱하면
     0.5^10 ≈ 0.001 이 되어 점수가 0 에 수렴한다. 실측:
@@ -549,29 +612,42 @@ def _combine_weights(weights: dict[str, float]) -> float:
         → module_c_supply_risk 가 0~1 척도인데 최대 0.19 에서 막혔다
         → 리드타임 조정폭이 최대 6.5일에 그쳤다
 
-    기하평균은 같은 순서를 주면서 값의 범위를 0~1 로 유지한다. 어떤 가중치가
-    0 이면 결과도 0 이라는 곱셈의 성질(하나라도 무관하면 전체가 무관)도 보존된다.
+    기하평균은 값의 범위를 0~1 로 유지한다. 어떤 가중치가 0 이면 결과도 0 이라는
+    곱셈의 성질(하나라도 무관하면 전체가 무관)도 보존한다. 지수 alpha_i 로 사건유형,
+    관련성, 신뢰도 등 각 차원의 상대 영향력을 분리한다.
 
         ∏wᵢ          → 0.5^10 = 0.00098
         (∏wᵢ)^(1/n)  → 0.5
 
-    상수 가중치는 제외한다. 모든 기사가 같은 값을 받는 가중치는 **점수를 깎기만
-    할 뿐 기사 간 구분에 기여하지 않는다.** 예: source 0.5, item_relevance 0.6 이
-    전 기사 동일하면 이 둘은 0.3 배 상수일 뿐이다.
+    alpha_i 는 문헌이 직접 제시한 상수가 아니라 실험 prior다. 검수 사건과 하류 결과를
+    이용한 ablation/holdout 보정 전에는 확률이 아니라 상대 점수로 해석한다.
     """
-    values = [
-        float(value)
-        for value in weights.values()
-        if value is not None and float(value) > 0
-    ]
-    if not values:
+    if not weights:
         return 0.0
-    if any(float(value) <= 0 for value in weights.values()):
+    if any(value is None or float(value) <= 0 for value in weights.values()):
         return 0.0
-    return float(np.exp(np.mean(np.log(values))))
+    raw_exponents = exponents or {}
+    coefficients = {
+        name: max(float(raw_exponents.get(name, 1.0)), 0.0)
+        for name in weights
+    }
+    total = sum(coefficients.values())
+    if total <= 0:
+        raise ValueError("Article score exponents must contain a positive value")
+    return float(
+        math.exp(
+            sum(
+                coefficients[name] / total * math.log(float(value))
+                for name, value in weights.items()
+            )
+        )
+    )
 
 
-def _broadcast_supply_wide(pivot: pd.DataFrame) -> pd.DataFrame:
+def _broadcast_supply_wide(
+    pivot: pd.DataFrame,
+    stock_item_universe: set[str] | None = None,
+) -> pd.DataFrame:
     """전 품목 공통 공급위험을 실제 품목 행으로 펼치고 임시 키를 제거한다.
 
     항만 파업·전쟁·수출통제는 원자재를 가리지 않으므로 그 달의 모든 품목에
@@ -587,8 +663,33 @@ def _broadcast_supply_wide(pivot: pd.DataFrame) -> pd.DataFrame:
     wide = pivot[pivot["stock_item_key"].eq(ALL_ITEMS_SENTINEL)]
     monthly = wide.set_index("STD_YYYYMM")["supply_news_risk"]
     result = pivot[pivot["stock_item_key"].ne(ALL_ITEMS_SENTINEL)].copy()
-    if result.empty:
-        return result
+    universe = {
+        str(value)
+        for value in (stock_item_universe or set(result["stock_item_key"]))
+        if str(value) and str(value) != ALL_ITEMS_SENTINEL
+    }
+    if not universe:
+        raise ValueError(
+            "Supply-wide news requires the raw_stock item universe; "
+            "sentinel-only rows cannot be broadcast safely"
+        )
+    broadcast_rows = pd.MultiIndex.from_product(
+        [sorted(monthly.index.astype(str)), sorted(universe)],
+        names=["STD_YYYYMM", "stock_item_key"],
+    ).to_frame(index=False)
+    result = broadcast_rows.merge(
+        result,
+        on=["STD_YYYYMM", "stock_item_key"],
+        how="outer",
+        validate="one_to_one",
+    )
+    for column in NEWS_RISK_COLUMNS[:-1]:
+        if column not in result.columns:
+            result[column] = 0.0
+        result[column] = pd.to_numeric(
+            result[column],
+            errors="coerce",
+        ).fillna(0.0)
     broadcast = result["STD_YYYYMM"].map(monthly).fillna(0.0)
     result["supply_news_risk"] = result["supply_news_risk"].combine(broadcast, max)
     LOGGER.info(
@@ -683,6 +784,7 @@ def build_news_risk_outputs(
     mapping: pd.DataFrame | None = None,
     country_weights: pd.DataFrame | None = None,
     config: dict[str, dict[str, Any]] | None = None,
+    stock_item_universe: set[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     news = filter_relevant_news(collect_news() if news is None else news)
     if news.empty:
@@ -693,6 +795,12 @@ def build_news_risk_outputs(
     mapping = _load_stock_mapping() if mapping is None else _approved_input_mapping(mapping)
     if mapping.empty:
         return _empty_score_frame(), _empty_article_score_frame()
+    if stock_item_universe is None:
+        stock_item_universe = {
+            str(value)
+            for value in mapping["stock_item_key"].dropna().astype(str)
+            if str(value)
+        }
     country_weight_map = dict(zip(country_weights["country"], country_weights["region_weight"]))
 
     analyzed_rows = []
@@ -764,7 +872,8 @@ def build_news_risk_outputs(
                     "country": country_weight,
                     "recency": recency_weight,
                     "novelty": novelty_weight,
-                }
+                },
+                config.get("article_score_exponents"),
             )
             rows.append(
                 {
@@ -831,7 +940,7 @@ def build_news_risk_outputs(
     scored = pd.DataFrame(rows, columns=ARTICLE_SCORE_COLUMNS)
     if scored.empty:
         return _empty_score_frame(), _empty_article_score_frame()
-    return _aggregate_article_scores(scored), scored
+    return _aggregate_article_scores(scored, stock_item_universe), scored
 
 
 def score_news_risk() -> pd.DataFrame:

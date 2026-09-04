@@ -28,6 +28,7 @@ def monthly_row(
         "consumption_qty": demand,
         "first_date": pd.Timestamp(month),
         "last_date": pd.Timestamp(month) + pd.offsets.MonthEnd(0),
+        "model_demand_positive_sum": max(demand, 0),
         "normal_outbound_nonnegative_sum": max(demand, 0),
         "normal_outbound_squared_sum": max(demand, 0) ** 2,
         "ledger_document_rule_violation_count": document_violations,

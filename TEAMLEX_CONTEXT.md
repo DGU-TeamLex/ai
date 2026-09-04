@@ -50,7 +50,7 @@ WeP-Stock AI 저장소는 전체 백엔드가 아니라 **AI 학습, 예측, 위
 ```text
 main: 완성본만 병합
 dev: 개발 통합 브랜치
-feature/*: 기능 작업 브랜치, PR 대상은 dev
+feat/*: 기능 작업 브랜치, PR 대상은 dev
 ```
 
 현재 확인한 실제 repo 상태:

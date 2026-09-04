@@ -8,6 +8,12 @@ WeP-Stock의 **AI 학습·예측·위험 점수·재고 권고 서빙 전용** �
 현재 전체 구조와 진행 현황은
 `docs/2026-07-20_01_SYSTEM_STRUCTURE_AND_PROGRESS.md`를 참고합니다.
 
+수식·데이터 수집·예측 모델이 참고문헌을 어느 수준으로 구현하는지와 이번 실험 정책의
+검증 경계는 `docs/2026-08-17_01_FORMULA_DATA_AND_EVIDENCE_ALIGNMENT.md`를 먼저 확인합니다.
+보유 대용량 원천으로 한정한 모집단 계약은 `docs/2026-08-17_02_REQUIRED_DATA_SOURCE_AUDIT.md`,
+GitHub 최신 이슈 코멘트별 반영 상태는 `docs/2026-08-17_03_GITHUB_ISSUE_COMMENT_ALIGNMENT.md`에
+정리되어 있습니다.
+
 처음 참여하는 팀원이 전체 배경, 용어, 데이터, 모델, Module C, GitHub 상태와 다음 작업을
 한 번에 이해하려면 `docs/2026-07-22_06_FULL_PROJECT_HANDOFF_GUIDE.md`부터 확인합니다.
 
@@ -76,7 +82,7 @@ DB 책임은 `스키마(DDL)=backend`, `검증된 AI 배치 산출물(DML)=AI`�
 ```text
 main: 완성본만 병합
 dev: 개발 통합 브랜치
-feature/*: 기능 작업 브랜치, PR 대상은 dev
+feat/*: 기능 작업 브랜치, PR 대상은 dev
 ```
 
 `main`에는 직접 push하지 않습니다.
@@ -342,24 +348,19 @@ python -m src.item_bulk_approval --apply --sample-size 1000
 
 뉴스 리스크는 `data/mapping/news_risk_weights.yaml`의 문헌 기반 초기 weight를 사용합니다.
 
-기사 단위 점수:
+기사 단위 점수는 항별 영향도 `alpha_i`를 둔 가중 기하평균입니다. 계수는 문헌이
+직접 제시한 상수가 아니라 문헌 기반 실험 prior이며 검수 사건과 홀드아웃 결과로
+재보정해야 합니다.
 
 ```text
-article_score
-= event_type_weight
-* severity
-* confidence
-* source_weight
-* item_relevance
-* exposure_weight
-* recency_weight
-* novelty_weight
+article_score = exp(sum(alpha_i * log(weight_i)))
+sum(alpha_i) = 1
 ```
 
 월별·품목별 점수:
 
 ```text
-monthly_item_news_risk = 1 - exp(-sum(article_score))
+monthly_item_news_risk = 1 - exp(-sum(article_score) / bucket_p90_scale)
 ```
 
 기존 모델 feature와의 호환성을 위해 최종 출력 컬럼은 유지합니다.
@@ -370,6 +371,39 @@ supply_news_risk
 material_news_risk
 total_news_risk
 ```
+
+과거 GDELT archive는 전체 15분 슬라이스의 25%를 사용하되 매시 정각 고정표본이
+아니라 날짜·시간별 quarter-hour를 순환합니다. URL 추적 파라미터를 제거한 중복제거와
+SHA-256·월별 건수·표본전략 provenance 보고서를 함께 생성합니다.
+
+## Commodity Risk and Inventory Optimization
+
+시장가격 변동성은 관측 빈도별로 계산합니다. 일별은 30일 변동성으로 환산하고,
+주별은 `sqrt(30/7)`, 월별은 추가 확대 없이 월간 변동성을 사용합니다. Brent·WTI·
+나프타처럼 같은 기초충격을 공유하는 경로는 군집 내부 최댓값만 남긴 뒤 서로 다른
+군집 사이에서 noisy-OR를 적용합니다.
+
+재고 목표는 고정 20% 대신 비용 기반 newsvendor 임계비율과 예측 불확실성을 사용합니다.
+
+```text
+critical_ratio = underage_cost / (underage_cost + overage_cost)
+service_z = inverse_normal_cdf(critical_ratio)
+protection_sigma = monthly_error_std * sqrt(protection_days / 30)
+safety_stock = service_z * protection_sigma
+target_stock = forecast_protection_demand + safety_stock
+recommended_order = max(target_stock - inventory_position, 0)
+```
+
+현재 실험 비용비는 초과재고 1 대 품절 9로 기준 서비스 수준 90%를 만들며, 이는
+문헌 고정값이 아니라 `data/mapping/inventory_optimization_policy.json`의 실험 정책입니다.
+예측오차가 없을 때만 과거 20%와 같은 결과가 나는 fallback을 사용합니다.
+
+뉴스·원자재·무역 위험은 독립 평가가 끝나지 않았으므로 기본적으로 실제 목표재고나
+발주량을 바꾸지 않습니다. 위험 조정 결과는 `shadow_*` 열에만 기록하며, 운영 승격에는
+사전지정한 12개월 이상의 미사용 평가기간과 block bootstrap 검증이 필요합니다.
+
+실험 모집단은 2024~2025 `raw_stock`에서 나온 기관·부서·품목·월로 고정합니다. 외부
+데이터 전용 품목을 추가하지 않고 승인된 대표품목 매핑에만 외부 신호를 left join합니다.
 
 ## Module C Providers
 

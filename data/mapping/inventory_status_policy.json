@@ -1,6 +1,6 @@
 {
-  "version": "inventory-status-v1.1",
-  "policy_status": "implemented_zero_preserving_demand_and_ledger_identity",
+  "version": "inventory-status-v1.2-signed-positive-split",
+  "policy_status": "implemented_signed_ledger_and_positive_model_demand_split",
   "source_documents": [
     "pdf/개발 진행 문서 (추가 진행분).pdf",
     "pdf/재고 판정 기준 및 변수 정의 명세.pdf"
@@ -12,7 +12,13 @@
     "mean_daily_usage_floor": 0.0,
     "daily_demand_stddev_floor": 0.0,
     "forecast_window_days": 92,
-    "negative_normal_outbound_handling": "exclude_from_demand_moments"
+    "negative_normal_outbound_handling": "preserve_signed_for_ledger_exclude_from_model_demand",
+    "signed_ledger_column": "normal_outbound_signed_sum",
+    "model_demand_column": "model_demand_positive_sum",
+    "negative_audit_columns": [
+      "negative_normal_outbound_count",
+      "negative_normal_outbound_amount"
+    ]
   },
   "ledger_rule": {
     "balance_formula": "closing = opening + purchase_in + transfer_in + return_in - transfer_out - normal_outbound - return_out - disposal - correction_out",

@@ -9,6 +9,7 @@ from src.commodity.commodity_collector import (
     collect_commodity_prices,
 )
 from src.commodity.commodity_risk_scorer import build_commodity_risk_outputs
+from src.commodity.commodity_features import add_commodity_features
 from src.modeling.inventory_policy import add_inventory_recommendations
 from src.module_c.config import DEFAULT_MODULE_C_CONFIG, validate_module_c_config
 from src.module_c.exposure_candidates import (
@@ -18,11 +19,15 @@ from src.module_c.exposure_candidates import (
 from src.module_c.risk_engine import build_module_c_risk_outputs
 
 
-def module_c_config() -> dict:
-    return {
+def module_c_config(operational_adjustment_enabled: bool = False) -> dict:
+    config = {
         section: values.copy() if isinstance(values, dict) else values
         for section, values in DEFAULT_MODULE_C_CONFIG.items()
     }
+    config["inventory_adjustment"][
+        "operational_adjustment_enabled"
+    ] = operational_adjustment_enabled
+    return config
 
 
 class CommodityCollectorTest(unittest.TestCase):
@@ -174,6 +179,60 @@ class CommodityPropagationTest(unittest.TestCase):
         self.assertTrue(scores.empty)
         self.assertTrue(audit.empty)
 
+    def test_monthly_volatility_is_not_scaled_as_daily_data(self):
+        monthly = pd.DataFrame(
+            [
+                {"date": "2025-01-01", "market_factor_id": "ALUMINUM", "price": 100},
+                {"date": "2025-02-01", "market_factor_id": "ALUMINUM", "price": 110},
+                {"date": "2025-03-01", "market_factor_id": "ALUMINUM", "price": 99},
+            ]
+        )
+
+        features = add_commodity_features(monthly)
+
+        self.assertTrue(features["observation_frequency"].eq("monthly").all())
+        self.assertLess(float(features.iloc[-1]["volatility_30d"]), 0.2)
+
+    def test_correlated_oil_paths_use_cluster_max_before_noisy_or(self):
+        prices = pd.DataFrame(
+            [
+                {"date": date, "market_factor_id": factor, "price": price}
+                for factor in ["BRENT_CRUDE", "WTI_CRUDE"]
+                for date, price in [("2025-01-01", 100), ("2025-02-01", 130)]
+            ]
+        )
+        material_market = pd.DataFrame(
+            [
+                {
+                    "raw_material_meta_code": "CRUDE_OIL_REFINED",
+                    "market_factor_id": factor,
+                    "transmission_weight": 1.0,
+                    "lag_days": 0,
+                    "proxy_quality": 1.0,
+                    "event_code": f"{factor}_SHOCK",
+                    "review_status": "approved",
+                    "evidence_reference": "test://oil",
+                    "mapping_version": "test-v1",
+                }
+                for factor in ["BRENT_CRUDE", "WTI_CRUDE"]
+            ]
+        )
+        stock = self.stock_mapping()
+        stock["raw_material_meta_code"] = "CRUDE_OIL_REFINED"
+
+        scores, audit = build_commodity_risk_outputs(
+            prices=prices,
+            mapping=stock,
+            material_market_mapping=material_market,
+            config=module_c_config(),
+        )
+        feb = scores[scores["STD_YYYYMM"].eq("2025-02")].iloc[0]
+        strongest = audit[audit["STD_YYYYMM"].eq("2025-02")][
+            "risk_contribution"
+        ].max()
+
+        self.assertAlmostEqual(float(feb["commodity_risk"]), float(strongest))
+
 
 class ModuleCRiskEngineTest(unittest.TestCase):
     def test_demand_and_supply_mapping_gates_are_independent(self):
@@ -324,16 +383,69 @@ class ModuleCInventoryPolicyTest(unittest.TestCase):
             current_stock_col="current_stock",
             lead_time_days_col="lead_time_days",
             review_period_days_col="review_period_days",
-            module_c_config=module_c_config(),
+            module_c_config=module_c_config(
+                operational_adjustment_enabled=True
+            ),
         ).iloc[0]
 
         self.assertEqual(result["base_stock"], 180.0)
         self.assertAlmostEqual(result["risk_adjusted_predicted_usage"], 114.0)
         self.assertAlmostEqual(result["effective_lead_time_days"], 27.9)
-        self.assertAlmostEqual(result["dynamic_safety_stock_rate"], 0.35)
-        self.assertAlmostEqual(result["risk_buffer"], 112.5)
-        self.assertAlmostEqual(result["target_stock"], 292.5)
+        self.assertGreater(result["dynamic_safety_stock_rate"], 0.20)
+        self.assertGreater(result["inventory_critical_ratio"], 0.90)
+        self.assertEqual(
+            result["demand_uncertainty_source"],
+            "fixed_rate_fallback",
+        )
+        self.assertGreater(result["risk_buffer"], 0.0)
+        self.assertLessEqual(result["risk_buffer"], 112.5)
+        self.assertAlmostEqual(
+            result["target_stock"],
+            result["base_stock"] + result["risk_buffer"],
+        )
         self.assertTrue(result["module_c_policy_applied"])
+
+    def test_module_c_is_shadow_only_without_holdout_approval(self):
+        source = pd.DataFrame(
+            [
+                {
+                    "predicted_usage": 100.0,
+                    "current_stock": 40.0,
+                    "lead_time_days": 15.0,
+                    "review_period_days": 30.0,
+                    "module_c_demand_risk": 0.4,
+                    "module_c_supply_risk": 0.6,
+                    "module_c_market_price_risk": 0.5,
+                    "module_c_total_risk": 0.6,
+                }
+            ]
+        )
+
+        result = add_inventory_recommendations(
+            source,
+            current_stock_col="current_stock",
+            lead_time_days_col="lead_time_days",
+            review_period_days_col="review_period_days",
+            module_c_config=module_c_config(),
+        ).iloc[0]
+
+        self.assertFalse(result["module_c_operational_adjustment_enabled"])
+        self.assertFalse(result["module_c_policy_applied"])
+        self.assertEqual(result["effective_lead_time_days"], 15.0)
+        self.assertEqual(result["target_stock"], result["base_stock"])
+        self.assertEqual(result["risk_buffer"], 0.0)
+        self.assertGreater(
+            result["shadow_effective_lead_time_days"],
+            result["effective_lead_time_days"],
+        )
+        self.assertGreater(
+            result["shadow_risk_target_stock"],
+            result["target_stock"],
+        )
+        self.assertEqual(
+            result["module_c_policy_block_reason"],
+            "shadow_only_empirical_holdout_not_passed",
+        )
 
     def test_zero_module_c_signal_keeps_base_stock(self):
         source = pd.DataFrame(

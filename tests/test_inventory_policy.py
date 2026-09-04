@@ -6,6 +6,71 @@ from src.modeling.inventory_policy import add_inventory_recommendations
 
 
 class InventoryPolicyTest(unittest.TestCase):
+    def test_forecast_uncertainty_replaces_fixed_rate_safety_stock(self):
+        source = pd.DataFrame(
+            [
+                {
+                    "predicted_usage": 100.0,
+                    "rolling_std_6": 30.0,
+                    "lead_time_days": 15.0,
+                    "review_period_days": 30.0,
+                }
+            ]
+        )
+
+        result = add_inventory_recommendations(
+            source,
+            lead_time_days_col="lead_time_days",
+            review_period_days_col="review_period_days",
+        ).iloc[0]
+
+        self.assertEqual(result["demand_uncertainty_source"], "rolling_std_6")
+        self.assertAlmostEqual(result["inventory_critical_ratio"], 0.90)
+        self.assertAlmostEqual(result["inventory_service_z"], 1.2815515655)
+        self.assertAlmostEqual(
+            result["safety_stock"],
+            1.2815515655 * 30.0 * (1.5**0.5),
+        )
+
+    def test_higher_shortage_cost_increases_optimal_stock(self):
+        source = pd.DataFrame(
+            [{"predicted_usage": 100.0, "rolling_std_6": 30.0}]
+        )
+        baseline = {
+            "version": "test",
+            "costs": {
+                "overage_cost_per_excess_unit": 1.0,
+                "underage_cost_per_unfilled_unit": 1.0,
+                "supply_risk_underage_multiplier_max": 0.0,
+            },
+            "uncertainty": {
+                "preferred_columns": ["rolling_std_6"],
+                "fallback_safety_stock_rate": 0.2,
+                "supply_uncertainty_multiplier_max": 0.0,
+                "minimum_critical_ratio": 0.5,
+                "maximum_critical_ratio": 0.995,
+            },
+        }
+        shortage_heavy = {
+            **baseline,
+            "costs": {
+                **baseline["costs"],
+                "underage_cost_per_unfilled_unit": 9.0,
+            },
+        }
+
+        low = add_inventory_recommendations(
+            source,
+            inventory_optimization_policy=baseline,
+        ).iloc[0]
+        high = add_inventory_recommendations(
+            source,
+            inventory_optimization_policy=shortage_heavy,
+        ).iloc[0]
+
+        self.assertGreater(high["inventory_critical_ratio"], low["inventory_critical_ratio"])
+        self.assertGreater(high["target_stock"], low["target_stock"])
+
     def test_base_stock_and_three_axis_risk_buffers_are_separate(self):
         source = pd.DataFrame(
             [

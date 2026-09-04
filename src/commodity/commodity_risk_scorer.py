@@ -19,6 +19,11 @@ from .commodity_features import add_commodity_features
 
 
 LOGGER = logging.getLogger(__name__)
+MARKET_RISK_CLUSTERS = {
+    "PETROCHEMICAL_NAPHTHA": "OIL_FEEDSTOCK",
+    "BRENT_CRUDE": "OIL_FEEDSTOCK",
+    "WTI_CRUDE": "OIL_FEEDSTOCK",
+}
 MARKET_MAPPING_COLUMNS = [
     "raw_material_meta_code",
     "market_factor_id",
@@ -56,6 +61,8 @@ def _empty_audit() -> pd.DataFrame:
             "stock_item_key",
             "raw_material_meta_code",
             "market_factor_id",
+            "risk_cluster",
+            "observation_frequency",
             "event_code",
             "market_factor_risk",
             "path_weight",
@@ -327,6 +334,9 @@ def build_commodity_risk_outputs(
     merged["risk_contribution"] = (
         merged["market_factor_risk"] * merged["path_weight"]
     ).clip(0, 1)
+    merged["risk_cluster"] = merged["market_factor_id"].map(
+        MARKET_RISK_CLUSTERS
+    ).fillna(merged["market_factor_id"])
     merged["weighted_return"] = merged["return_30d"] * merged["path_weight"]
     merged["weighted_volatility"] = merged["volatility_30d"] * merged["path_weight"]
     merged["weighted_price_level"] = merged["price_vs_90d_mean"] * merged["path_weight"]
@@ -360,7 +370,6 @@ def build_commodity_risk_outputs(
     scores = (
         merged.groupby(key_columns, as_index=False, observed=True)
         .agg(
-            commodity_risk=("risk_contribution", _compound_risk),
             material_return_30d=("normalized_return", "sum"),
             material_volatility_30d=("normalized_volatility", "sum"),
             material_price_vs_90d_mean=("normalized_price_level", "sum"),
@@ -370,6 +379,16 @@ def build_commodity_risk_outputs(
             market_event_codes=("active_event_code", _join_unique),
         )
     )
+    cluster_maxima = (
+        merged.groupby([*key_columns, "risk_cluster"], as_index=False, observed=True)[
+            "risk_contribution"
+        ].max()
+    )
+    clustered_risk = (
+        cluster_maxima.groupby(key_columns, as_index=False, observed=True)
+        .agg(commodity_risk=("risk_contribution", _compound_risk))
+    )
+    scores = scores.merge(clustered_risk, on=key_columns, validate="one_to_one")
     scores["commodity_risk"] = scores["commodity_risk"].clip(0, 1)
     scores["market_signal_confidence"] = scores["market_signal_confidence"].clip(0, 1)
 

@@ -48,6 +48,7 @@ DEFAULT_MODULE_C_CONFIG: dict[str, Any] = {
         "module_c_overlay_weight": 0.25,
     },
     "inventory_adjustment": {
+        "operational_adjustment_enabled": False,
         "demand_usage_uplift_max": 0.35,
         "supply_lead_time_multiplier_max": 0.50,
         "supply_extra_lead_time_days_max": 14.0,
@@ -150,7 +151,14 @@ def validate_module_c_config(config: dict[str, Any]) -> dict[str, Any]:
         )
 
     inventory = config["inventory_adjustment"]
+    enabled = inventory.get("operational_adjustment_enabled", False)
+    if not isinstance(enabled, bool):
+        raise ValueError(
+            "inventory_adjustment.operational_adjustment_enabled must be boolean"
+        )
     for key, value in inventory.items():
+        if key == "operational_adjustment_enabled":
+            continue
         if float(value) < 0:
             raise ValueError(f"inventory_adjustment.{key} must be non-negative")
     if float(inventory["total_risk_buffer_rate_cap"]) > 1:

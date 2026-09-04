@@ -1,0 +1,81 @@
+{
+  "ingredient_coverage_by_group": {
+    "UNCLASSIFIED": {
+      "items": 5037,
+      "with_ingredient": 628,
+      "rate": 0.12467738733373039
+    },
+    "MED_ORAL": {
+      "items": 4752,
+      "with_ingredient": 4680,
+      "rate": 0.9848484848484849
+    },
+    "MED_TOPICAL": {
+      "items": 891,
+      "with_ingredient": 595,
+      "rate": 0.6677890011223344
+    },
+    "MED_SUPPLY": {
+      "items": 639,
+      "with_ingredient": 13,
+      "rate": 0.02034428794992175
+    },
+    "MED_INJECT": {
+      "items": 518,
+      "with_ingredient": 512,
+      "rate": 0.9884169884169884
+    },
+    "KM_EXTRACT": {
+      "items": 265,
+      "with_ingredient": 265,
+      "rate": 1.0
+    },
+    "LAB_REAGENT": {
+      "items": 138,
+      "with_ingredient": 1,
+      "rate": 0.007246376811594203
+    },
+    "SUPPLEMENT": {
+      "items": 74,
+      "with_ingredient": 29,
+      "rate": 0.3918918918918919
+    },
+    "PROMO": {
+      "items": 73,
+      "with_ingredient": 0,
+      "rate": 0.0
+    },
+    "DISINFECT": {
+      "items": 34,
+      "with_ingredient": 3,
+      "rate": 0.08823529411764706
+    },
+    "WASTE": {
+      "items": 7,
+      "with_ingredient": 0,
+      "rate": 0.0
+    },
+    "FUEL": {
+      "items": 1,
+      "with_ingredient": 0,
+      "rate": 0.0
+    }
+  },
+  "unclassified_with_ingredient": 628,
+  "shortage_exposure": {
+    "events_total": 1936,
+    "events_matched_to_master": 839,
+    "events_direct_item_match": 55,
+    "events_ingredient_match": 88,
+    "affected_item_codes": 78,
+    "affected_series": 3193,
+    "usage_share": 0.016235819644082092
+  },
+  "verdict": "공급중단 보고는 우리 품목에 거의 닿지 않는다. 사용량 비중 1.62% 로 공급위험 신호로 쓰기에 작다.",
+  "caveats": [
+    "제품명 정규화 대조라 표기가 다르면 놓친다. 노출은 하한이다.",
+    "성분코드 축 확장은 '같은 성분의 다른 제품'까지 세므로 상한 쪽이다.",
+    "보고일자는 보고 시점이지 실제 중단 시작일이 아니다.",
+    "월별 원장이 없어 사건 전후 재고·출고 변화(사건연구)는 못 했다."
+  ]
+}
