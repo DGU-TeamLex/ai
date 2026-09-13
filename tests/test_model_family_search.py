@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import subprocess
+import sys
 import numpy as np
 import pandas as pd
 
@@ -33,6 +35,17 @@ class SearchTests(unittest.TestCase):
         f=m.make_neural_frame([np.array([1.,2.]),np.array([3.])],2)
         self.assertEqual(f.unique_id.tolist(),[0,0,1])
         self.assertEqual(f.y.tolist(),[.5,1,1.5])
+
+
+    def test_owned_process_termination(self):
+        child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)'])
+        try:
+            m.stop_owned_tree(child)
+            self.assertIsNotNone(child.poll())
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait()
 
 
 if __name__=='__main__':
