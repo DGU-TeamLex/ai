@@ -1,0 +1,12 @@
+# Isolated experiment environment only. Install torch first from official CUDA index:
+# uv pip install --python .venv/Scripts/python.exe torch==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+catboost==1.2.10
+chronos-forecasting==2.3.2
+neuralforecast==3.2.2
+timesfm[torch]==3.0.2
+statsforecast==2.0.1
+prophet==1.4.0
+pandas==3.0.5
+numpy==2.5.3
+pyarrow==25.0.1
+psutil==7.2.2
