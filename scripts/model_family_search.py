@@ -245,6 +245,7 @@ def evaluate(name, out):
         result['individually_fitted_rows']=int((~constant).sum())
     write_json(out/f'{name}_result.json', result)
     progress(out,name,'completed',**result['test'])
+    aggregate(out)
 
 
 def catboost(out, name='catboost'):
@@ -344,6 +345,24 @@ def aggregate(out):
             state = json.loads(status_path.read_text()) if status_path.exists() else {'stage':'not_started'}
             rows.append({'model':name,'status':state['stage']})
     pd.DataFrame(rows).to_csv(out/'comparison.csv',index=False,encoding='utf-8-sig')
+    scored=[row for row in rows if 'validation_WAPE' in row]
+    best=min(scored,key=lambda row:row['validation_WAPE'])
+    incomplete=[row['model'] for row in rows if row['status'] not in ['baseline','completed']]
+    write_json(out/'selection.json',dict(provisional_validation_winner=best['model'],
+        validation_WAPE=best['validation_WAPE'],test_WAPE=best['test_WAPE'],
+        incomplete_models=incomplete,all_models_completed=not incomplete,serving_changed=False,
+        limitation='Retrospective reused test; selection uses validation only'))
+    lines=['# 예측모델 비교 진행 현황', '',
+        '갱신 시각(UTC): '+pd.Timestamp.now(tz='UTC').isoformat(), '',
+        '모델 선택 기준은 검증 WAPE입니다. 평가 구간은 이미 확인했던 과거 구간이며, 서비스 모델은 변경하지 않습니다.', '',
+        f"현재 검증 WAPE 최저: {best['model']} ({best['validation_WAPE']:.4f}%).", '',
+        '미완료 모델: '+(', '.join(incomplete) if incomplete else '없음'), '']
+    for row in rows:
+        if 'validation_WAPE' in row:
+            lines.append(f"- {row['model']}: 검증 WAPE {row['validation_WAPE']:.4f}%, 평가 WAPE {row['test_WAPE']:.4f}%, 평가 BIAS {row['test_BIAS_PCT']:+.4f}%.")
+        else:
+            lines.append(f"- {row['model']}: {row['status']} (전체 평가 점수 없음).")
+    (out/'진행현황.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
 
 def stop_owned_tree(child):
