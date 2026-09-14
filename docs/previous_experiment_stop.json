@@ -1,0 +1,1 @@
+{"reason":"User requested prioritizing daily-record features and stopping previous tail-feature training","previous_worktree":"../wape-tail-features-20260914","previous_stage":"fit_recent_baseline51","action":"Stopped verified queue process tree; retained all checkpoints and outputs; previous status.json may still say running"}
