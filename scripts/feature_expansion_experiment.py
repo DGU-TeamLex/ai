@@ -2,6 +2,7 @@
 import argparse
 import gc
 import hashlib
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,7 @@ import psutil
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.modeling.feature_expansion import BEHAVIOR, CALENDAR, PEER, expand
+from src.modeling.daily_record_features import DAILY, build, attach
 
 BASE = ['institution_code', 'department', 'normal_outbound_signed_sum',
         'model_demand_positive_sum', 'negative_normal_outbound_count',
@@ -29,8 +31,7 @@ BASE = ['institution_code', 'department', 'normal_outbound_signed_sum',
         'rolling_mean_6', 'rolling_std_6', 'rolling_mean_12', 'rolling_std_12',
         'rolling_median_3', 'expanding_mean', 'zero_rate_6', 'zero_rate_12',
         'is_winter', 'is_summer', 'same_month_last_year', 'yoy_growth_rate']
-ARMS = {'baseline51': [], 'behavior': BEHAVIOR, 'calendar': CALENDAR, 'peer': PEER,
-        'behavior_calendar': BEHAVIOR + CALENDAR, 'all': BEHAVIOR + CALENDAR + PEER}
+ARMS = {'behavior': BEHAVIOR, 'behavior_daily': BEHAVIOR + DAILY}
 FOLDS = {'early': ('2025-04-01', '2025-05-01', '2025-06-01'),
          'recent': ('2025-07-01', '2025-08-01', '2025-09-01')}
 KEYS = ['forecast_origin_month', 'institution_code', 'department', 'item_code']
@@ -73,6 +74,7 @@ def prepare(args):
     f = expand(f)
     eligible = f.target_usage.ge(0) & f.lag_1.ge(0)
     f = f.loc[eligible].reset_index(drop=True)
+    f = attach(f,pd.read_parquet(out/'daily_monthly.parquet'))
     meta = f[f.forecast_month.between('2025-08-01','2025-12-01')][
         ['year_month','institution_code','department','item_code','target_usage']].rename(columns={'year_month':'forecast_origin_month'})
     ref = pd.read_parquet(args.reference)
@@ -88,18 +90,20 @@ def prepare(args):
         if split == 'train':
             mask &= ((f.year_month.between('2018-01-01','2019-12-01') & f.historical_training_eligible.fillna(False)) | f.year_month.ge('2024-01-01'))
         audit[split] = {c: dict(missing_rate=float(f.loc[mask,c].isna().mean()),
-                                   distinct=int(f.loc[mask,c].nunique())) for c in BASE+BEHAVIOR+CALENDAR+PEER}
+                                   distinct=int(f.loc[mask,c].nunique())) for c in BASE+BEHAVIOR+DAILY}
     write(out/'feature_quality.json', audit)
     f.to_parquet(out/'prepared.parquet', index=False)
     write(out/'manifest.json', dict(source=str(source), source_bytes=source.stat().st_size,
         source_mtime_ns=source.stat().st_mtime_ns, reference=str(args.reference),
         rows=len(f), evaluation_rows=len(meta), features={k:BASE+v for k,v in ARMS.items()},
         params=PARAMS, folds=FOLDS, source_code_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        dependency_versions={name:importlib.metadata.version(name) for name in ['numpy','pandas','lightgbm','scikit-learn','duckdb','pyarrow']},
+        daily_feature_code_sha256=hashlib.sha256((Path(__file__).resolve().parents[1]/'src/modeling/daily_record_features.py').read_bytes()).hexdigest(),
         limitations=['Existing model feature/parameter snapshot; refit, not exact saved-model reproduction',
         'Early stopping uses validation only; equal 1999-round cap per arm',
         'Two historical validation folds; Oct-Dec test already reused',
-        'Calendar weekdays exclude neither holidays nor actual clinic closures',
-        'Peers require all institutions origin-month records available together',
+        'Daily source grouped by origin month only; recorded closing days are not clinic visits',
+        'Raw positive sums must match every eligible monthly source row before training',
         'No conversion across units; negative/unknown observations are not zero demand']))
 
 
@@ -157,7 +161,7 @@ def finalize(args):
     for c in KEYS[1:]:
         reference[c] = reference[c].astype(str)
     evaluations = {}
-    for arm in dict.fromkeys(['baseline51',winner]):
+    for arm in dict.fromkeys(['behavior',winner]):
         with (out/f'recent_{arm}.pkl').open('rb') as handle:
             b = pickle.load(handle)
         cols = b['columns']
@@ -181,20 +185,20 @@ def finalize(args):
             monthly={str(m.date()):metric(g.target_usage,g[name]) for m,g in reference.groupby('forecast_month')})
     write(out/'test_results.json',evaluations)
     lines = ['# 입력 변수 확장 실험', '',
-             '기존 저장 모델과의 완전 재현이 아니라, 같은 설정으로 재학습한 51개 변수 모델을 기준으로 한 비교입니다.',
+             '사용 패턴 포함 61변수 모델과 일별 기록 변수 13개를 추가한 모델을 같은 설정으로 재학습해 비교합니다.',
              '후보는 두 과거 검증 구간의 절대오차 합/실제량 합으로 선택했습니다. 2025년 10~12월은 이미 사용한 평가 구간입니다.',
              '', f'검증 선택 후보: {winner}', '', '## 검증 WAPE', '']
     lines += [f'- {a}: {s:.4f}%' for a,s in scores.items()]
     lines += ['', '## 평가 결과', '']
     lines += [f"- {a}: WAPE {r['overall']['WAPE']:.4f}%, BIAS {r['overall']['BIAS']:+.4f}%, {r['overall']['N']}행" for a,r in evaluations.items()]
-    lines += ['', '서비스 모델은 변경하지 않았습니다. 평일 수는 실제 진료일 수가 아니며, 동종 품목 정보는 같은 월 자료의 동시 확보를 전제로 합니다.']
+    lines += ['', '서비스 모델은 변경하지 않았습니다. 일별 정보는 예측 시점 월의 재고마감일 기록에서 계산했으며 실제 환자 수나 진료일 수로 확인된 정보는 아닙니다.']
     (out/'결과요약.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
 
 def suite(args):
     out = args.output
     out.mkdir(parents=True,exist_ok=False)
-    tasks = [('prepare',None,None)] + [('fit',a,f) for f in FOLDS for a in ARMS] + [('finalize',None,None)]
+    tasks = [('build_daily',None,None),('prepare',None,None)] + [('fit',a,f) for f in FOLDS for a in ARMS] + [('finalize',None,None)]
     for action, arm, fold in tasks:
         label = '_'.join(x for x in [action,fold,arm] if x)
         status(out,stage='running',task=label)
@@ -229,9 +233,13 @@ def suite(args):
     status(out,stage='completed')
 
 
+def build_daily(args):
+    build(args.source,args.output)
+
+
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('action',choices=['suite','prepare','fit','finalize'])
+    p.add_argument('action',choices=['suite','build_daily','prepare','fit','finalize'])
     p.add_argument('--source',type=Path,required=True)
     p.add_argument('--reference',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
