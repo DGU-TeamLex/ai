@@ -8,6 +8,7 @@ import pandas as pd
 from src.modeling.feature_expansion import BEHAVIOR, CALENDAR, PEER, expand
 from scripts.feature_expansion_experiment import BASE, ARMS, metric
 from scripts import feature_expansion_experiment as experiment
+from src.modeling.daily_record_features import DAILY
 
 
 def fixture(values, dates=None):
@@ -74,7 +75,7 @@ class FeaturesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             out=Path(directory)
             dates=pd.date_range('2024-01-01','2025-12-01',freq='MS').repeat(10)
-            f=pd.DataFrame({c:np.ones(len(dates)) for c in BASE+BEHAVIOR+CALENDAR+PEER})
+            f=pd.DataFrame({c:np.ones(len(dates)) for c in BASE+BEHAVIOR+CALENDAR+PEER+DAILY})
             f['forecast_month']=dates
             f['year_month']=dates-pd.offsets.MonthBegin(1)
             f['target_usage']=10+np.arange(len(dates))%7
