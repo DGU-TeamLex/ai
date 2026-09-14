@@ -5,6 +5,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -31,7 +32,8 @@ BASE = ['institution_code', 'department', 'normal_outbound_signed_sum',
         'rolling_mean_6', 'rolling_std_6', 'rolling_mean_12', 'rolling_std_12',
         'rolling_median_3', 'expanding_mean', 'zero_rate_6', 'zero_rate_12',
         'is_winter', 'is_summer', 'same_month_last_year', 'yoy_growth_rate']
-ARMS = {'behavior': BEHAVIOR, 'behavior_daily': BEHAVIOR + DAILY}
+ARMS = {name: BEHAVIOR + DAILY for name in ['direct_full','residual_full','residual_quarter','residual_recent']}
+HISTORY_WEIGHT = {'direct_full':1.0,'residual_full':1.0,'residual_quarter':0.25,'residual_recent':0.0}
 FOLDS = {'early': ('2025-04-01', '2025-05-01', '2025-06-01'),
          'recent': ('2025-07-01', '2025-08-01', '2025-09-01')}
 KEYS = ['forecast_origin_month', 'institution_code', 'department', 'item_code']
@@ -116,9 +118,15 @@ def fit(args):
     cutoff, start, end = FOLDS[fold]
     historical = f.year_month.between('2018-01-01','2019-12-01') & f.historical_training_eligible.fillna(False)
     train = f.forecast_month.le(cutoff) & (historical | f.year_month.ge('2024-01-01'))
+    if HISTORY_WEIGHT[arm] == 0:
+        train &= ~historical
     valid = f.forecast_month.between(start,end)
     x, v = f.loc[train,cols].copy(), f.loc[valid,cols].copy()
     y, vy = f.loc[train,'target_usage'].copy(), f.loc[valid,'target_usage'].copy()
+    weights=np.where(historical.loc[train],HISTORY_WEIGHT[arm],1.0)
+    weights=weights/weights.mean()
+    anchor=origin_anchor(f.loc[train],arm)
+    valid_anchor=origin_anchor(f.loc[valid],arm)
     months = f.loc[valid,'forecast_month'].copy()
     del f
     gc.collect()
@@ -134,15 +142,19 @@ def fit(args):
             medians[c] = float(x[c].median()) if x[c].notna().any() else 0.0
             x[c] = x[c].fillna(medians[c]).astype('float32')
             v[c] = v[c].replace([np.inf,-np.inf],np.nan).fillna(medians[c]).astype('float32')
-    model = lgb.LGBMRegressor(**PARAMS)
-    model.fit(x,y,eval_set=[(v,vy)],eval_metric='l1',
+    model = lgb.LGBMRegressor(**dict(PARAMS,metric='None'))
+    def original_mae(_labels, prediction):
+        return 'original_quantity_mae',float(np.abs(restore(prediction,valid_anchor)-vy.to_numpy()).mean()),False
+    model.fit(x,y.to_numpy()-anchor,sample_weight=weights,
+              eval_set=[(v,vy.to_numpy()-valid_anchor)],eval_metric=original_mae,
               callbacks=[lgb.early_stopping(100,verbose=False), lgb.log_evaluation(100)])
-    pred = np.maximum(model.predict(v),0)
+    pred = restore(model.predict(v),valid_anchor)
     stem = f'{fold}_{arm}'
     # Model first, result marker last: a result always has a reusable model.
     with (out/f'{stem}.pkl').open('wb') as handle:
-        pickle.dump(dict(model=model,columns=cols,categories=categories,medians=medians),handle)
+        pickle.dump(dict(model=model,columns=cols,categories=categories,medians=medians,arm=arm,anchor='rolling_mean_3' if arm.startswith('residual') else 'zero'),handle)
     write(out/f'{stem}.json', dict(arm=arm,fold=fold,train_rows=len(y),validation=metric(vy,pred),
+        history_weight=HISTORY_WEIGHT[arm],training_weight_sum=float(weights.sum()),
         best_iteration=model.best_iteration_, monthly={str(m.date()):metric(vy[months.eq(m)],pred[months.eq(m)]) for m in months.unique()}))
 
 
@@ -161,7 +173,7 @@ def finalize(args):
     for c in KEYS[1:]:
         reference[c] = reference[c].astype(str)
     evaluations = {}
-    for arm in dict.fromkeys(['behavior',winner]):
+    for arm in dict.fromkeys(['direct_full',winner]):
         with (out/f'recent_{arm}.pkl').open('rb') as handle:
             b = pickle.load(handle)
         cols = b['columns']
@@ -172,7 +184,7 @@ def finalize(args):
             x[c] = pd.Categorical(x[c].astype('string').fillna('__MISSING__'),categories=cats)
         for c,median in b['medians'].items():
             x[c] = x[c].replace([np.inf,-np.inf],np.nan).fillna(median).astype('float32')
-        f['prediction'] = np.maximum(b['model'].predict(x),0)
+        f['prediction'] = restore(b['model'].predict(x),origin_anchor(f,arm))
         f = f.rename(columns={'year_month':'forecast_origin_month'})
         for c in KEYS[1:]:
             f[c] = f[c].astype(str)
@@ -184,8 +196,8 @@ def finalize(args):
         evaluations[name] = dict(overall=metric(reference.target_usage,reference[name]),
             monthly={str(m.date()):metric(g.target_usage,g[name]) for m,g in reference.groupby('forecast_month')})
     write(out/'test_results.json',evaluations)
-    lines = ['# 입력 변수 확장 실험', '',
-             '사용 패턴 포함 61변수 모델과 일별 기록 변수 13개를 추가한 모델을 같은 설정으로 재학습해 비교합니다.',
+    lines = ['# 논문 근거 잔차 학습·과거 자료 비중 비교', '',
+             '동일한 일별 정보 포함 74변수로 직접 사용량과 최근 평균 대비 잔차를 비교합니다. 잔차 방식 안에서 과거 자료 비중 1, 0.25, 0을 별도로 비교합니다.',
              '후보는 두 과거 검증 구간의 절대오차 합/실제량 합으로 선택했습니다. 2025년 10~12월은 이미 사용한 평가 구간입니다.',
              '', f'검증 선택 후보: {winner}', '', '## 검증 WAPE', '']
     lines += [f'- {a}: {s:.4f}%' for a,s in scores.items()]
@@ -198,7 +210,7 @@ def finalize(args):
 def suite(args):
     out = args.output
     out.mkdir(parents=True,exist_ok=False)
-    tasks = [('build_daily',None,None),('prepare',None,None)] + [('fit',a,f) for f in FOLDS for a in ARMS] + [('finalize',None,None)]
+    tasks = [('prepare_residual',None,None)] + [('fit',a,f) for a in ARMS for f in FOLDS] + [('finalize',None,None)]
     for action, arm, fold in tasks:
         label = '_'.join(x for x in [action,fold,arm] if x)
         status(out,stage='running',task=label)
@@ -237,9 +249,41 @@ def build_daily(args):
     build(args.source,args.output)
 
 
+def origin_anchor(frame,arm):
+    values=frame.rolling_mean_3.to_numpy(dtype=float) if arm.startswith('residual') else np.zeros(len(frame))
+    if not np.isfinite(values).all() or (values<0).any():
+        raise ValueError('Origin baseline missing or negative')
+    return values
+
+
+def restore(prediction,anchor):
+    return np.maximum(np.asarray(prediction)+np.asarray(anchor),0)
+
+
+def prepare_residual(args):
+    prior=args.source/'.teamlex_git/daily-features-20260914/outputs/daily_features_v1'
+    if json.loads((prior/'status.json').read_text())['stage']!='completed':
+        raise ValueError('Prior daily preparation not completed')
+    source=prior/'prepared.parquet'
+    digest=hashlib.sha256(source.read_bytes()).hexdigest()
+    shutil.copyfile(source,args.output/'prepared.parquet')
+    if hashlib.sha256((args.output/'prepared.parquet').read_bytes()).hexdigest()!=digest:
+        raise ValueError('Prepared copy hash mismatch')
+    write(args.output/'manifest.json',dict(prepared_source=str(source),prepared_sha256=digest,
+        prior_manifest=json.loads((prior/'manifest.json').read_text()),features=BASE+BEHAVIOR+DAILY,
+        arms=list(ARMS),history_weights=HISTORY_WEIGHT,params=PARAMS,folds=FOLDS,
+        baseline='Origin trailing mean3, available history only; no fitted base model',
+        training_objective='L1 of signed residual; early stopping on restored nonnegative quantity MAE',
+        history_weight_normalization='Training weights normalized to mean 1; weight-zero historical rows removed before preprocessing',
+        limitations=['Adaptation of hybrid residual principle, not reproduction of ARIMA-ANN or ES-RNN',
+        'Four candidates and reused test; exploratory evaluation, not independent confirmation',
+        'History quarter weight is a predeclared hypothesis, not literature-derived optimum',
+        'No claim that additive residual learning universally dominates direct L1']))
+
+
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('action',choices=['suite','build_daily','prepare','fit','finalize'])
+    p.add_argument('action',choices=['suite','prepare_residual','build_daily','prepare','fit','finalize'])
     p.add_argument('--source',type=Path,required=True)
     p.add_argument('--reference',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
