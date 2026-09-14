@@ -5,7 +5,7 @@ import tempfile
 from unittest.mock import patch
 import numpy as np
 import pandas as pd
-from src.modeling.feature_expansion import BEHAVIOR, CALENDAR, PEER, expand
+from src.modeling.feature_expansion import BEHAVIOR, CALENDAR, PEER, TAIL, expand
 from scripts.feature_expansion_experiment import BASE, ARMS, metric
 from scripts import feature_expansion_experiment as experiment
 
@@ -13,13 +13,22 @@ from scripts import feature_expansion_experiment as experiment
 def fixture(values, dates=None):
     dates = pd.date_range('2025-01-01',periods=len(values),freq='MS') if dates is None else pd.to_datetime(dates)
     return pd.DataFrame(dict(series_segment_id=1,year_month=dates,
-        forecast_month=dates+pd.offsets.MonthBegin(1),lag_1=values,target_usage=999.,
+        forecast_month=dates+pd.offsets.MonthBegin(1),lag_1=values,lag_6=np.nan,lag_12=np.nan,target_usage=999.,
         month_end_stock_lag_1=10.,month_end_stock_lag_2=12.,
         inbound_qty_lag_1=2.,inbound_qty_lag_2=1.,rolling_mean_3=5.,
         standard_item_family_id='syringe',standard_item_specification='3ml',standard_item_unit_code='EA'))
 
 
 class FeaturesTest(unittest.TestCase):
+    def test_tail_features(self):
+        f=expand(fixture([1,2,3,12]))
+        self.assertEqual(f.usage_max_6.iloc[-1],12)
+        self.assertEqual(f.usage_median_6.iloc[-1],2.5)
+        self.assertEqual(f.origin_to_previous_mean_3.iloc[-1],6)
+        self.assertEqual(f.origin_above_previous_max_6.iloc[-1],1)
+        self.assertEqual(f.observed_count_6.iloc[-1],4)
+        self.assertEqual(f.lag_12_missing.iloc[-1],1)
+
     def test_zero_and_positive_age(self):
         f=expand(fixture([0,0,5,0,0,8]))
         self.assertEqual(f.consecutive_zero_months.tolist(),[1,2,0,1,2,0])
@@ -44,7 +53,7 @@ class FeaturesTest(unittest.TestCase):
         raw['target_usage']=-500
         raw.loc[7,'lag_1']=99999
         after=expand(raw)
-        pd.testing.assert_frame_equal(before.loc[:6,BEHAVIOR+CALENDAR+PEER],after.loc[:6,BEHAVIOR+CALENDAR+PEER])
+        pd.testing.assert_frame_equal(before.loc[:6,BEHAVIOR+CALENDAR+PEER+TAIL],after.loc[:6,BEHAVIOR+CALENDAR+PEER+TAIL])
 
     def test_peers_exclude_self_and_units(self):
         a=fixture([10]); b=fixture([30]); b['series_segment_id']=2
@@ -74,7 +83,7 @@ class FeaturesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             out=Path(directory)
             dates=pd.date_range('2024-01-01','2025-12-01',freq='MS').repeat(10)
-            f=pd.DataFrame({c:np.ones(len(dates)) for c in BASE+BEHAVIOR+CALENDAR+PEER})
+            f=pd.DataFrame({c:np.ones(len(dates)) for c in BASE+BEHAVIOR+CALENDAR+PEER+TAIL})
             f['forecast_month']=dates
             f['year_month']=dates-pd.offsets.MonthBegin(1)
             f['target_usage']=10+np.arange(len(dates))%7

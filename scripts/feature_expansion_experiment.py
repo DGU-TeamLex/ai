@@ -15,7 +15,7 @@ import pandas as pd
 import psutil
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.modeling.feature_expansion import BEHAVIOR, CALENDAR, PEER, expand
+from src.modeling.feature_expansion import BEHAVIOR, CALENDAR, PEER, TAIL, expand
 
 BASE = ['institution_code', 'department', 'normal_outbound_signed_sum',
         'model_demand_positive_sum', 'negative_normal_outbound_count',
@@ -29,8 +29,8 @@ BASE = ['institution_code', 'department', 'normal_outbound_signed_sum',
         'rolling_mean_6', 'rolling_std_6', 'rolling_mean_12', 'rolling_std_12',
         'rolling_median_3', 'expanding_mean', 'zero_rate_6', 'zero_rate_12',
         'is_winter', 'is_summer', 'same_month_last_year', 'yoy_growth_rate']
-ARMS = {'baseline51': [], 'behavior': BEHAVIOR, 'calendar': CALENDAR, 'peer': PEER,
-        'behavior_calendar': BEHAVIOR + CALENDAR, 'all': BEHAVIOR + CALENDAR + PEER}
+ARMS = {'baseline51': [], 'behavior': BEHAVIOR,
+        'behavior_tail': BEHAVIOR + TAIL, 'behavior_tail_long': BEHAVIOR + TAIL}
 FOLDS = {'early': ('2025-04-01', '2025-05-01', '2025-06-01'),
          'recent': ('2025-07-01', '2025-08-01', '2025-09-01')}
 KEYS = ['forecast_origin_month', 'institution_code', 'department', 'item_code']
@@ -88,7 +88,7 @@ def prepare(args):
         if split == 'train':
             mask &= ((f.year_month.between('2018-01-01','2019-12-01') & f.historical_training_eligible.fillna(False)) | f.year_month.ge('2024-01-01'))
         audit[split] = {c: dict(missing_rate=float(f.loc[mask,c].isna().mean()),
-                                   distinct=int(f.loc[mask,c].nunique())) for c in BASE+BEHAVIOR+CALENDAR+PEER}
+                                   distinct=int(f.loc[mask,c].nunique())) for c in BASE+BEHAVIOR+TAIL}
     write(out/'feature_quality.json', audit)
     f.to_parquet(out/'prepared.parquet', index=False)
     write(out/'manifest.json', dict(source=str(source), source_bytes=source.stat().st_size,
@@ -96,7 +96,7 @@ def prepare(args):
         rows=len(f), evaluation_rows=len(meta), features={k:BASE+v for k,v in ARMS.items()},
         params=PARAMS, folds=FOLDS, source_code_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         limitations=['Existing model feature/parameter snapshot; refit, not exact saved-model reproduction',
-        'Early stopping uses validation only; equal 1999-round cap per arm',
+        'Validation-only early stopping; behavior_tail_long cap 4000, others 1999',
         'Two historical validation folds; Oct-Dec test already reused',
         'Calendar weekdays exclude neither holidays nor actual clinic closures',
         'Peers require all institutions origin-month records available together',
@@ -130,7 +130,10 @@ def fit(args):
             medians[c] = float(x[c].median()) if x[c].notna().any() else 0.0
             x[c] = x[c].fillna(medians[c]).astype('float32')
             v[c] = v[c].replace([np.inf,-np.inf],np.nan).fillna(medians[c]).astype('float32')
-    model = lgb.LGBMRegressor(**PARAMS)
+    params = dict(PARAMS)
+    if arm == 'behavior_tail_long':
+        params['n_estimators'] = 4000
+    model = lgb.LGBMRegressor(**params)
     model.fit(x,y,eval_set=[(v,vy)],eval_metric='l1',
               callbacks=[lgb.early_stopping(100,verbose=False), lgb.log_evaluation(100)])
     pred = np.maximum(model.predict(v),0)
@@ -139,7 +142,8 @@ def fit(args):
     with (out/f'{stem}.pkl').open('wb') as handle:
         pickle.dump(dict(model=model,columns=cols,categories=categories,medians=medians),handle)
     write(out/f'{stem}.json', dict(arm=arm,fold=fold,train_rows=len(y),validation=metric(vy,pred),
-        best_iteration=model.best_iteration_, monthly={str(m.date()):metric(vy[months.eq(m)],pred[months.eq(m)]) for m in months.unique()}))
+        best_iteration=model.best_iteration_, params=params,
+        monthly={str(m.date()):metric(vy[months.eq(m)],pred[months.eq(m)]) for m in months.unique()}))
 
 
 def finalize(args):
