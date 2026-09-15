@@ -2,10 +2,17 @@ import unittest
 import numpy as np
 import pandas as pd
 import torch
-from train_tabm import fit_encoder, encode, member_loss, Network, predict, masks, metric
+from train_tabm import fit_encoder, encode, member_loss, Network, predict, masks, metric, canonical_targets
 
 
 class Tests(unittest.TestCase):
+    def test_canonical_label_precision(self):
+        reference=np.array([1234.56789,0.])
+        prepared=reference.astype('float32')
+        np.testing.assert_array_equal(canonical_targets(prepared,reference),reference)
+        with self.assertRaises(ValueError):
+            canonical_targets(prepared,reference+1.)
+
     def test_train_only_encoder(self):
         train=pd.DataFrame({'num':[1.,2.,np.nan],'cat':['a','b',None]})
         b=fit_encoder(train,list(train))

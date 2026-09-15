@@ -177,14 +177,26 @@ def fit(a):
          train_rows=len(y),monthly={str(pd.Timestamp(m).date()):metric(vy[months==m],p[months==m]) for m in np.unique(months)}))
 
 
+def canonical_targets(prepared, reference):
+    # Prepared features store float32; reference labels preserve original precision.
+    # Require exact agreement after that specific serialization, not loose allclose.
+    if not np.array_equal(np.asarray(prepared), np.asarray(reference).astype(np.asarray(prepared).dtype)):
+        raise ValueError('Target mismatch beyond prepared storage precision')
+    return np.asarray(reference, dtype=float)
+
+
 def finalize(a):
     results = [json.loads((a.output/f'{fold}_result.json').read_text()) for fold in ['early','recent']]
     base = [json.loads((a.source/f'{fold}_direct_full.json').read_text())['validation'] for fold in ['early','recent']]
     def pooled(rows):
         return 100*sum(r['absolute_error'] for r in rows)/sum(r['actual_sum'] for r in rows)
     candidate, baseline = pooled([r['validation'] for r in results]),pooled(base)
-    save(a.output/'selection.json', dict(baseline_WAPE=baseline,TabM_WAPE=candidate,
-         improvement_pp=baseline-candidate,selected='TabM' if candidate<baseline else 'baseline'))
+    selection = dict(baseline_WAPE=baseline,TabM_WAPE=candidate,
+         improvement_pp=baseline-candidate,selected='TabM' if candidate<baseline else 'baseline')
+    if (a.output/'selection.json').exists():
+        assert json.loads((a.output/'selection.json').read_text()) == selection
+    else:
+        save(a.output/'selection.json', selection)
     # Reused test is accessed only after validation selection; never used for tuning.
     b = json.loads((a.output/'recent_encoder.json').read_text(encoding='utf-8'))
     f = pd.read_parquet(a.source/'prepared.parquet',filters=[('forecast_month','>=',pd.Timestamp('2025-10-01')),
@@ -193,7 +205,8 @@ def finalize(a):
     baseline_pred = pd.read_parquet(a.source/'test_direct_full_predictions.parquet')
     f = f.merge(baseline_pred[keys+['target_usage','prediction']],on=keys,how='outer',
                 validate='one_to_one',indicator=True,suffixes=('','_base'))
-    assert f['_merge'].eq('both').all() and np.array_equal(f.target_usage,f.target_usage_base)
+    assert f['_merge'].eq('both').all()
+    f['target_usage'] = canonical_targets(f.target_usage,f.target_usage_base)
     x,c = encode(f,b)
     model = Network(b)
     model.load_state_dict(torch.load(a.output/f'recent_epoch_{results[1]["best_epoch"]:02d}.pt',weights_only=True)['model'])
@@ -208,6 +221,7 @@ def finalize(a):
          monthly={str(m.date()):dict(baseline=metric(y[f.forecast_month.eq(m)],bp[f.forecast_month.eq(m)]),
                      TabM=metric(y[f.forecast_month.eq(m)],p[f.forecast_month.eq(m)])) for m in sorted(f.forecast_month.unique())},
          limitation='Reused evaluation months, exploratory only; no automatic service replacement'))
+    event(a.output,stage='evaluation_completed')
 
 
 def supervise(a):
