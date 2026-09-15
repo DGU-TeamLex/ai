@@ -227,9 +227,18 @@ def supervise(a):
                 begin = time.monotonic()
                 while child.poll() is None:
                     if psutil.virtual_memory().available < 1.5*2**30 or time.monotonic()-begin > 7200:
-                        # Only this supervisor's child process; preserve checkpoints.
+                        # Windows venv may spawn a second interpreter. Stop this owned
+                        # subtree, not just its launcher, and never unrelated Python.
+                        parent = psutil.Process(child.pid)
+                        descendants = parent.children(recursive=True)
+                        for process in reversed(descendants):
+                            try:
+                                process.terminate()
+                            except psutil.NoSuchProcess:
+                                pass
                         child.terminate()
                         child.wait(timeout=30)
+                        psutil.wait_procs(descendants,timeout=30)
                         raise RuntimeError('Safety stop: memory floor or two-hour task limit')
                     time.sleep(5)
                 if child.returncode:
